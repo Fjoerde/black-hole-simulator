@@ -1,6 +1,6 @@
 from numba import njit
 
-from render.Classes.base import *
+from Classes.base import *
 
 @njit
 def init(self, col:Vec):

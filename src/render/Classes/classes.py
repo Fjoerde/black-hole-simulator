@@ -4,20 +4,20 @@ from numba.experimental import jitclass
 from numba.core import types
 from numba.typed import List
 
-from render.Classes.base import *
-from render.Classes.tags import *
-import render.Classes.GravField.methods as GravMethod
+from Classes.base import *
+from Classes.tags import *
+import Classes.GravField.methods as GravMethod
 
-import render.Classes.Shapes.null as ShapeNull
-import render.Classes.Shapes.sphere as Sphere
-import render.Classes.Shapes.cylinder as Cylinder
-import render.Classes.Shapes.annulus as Annulus
+import Classes.Shapes.null as ShapeNull
+import Classes.Shapes.sphere as Sphere
+import Classes.Shapes.cylinder as Cylinder
+import Classes.Shapes.annulus as Annulus
 
-import render.Classes.ColFields.const_col as ConstCol
-import render.Classes.ColFields.checkerboard as Checkerboard
+import Classes.ColFields.const_col as ConstCol
+import Classes.ColFields.checkerboard as Checkerboard
 
-import render.Classes.Hittables.null as HittableNull
-import render.Classes.Hittables.light as Light
+import Classes.Hittables.null as HittableNull
+import Classes.Hittables.light as Light
 
 
 # Class

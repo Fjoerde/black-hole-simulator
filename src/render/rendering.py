@@ -3,10 +3,10 @@ from PIL import Image
 from numba import njit, prange
 from numba_progress import ProgressBar
 
-from render.Classes.base import *
-from render.Classes.tags import *
-import render.Classes.GravField.methods as GravMethod
-from render.Classes.classes import RenderSettings
+from Classes.base import *
+from Classes.tags import *
+import Classes.GravField.methods as GravMethod
+from Classes.classes import RenderSettings
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
