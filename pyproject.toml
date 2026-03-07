@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling >=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "render"
+version = "0.1.0"
+description = "Rendering engine in an arbitrary gravitational field"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [{name = "Vincent Leung", email = "vhl125@ic.ac.uk"}]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "mypy",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/render"]
