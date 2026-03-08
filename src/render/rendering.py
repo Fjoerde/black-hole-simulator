@@ -11,9 +11,6 @@ from Classes.classes import RenderSettings
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-# Numba-jitted functions operate in no-python mode, which severely limits the
-# compactness of the code since a lot of features in Python may not be implemented.
-
 @njit
 def rk4_step(t, y, h): # h is a step size
     k1 = GravMethod.geodesic_eq(t, y)
@@ -23,21 +20,26 @@ def rk4_step(t, y, h): # h is a step size
     return y + (h/6) * (k1 + 2*k2 + 2*k3 + k4)
 
 @njit
-def integrator(settings:RenderSettings, y0:float, max_t:float, tol:float=1e-6, h_init:float=0.1):
+def integrator(settings:RenderSettings, y0:float, max_t:float=1000,
+               tol:float=1e-7, h_init:float=0.1, safety:float=0.9, threshold:float=1e4):
     """Returns the point and the object the light ray hits."""
     t, y, h = 0., y0, h_init
+    hit_obj, message = settings.scene[0], "background"
 
     while t < max_t:
+        
+        # Check for any hits
+        dists = []
+        for obj in settings.scene: # If the distance of closest approach is < 1e-4 or already inside
+            dist = obj.shape.in_shape_int(y)
+            if np.abs(dist) < 1e-4: return y, "hit object", obj
+            dists.append(dist)
+        if settings.escape(y) > 0: return y, "background", settings.scene[0]
+        if GravMethod.singularity(y) > threshold: return y, "singularity", settings.scene[0]
 
         # Adapt step size to how close the point is to any object
-        deriv, speed = GravMethod.geodesic_eq(t, y), 0
-        for i in deriv: speed += i ** 2
-        speed = np.sqrt(speed)
-        dists = []
-        for obj in settings.scene: dists.append(obj.shape.in_shape_int(y))
-        min_dist = np.inf
-        for i in dists:
-            if i < min_dist: min_dist = i
+        speed = np.linalg.norm(GravMethod.geodesic_eq(t, y))
+        min_dist = min(dists)
         if h > 1.5*min_dist/speed: h = 1.5*min_dist/speed
 
         # Perform integration
@@ -47,29 +49,20 @@ def integrator(settings:RenderSettings, y0:float, max_t:float, tol:float=1e-6, h
         y_fine = rk4_step(t+h/2, y_mid, h/2) # Fine step made of 2 substeps
         # Error estimate
         error = np.max(np.abs(y_coarse - y_fine)) / 15
-        factor = (tol / error) ** (1/5)
         if error <= tol:
             t += h
             y = y_fine
-            h *= 0.9 * factor # Safety factor of 0.9
+            if error < 1e-15 : h *= safety * 5.
+            else:
+                factor = (tol / error) ** (1/5)
+                if factor < 0.1: h *= safety * 0.1
+                elif 0.1 < factor < 5.0: h *= safety * factor
+                else: h *= safety * 5.
         else: # Reject solution and reduce step size
-            if factor > 0.1: h *= 0.9 * factor
-            else: h *= 0.9 * 0.1
+            factor = (tol / error) ** (1/5)
+            if factor > 0.1: h *= safety * factor
+            else: h *= safety * 0.1
 
-        # Check for any hits
-        hit_obj, message = settings.scene[0], "background"
-        for obj in settings.scene:
-            if obj.shape.in_shape_int(y) >= 0.:
-                hit_obj, message = obj, "hit object"
-                break
-        if message == "hit object": break
-        if settings.escape(y) > 0:
-            message = "background"
-            break
-        if GravMethod.singularity(y) > 0:
-            message = "singularity"
-            break
-    
     return y, message, hit_obj
 
 @njit
@@ -94,7 +87,7 @@ def trace(pos:Vec, dir:Vec, settings:RenderSettings): # Returns color the light 
         else: col = obj.color(hit_pt)
     else:
         y0 = np.array([X0[0], X0[1], X0[2], X0[3], V0[0], V0[1], V0[2], V0[3]])
-        hit_pt, message, obj = integrator(settings, y0, 1000)
+        hit_pt, message, obj = integrator(settings, y0, 1000, threshold=1e3)
         # Calculate hit point
         hit_pt = GravMethod.mink_pos(np.array([hit_pt[0], hit_pt[1], hit_pt[2], hit_pt[3]]))
         hit_pt = Vec(hit_pt[1], hit_pt[2], hit_pt[3])

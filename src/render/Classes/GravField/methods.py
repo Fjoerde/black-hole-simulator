@@ -90,11 +90,11 @@ def singularity(y):
         For detecting singularities where the metric blows up."""
     
     x = y[:4]
-    g_eval = [g00(x[0], x[1], x[2], x[3]), g01(x[0], x[1], x[2], x[3]), g02(x[0], x[1], x[2], x[3]), g03(x[0], x[1], x[2], x[3]),
-              g10(x[0], x[1], x[2], x[3]), g11(x[0], x[1], x[2], x[3]), g12(x[0], x[1], x[2], x[3]), g13(x[0], x[1], x[2], x[3]),
-              g20(x[0], x[1], x[2], x[3]), g21(x[0], x[1], x[2], x[3]), g22(x[0], x[1], x[2], x[3]), g23(x[0], x[1], x[2], x[3]),
-              g30(x[0], x[1], x[2], x[3]), g31(x[0], x[1], x[2], x[3]), g32(x[0], x[1], x[2], x[3]), g33(x[0], x[1], x[2], x[3])]
-    return max(g_eval) - 1e10
+    g_eval = [np.abs(g00(x[0], x[1], x[2], x[3])), np.abs(g01(x[0], x[1], x[2], x[3])), np.abs(g02(x[0], x[1], x[2], x[3])), np.abs(g03(x[0], x[1], x[2], x[3])),
+              np.abs(g10(x[0], x[1], x[2], x[3])), np.abs(g11(x[0], x[1], x[2], x[3])), np.abs(g12(x[0], x[1], x[2], x[3])), np.abs(g13(x[0], x[1], x[2], x[3])),
+              np.abs(g20(x[0], x[1], x[2], x[3])), np.abs(g21(x[0], x[1], x[2], x[3])), np.abs(g22(x[0], x[1], x[2], x[3])), np.abs(g23(x[0], x[1], x[2], x[3])),
+              np.abs(g30(x[0], x[1], x[2], x[3])), np.abs(g31(x[0], x[1], x[2], x[3])), np.abs(g32(x[0], x[1], x[2], x[3])), np.abs(g33(x[0], x[1], x[2], x[3]))]
+    return max(g_eval)
             
 @njit
 def coord_pos(pos:np.ndarray) -> np.ndarray:
@@ -175,6 +175,7 @@ def normed(vec:Vec, pos:np.ndarray) -> np.ndarray:
     a = null_cond_a(pos[0], pos[1], pos[2], pos[3], vec.x, vec.y, vec.z)
     b = null_cond_b(pos[0], pos[1], pos[2], pos[3], vec.x, vec.y, vec.z)
     c = null_cond_c(pos[0], pos[1], pos[2], pos[3], vec.x, vec.y, vec.z)
-    v0 = (-b - np.sqrt(b**2 - 4*a*c)) / (2 * a)
+    disc = b**2 - 4*a*c
+    v0 = min((-b-np.sqrt(disc))/(2*a), (-b+np.sqrt(disc))/(2*a))
     new_vel = np.array([v0, vec.x, vec.y, vec.z])
     return coord_vel(new_vel, pos)

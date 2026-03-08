@@ -85,7 +85,7 @@ class Shape: # Abstract class of any arbitrary geometric shape, i.e. any subclas
         pt = Vec(pos_mink[1], pos_mink[2], pos_mink[3])
         close_pt = self.closest_pt(pt)
         dist = (pt - close_pt).length()
-        return np.float64(dist) if self.in_shape(pt) else np.float64(-dist)
+        return np.float64(-dist) if self.in_shape(pt) else np.float64(dist)
 
     def projection(self, pt:Vec) -> tuple[float, float]:
         """Projects the surface of the shape onto a plane.
