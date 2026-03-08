@@ -76,7 +76,7 @@ class Shape: # Abstract class of any arbitrary geometric shape, i.e. any subclas
         if self.tag == SHAPE_ANNULUS: return Annulus.in_shape(self, pt)
 
     def in_shape_int(self, y:list) -> float:
-        """Returns if a given point is within the shape, +1 if True and -1 if False.
+        """Returns the distance to the closest point on the shape. Negative if the point is in the shape.
 
            Used as an event function for numerical integration."""
         
