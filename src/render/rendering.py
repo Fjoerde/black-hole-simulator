@@ -71,33 +71,19 @@ def trace(pos:Vec, dir:Vec, settings:RenderSettings): # Returns color the light 
     col = Vec(0,0,0)
     X0 = GravMethod.coord_pos(np.array([0, pos.x, pos.y, pos.z]))
     V0 = GravMethod.normed(dir, np.array([0, pos.x, pos.y, pos.z]))
+    y0 = np.array([X0[0], X0[1], X0[2], X0[3], V0[0], V0[1], V0[2], V0[3]])
+    hit_pt, message, obj = integrator(settings, y0, 1000, threshold=1e3)
+    
+    # Calculate hit point
+    hit_pt = GravMethod.mink_pos(np.array([hit_pt[0], hit_pt[1], hit_pt[2], hit_pt[3]]))
+    hit_pt = Vec(hit_pt[1], hit_pt[2], hit_pt[3])
 
-    if False: # settings.straight_approx(X0, V0): # Straight-line approximation abandoned
-        obj, hit, hit_pt, t = settings.scene[0], False, Vec(np.inf,np.inf,np.inf), np.inf
-        hit_lst = []
-        for obj_ in settings.scene:
-            if obj_.shape.bb.hit_bb(pos, dir): hit_lst.append(obj_)
-        for obj_ in hit_lst:
-            t_ = obj_.shape.straight_hit(pos, dir)
-            if t_ != np.inf and t_ < t:
-                obj, hit, hit_pt, t = obj_, True, pos+t_*dir, t_ # Only update values if the hit object is closer
-        if len(hit_lst) == 0 or not hit: # If it hits nothing
-            theta, phi = np.arccos(dir.z), np.arctan2(dir.y, dir.x)
-            col = settings.sample_bg(theta, phi)
-        else: col = obj.color(hit_pt)
-    else:
-        y0 = np.array([X0[0], X0[1], X0[2], X0[3], V0[0], V0[1], V0[2], V0[3]])
-        hit_pt, message, obj = integrator(settings, y0, 1000, threshold=1e3)
-        # Calculate hit point
-        hit_pt = GravMethod.mink_pos(np.array([hit_pt[0], hit_pt[1], hit_pt[2], hit_pt[3]]))
-        hit_pt = Vec(hit_pt[1], hit_pt[2], hit_pt[3])
-
-        if message == "background": # If light ray escapes, i.e. hits background
-            cp = (hit_pt - settings.cam_pos).normal()
-            theta, phi = np.arccos(cp.z), np.arctan2(cp.y, cp.x)
-            col = settings.sample_bg(theta, phi)
-        elif message == "singularity": col = Vec(0,0,0) # If light ray hits a singularity return a black color
-        elif message == "hit object": col = obj.color(hit_pt) # If it hits something
+    if message == "background": # If light ray escapes, i.e. hits background
+        cp = (hit_pt - settings.cam_pos).normal()
+        theta, phi = np.arccos(cp.z), np.arctan2(cp.y, cp.x)
+        col = settings.sample_bg(theta, phi)
+    elif message == "singularity": col = Vec(0,0,0) # If light ray hits a singularity return a black color
+    elif message == "hit object": col = obj.color(hit_pt) # If it hits something
         
     return col
 
