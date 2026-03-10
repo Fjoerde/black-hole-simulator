@@ -21,11 +21,10 @@ def metric_at(x:np.ndarray):
     return g
 
 @njit(fastmath=True)
-def chr_sym(x:np.ndarray, h:float=1e-7):
-    """Returns the Christoffel symbol evaluated at x.
+def geodesic_eq(t, y, h:float=1e-7):
+    x, v = y[:4], y[4:]
+    A = np.zeros(4)
     
-    x: A point in spacetime described in metric coordinates."""
-
     g = metric_at(x)
     g_inv = np.linalg.inv(g)
     dg = np.zeros((4,4,4)) # dg[k,i,j] = Derivative of g_ij with respect to x^k
@@ -35,62 +34,16 @@ def chr_sym(x:np.ndarray, h:float=1e-7):
         gp, gm = metric_at(xp), metric_at(xm)
         dg[k] = (gp - gm) / (h * 2)
     
-    chr_syms = np.zeros((4,4,4), dtype=float64)
     for c in range(4):
         for a in range(4):
             for b in range(4):
                 s = 0
                 for d in range(4):
                     s += g_inv[c,d] * (dg[a,b,d] + dg[b,a,d] - dg[d,a,b])
-                chr_syms[c,a,b] = s / 2
-    return chr_syms
-
-@njit(fastmath=True)
-def geodesic_eq(t, y):
-    x, v = y[:4], y[4:]
-    A = np.zeros(4)
-    
-    Gammas = chr_sym(x)
-    for c in range(4):
-        for a in range(4):
-            for b in range(4):
-                A[c] -= Gammas[c,a,b] * v[a] * v[b]
+                chr_sym = s / 2
+                A[c] -= chr_sym * v[a] * v[b]
 
     return np.array([v[0], v[1], v[2], v[3], A[0], A[1], A[2], A[3]])
-
-"""
-@njit(parallel=True, fastmath=True, cache=True)
-def kretsch_scal(x:np.ndarray, h:float=1e-7):
-    ""x: A spacetime point described in metric coordinates.
-
-    Returns the Kretschmann scalar of the metric at x.""
-    Gammas = chr_sym(x)
-    dGammas = np.zeros((4,4,4,4)) # dGammas[d,c,a,b] = Derivative of Gamma[c,a,b] with respect to x^d
-    for d in range(4):
-        xp = x.copy(); xp[d] += h
-        xm = x.copy(); xm[d] -= h
-        Gp, Gm = chr_sym(xp), chr_sym(xm)
-        dGammas[d] = (Gp - Gm) / (h * 2)
-    
-    riem = np.zeros((4,4,4,4))
-    for d in prange(4):
-        for c in prange(4):
-            for a in prange(4):
-                for b in prange(4):
-                    s = dGammas[a,d,c,b] - dGammas[b,d,c,a]
-                    for e in prange(4):
-                        s += Gammas[e,c,d] * Gammas[d,e,b]
-                        s -= Gammas[e,b,c] * Gammas[d,e,a]
-                    riem[d,c,a,b] = s
-    
-    K = 0.
-    for d in prange(4):
-        for c in prange(4):
-            for b in prange(4):
-                for a in prange(4):
-                    K += riem[d,c,a,b]**2
-    return K
-"""
 
 @njit
 def singularity(y):
