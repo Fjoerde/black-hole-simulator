@@ -215,12 +215,13 @@ class RenderSettings:
         col_array = self.background[y,x]
         return Vec(col_array[0], col_array[1], col_array[2])
     
+    """
     def straight_approx(self, pos:np.ndarray, dir:np.ndarray) -> bool:
-        """Approximate as straight line if the Kretschmann scalar at select points along the line are all below a certain threshold.
+        ""Approximate as straight line if the Kretschmann scalar at select points along the line are all below a certain threshold.
         
         pos: A spacetime event described in metric coordinates where the straight line originates from.
         
-        dir: A four-vector with norm 0 described in metric coordinates that defines the direction of the line."""
+        dir: A four-vector with norm 0 described in metric coordinates that defines the direction of the line.""
         
         tt = np.logspace(-4, np.log10(self.bg_rad), 10) # Sample close to the camera, logarithmic density outwards
         k_scal_lst = []
@@ -233,6 +234,7 @@ class RenderSettings:
         for i in k_scal_lst:
             if i > self.threshold: return False
         return True
+    """
 
     def escape(self, Y) -> float: # Event function for when the ray hits the background
         pos_metric = np.array([Y[0], Y[1], Y[2], Y[3]])

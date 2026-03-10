@@ -21,13 +21,13 @@ def rk4_step(t, y, h): # h is a step size
 
 @njit
 def integrator(settings:RenderSettings, y0:float, max_t:float=1000,
-               tol:float=1e-7, h_init:float=0.1, safety:float=0.9, threshold:float=1e4):
+               tol:float=1e-8, h_init:float=0.1, safety:float=0.9, threshold:float=1e4):
     """Returns the point and the object the light ray hits."""
     t, y, h = 0., y0, h_init
     hit_obj, message = settings.scene[0], "background"
 
     while t < max_t:
-        
+
         # Check for any hits
         dists = []
         for obj in settings.scene: # If the distance of closest approach is < 1e-4 or already inside
@@ -40,7 +40,7 @@ def integrator(settings:RenderSettings, y0:float, max_t:float=1000,
         # Adapt step size to how close the point is to any object
         speed = np.linalg.norm(GravMethod.geodesic_eq(t, y))
         min_dist = min(dists)
-        if h > 1.5*min_dist/speed: h = 1.5*min_dist/speed
+        h = min(h, 1.5*min_dist/speed)
 
         # Perform integration
         if t + h > max_t: h = max_t - t # Prevents overstepping
@@ -72,7 +72,7 @@ def trace(pos:Vec, dir:Vec, settings:RenderSettings): # Returns color the light 
     X0 = GravMethod.coord_pos(np.array([0, pos.x, pos.y, pos.z]))
     V0 = GravMethod.normed(dir, np.array([0, pos.x, pos.y, pos.z]))
 
-    if settings.straight_approx(X0, V0):
+    if False: # settings.straight_approx(X0, V0): # Straight-line approximation abandoned
         obj, hit, hit_pt, t = settings.scene[0], False, Vec(np.inf,np.inf,np.inf), np.inf
         hit_lst = []
         for obj_ in settings.scene:

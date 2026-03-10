@@ -1,6 +1,5 @@
 import sympy as sp
 from itertools import product
-from einsteinpy.symbolic import MetricTensor, ChristoffelSymbols, RiemannCurvatureTensor
 from sympy.tensor.array import tensorcontraction, tensorproduct
 from sympy.printing.numpy import NumPyPrinter
 import os
@@ -42,7 +41,7 @@ class GravField:
     
     Use the use() method to write the mathematical expressions of this metric tensor to executable Python functions."""
 
-    def __init__(self, g:sp.Array, coord_tf_sp:sp.Array, mink_tf_sp:sp.Array):
+    def __init__(self, g:dict, coord_tf_sp:sp.Array, mink_tf_sp:sp.Array):
         x0, x1, x2, x3 = sp.symbols("x:4")
         t, x, y, z = sp.symbols("t x y z")
         self.coords = (x0, x1, x2, x3)
@@ -51,9 +50,7 @@ class GravField:
         self.mink_tf_sp = mink_tf_sp
 
         # Evaluating sympy expressions of certain quantities
-        self.metric_sp = MetricTensor(g, self.coords)
-        self.chr_sym_sp = ChristoffelSymbols.from_metric(self.metric_sp).tensor()
-        riemann_sp = RiemannCurvatureTensor.from_metric(self.metric_sp)
+        self.metric_sp = g
 
         self.jacobian_sp = sp.MutableDenseNDimArray.zeros(4, 4)
         for (i,j) in product(range(4), repeat=2):
@@ -63,16 +60,12 @@ class GravField:
         for (i,j) in product(range(4), repeat=2):
             self.jacobian_inv_sp[i,j] = sp.simplify(sp.diff(mink_tf_sp[i], self.coords[j]))
 
-        riemann_up_sp = riemann_sp.change_config("uuuu")
-        riemann_low_sp = riemann_sp.change_config("llll")
-        self.kretsch_scal_sp = sp.simplify(tensorcontraction(tensorproduct(riemann_up_sp.tensor(), riemann_low_sp.tensor()), (0,4),(1,5),(2,6),(3,7)))
-
         vt, vx, vy, vz = sp.symbols("vt vx vy vz")
         vel_mink = sp.Array([vt, vx, vy, vz])
         vel_metric = tensorcontraction(tensorproduct(self.jacobian_sp, vel_mink), (1,2))
         norm = sp.collect(tensorcontraction(tensorproduct(g, vel_metric, vel_metric), (0,2),(1,3)), vt)
-        self.null_cond_a, self.null_cond_b, self.null_cond_c = sp.simplify(norm.coeff(vt, 2)), sp.simplify(norm.coeff(vt, 1)), sp.simplify(norm.coeff(vt, 0))
-
+        self.null_conds = sp.Array([norm.coeff(vt, 2), norm.coeff(vt, 1), norm.coeff(vt, 0)])
+        print("Finished evaluating required gravitational expressions")
 
     def use(self, filename="funcs.py"):
         with open(filename, "w", encoding="utf-8") as f:
@@ -85,13 +78,9 @@ import numpy
         for i in range(4): sympy_to_numba(self.coord_tf_sp[i], self.mink, f"X{i}", filename)
         for i in range(4): sympy_to_numba(self.mink_tf_sp[i], self.coords, ["T","X","Y","Z"][i], filename)
         for (i,j) in product(range(4),repeat=2): sympy_to_numba(self.metric_sp[i,j], self.coords, f"g{i}{j}", filename)
-        for (c,a,b) in product(range(4),repeat=3): sympy_to_numba(self.chr_sym_sp[c,a,b], self.coords, f"Gamma{c}{a}{b}", filename)
         for (i,j) in product(range(4),repeat=2): sympy_to_numba(self.jacobian_sp[i,j], self.mink, f"J{i}{j}", filename)
         for (i,j) in product(range(4),repeat=2): sympy_to_numba(self.jacobian_inv_sp[i,j], self.coords, f"Jinv{i}{j}", filename)
-        sympy_to_numba(self.kretsch_scal_sp, self.coords, "K", filename)
-        sympy_to_numba(self.null_cond_a, tuple(list(self.mink)+[vx,vy,vz]), "null_cond_a", filename, extra_code="x0, x1, x2, x3 = X0(t, x, y, z), X1(t, x, y, z), X2(t, x, y, z), X3(t, x, y, z)")
-        sympy_to_numba(self.null_cond_b, tuple(list(self.mink)+[vx,vy,vz]), "null_cond_b", filename, extra_code="x0, x1, x2, x3 = X0(t, x, y, z), X1(t, x, y, z), X2(t, x, y, z), X3(t, x, y, z)")
-        sympy_to_numba(self.null_cond_c, tuple(list(self.mink)+[vx,vy,vz]), "null_cond_c", filename, extra_code="x0, x1, x2, x3 = X0(t, x, y, z), X1(t, x, y, z), X2(t, x, y, z), X3(t, x, y, z)")
+        for i in range(3): sympy_to_numba(self.null_conds[i], tuple(list(self.mink)+[vx,vy,vz]), f"null_cond_{["a","b","c"][i]}", filename, extra_code="x0, x1, x2, x3 = X0(t, x, y, z), X1(t, x, y, z), X2(t, x, y, z), X3(t, x, y, z)")
         
 
 class Minkowski(GravField):
@@ -144,6 +133,7 @@ class Kerr(GravField):
 
     def __init__(self, X:float, Y:float, Z:float, M:float, J:float):
         if M < 0 or J < 0: raise ValueError("M and J must be positive.")
+        if J > M: raise ValueError("J cannot be larger than M - a naked singularity will form.")
 
         x0, x1, x2, x3 = sp.symbols("x:4")
         t, x, y, z = sp.symbols("t x y z")
@@ -159,11 +149,9 @@ class Kerr(GravField):
 
         rho = x1**2 + a**2*sp.cos(x2)**2
         delta = x1**2 - 2*M*x1 + a**2
-        g = sp.Array([[-(1-2*M*x1/rho**2), 0, 0, -2*M*a*x1*sp.cos(x2)**2/rho**2],
-                      [0, rho**2/delta, 0, 0],
-                      [0, 0, rho**2, 0],
-                      [-2*M*a*x1*sp.cos(x2)**2/rho**2, 0, 0, (x1**2+a**2+2*M*a**2*x1*sp.sin(x2)**2/rho**2)*sp.sin(x2)**2]])
+        g = sp.Array([[-(1-2*M*x1/rho), 0, 0, -2*M*a*x1*sp.sin(x2)**2/rho],
+                      [0, rho/delta, 0, 0],
+                      [0, 0, rho, 0],
+                      [-2*M*a*x1*sp.sin(x2)**2/rho, 0, 0, (x1**2+a**2+2*M*a**2*x1*sp.sin(x2)**2/rho)*sp.sin(x2)**2]])
         super().__init__(g, self.coord_tf_sp, self.mink_tf_sp)
-
-
 

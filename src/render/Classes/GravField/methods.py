@@ -1,5 +1,5 @@
 import numpy as np
-from numba import njit
+from numba import njit, prange
 
 from Classes.base import *
 from Classes.GravField.funcs import *
@@ -9,79 +9,88 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 # Numba-jitted functions
 @njit
+def metric_at(x:np.ndarray):
+    """Returns the metric tensor evaluated at x.
+    
+    x: A point in spacetime described in metric coordinates."""
+
+    g = np.array([[g00(x[0], x[1], x[2], x[3]), g01(x[0], x[1], x[2], x[3]), g02(x[0], x[1], x[2], x[3]), g03(x[0], x[1], x[2], x[3])],
+                  [g10(x[0], x[1], x[2], x[3]), g11(x[0], x[1], x[2], x[3]), g12(x[0], x[1], x[2], x[3]), g13(x[0], x[1], x[2], x[3])],
+                  [g20(x[0], x[1], x[2], x[3]), g21(x[0], x[1], x[2], x[3]), g22(x[0], x[1], x[2], x[3]), g23(x[0], x[1], x[2], x[3])],
+                  [g30(x[0], x[1], x[2], x[3]), g31(x[0], x[1], x[2], x[3]), g32(x[0], x[1], x[2], x[3]), g33(x[0], x[1], x[2], x[3])]], dtype=float64)
+    return g
+
+@njit(fastmath=True)
+def chr_sym(x:np.ndarray, h:float=1e-7):
+    """Returns the Christoffel symbol evaluated at x.
+    
+    x: A point in spacetime described in metric coordinates."""
+
+    g = metric_at(x)
+    g_inv = np.linalg.inv(g)
+    dg = np.zeros((4,4,4)) # dg[k,i,j] = Derivative of g_ij with respect to x^k
+    for k in range(4):
+        xp = x.copy(); xp[k] += h
+        xm = x.copy(); xm[k] -= h
+        gp, gm = metric_at(xp), metric_at(xm)
+        dg[k] = (gp - gm) / (h * 2)
+    
+    chr_syms = np.zeros((4,4,4), dtype=float64)
+    for c in range(4):
+        for a in range(4):
+            for b in range(4):
+                s = 0
+                for d in range(4):
+                    s += g_inv[c,d] * (dg[a,b,d] + dg[b,a,d] - dg[d,a,b])
+                chr_syms[c,a,b] = s / 2
+    return chr_syms
+
+@njit(fastmath=True)
 def geodesic_eq(t, y):
     x, v = y[:4], y[4:]
     A = np.zeros(4)
     
-    A[0] -= Gamma000(x[0], x[1], x[2], x[3]) * v[0] * v[0]
-    A[0] -= Gamma001(x[0], x[1], x[2], x[3]) * v[0] * v[1]
-    A[0] -= Gamma002(x[0], x[1], x[2], x[3]) * v[0] * v[2]
-    A[0] -= Gamma003(x[0], x[1], x[2], x[3]) * v[0] * v[3]
-    A[0] -= Gamma010(x[0], x[1], x[2], x[3]) * v[1] * v[0]
-    A[0] -= Gamma011(x[0], x[1], x[2], x[3]) * v[1] * v[1]
-    A[0] -= Gamma012(x[0], x[1], x[2], x[3]) * v[1] * v[2]
-    A[0] -= Gamma013(x[0], x[1], x[2], x[3]) * v[1] * v[3]
-    A[0] -= Gamma020(x[0], x[1], x[2], x[3]) * v[2] * v[0]
-    A[0] -= Gamma021(x[0], x[1], x[2], x[3]) * v[2] * v[1]
-    A[0] -= Gamma022(x[0], x[1], x[2], x[3]) * v[2] * v[2]
-    A[0] -= Gamma023(x[0], x[1], x[2], x[3]) * v[2] * v[3]
-    A[0] -= Gamma030(x[0], x[1], x[2], x[3]) * v[3] * v[0]
-    A[0] -= Gamma031(x[0], x[1], x[2], x[3]) * v[3] * v[1]
-    A[0] -= Gamma032(x[0], x[1], x[2], x[3]) * v[3] * v[2]
-    A[0] -= Gamma033(x[0], x[1], x[2], x[3]) * v[3] * v[3]
-
-    A[1] -= Gamma100(x[0], x[1], x[2], x[3]) * v[0] * v[0]
-    A[1] -= Gamma101(x[0], x[1], x[2], x[3]) * v[0] * v[1]
-    A[1] -= Gamma102(x[0], x[1], x[2], x[3]) * v[0] * v[2]
-    A[1] -= Gamma103(x[0], x[1], x[2], x[3]) * v[0] * v[3]
-    A[1] -= Gamma110(x[0], x[1], x[2], x[3]) * v[1] * v[0]
-    A[1] -= Gamma111(x[0], x[1], x[2], x[3]) * v[1] * v[1]
-    A[1] -= Gamma112(x[0], x[1], x[2], x[3]) * v[1] * v[2]
-    A[1] -= Gamma113(x[0], x[1], x[2], x[3]) * v[1] * v[3]
-    A[1] -= Gamma120(x[0], x[1], x[2], x[3]) * v[2] * v[0]
-    A[1] -= Gamma121(x[0], x[1], x[2], x[3]) * v[2] * v[1]
-    A[1] -= Gamma122(x[0], x[1], x[2], x[3]) * v[2] * v[2]
-    A[1] -= Gamma123(x[0], x[1], x[2], x[3]) * v[2] * v[3]
-    A[1] -= Gamma130(x[0], x[1], x[2], x[3]) * v[3] * v[0]
-    A[1] -= Gamma131(x[0], x[1], x[2], x[3]) * v[3] * v[1]
-    A[1] -= Gamma132(x[0], x[1], x[2], x[3]) * v[3] * v[2]
-    A[1] -= Gamma133(x[0], x[1], x[2], x[3]) * v[3] * v[3]
-
-    A[2] -= Gamma200(x[0], x[1], x[2], x[3]) * v[0] * v[0]
-    A[2] -= Gamma201(x[0], x[1], x[2], x[3]) * v[0] * v[1]
-    A[2] -= Gamma202(x[0], x[1], x[2], x[3]) * v[0] * v[2]
-    A[2] -= Gamma203(x[0], x[1], x[2], x[3]) * v[0] * v[3]
-    A[2] -= Gamma210(x[0], x[1], x[2], x[3]) * v[1] * v[0]
-    A[2] -= Gamma211(x[0], x[1], x[2], x[3]) * v[1] * v[1]
-    A[2] -= Gamma212(x[0], x[1], x[2], x[3]) * v[1] * v[2]
-    A[2] -= Gamma213(x[0], x[1], x[2], x[3]) * v[1] * v[3]
-    A[2] -= Gamma220(x[0], x[1], x[2], x[3]) * v[2] * v[0]
-    A[2] -= Gamma221(x[0], x[1], x[2], x[3]) * v[2] * v[1]
-    A[2] -= Gamma222(x[0], x[1], x[2], x[3]) * v[2] * v[2]
-    A[2] -= Gamma223(x[0], x[1], x[2], x[3]) * v[2] * v[3]
-    A[2] -= Gamma230(x[0], x[1], x[2], x[3]) * v[3] * v[0]
-    A[2] -= Gamma231(x[0], x[1], x[2], x[3]) * v[3] * v[1]
-    A[2] -= Gamma232(x[0], x[1], x[2], x[3]) * v[3] * v[2]
-    A[2] -= Gamma233(x[0], x[1], x[2], x[3]) * v[3] * v[3]
-
-    A[3] -= Gamma300(x[0], x[1], x[2], x[3]) * v[0] * v[0]
-    A[3] -= Gamma301(x[0], x[1], x[2], x[3]) * v[0] * v[1]
-    A[3] -= Gamma302(x[0], x[1], x[2], x[3]) * v[0] * v[2]
-    A[3] -= Gamma303(x[0], x[1], x[2], x[3]) * v[0] * v[3]
-    A[3] -= Gamma310(x[0], x[1], x[2], x[3]) * v[1] * v[0]
-    A[3] -= Gamma311(x[0], x[1], x[2], x[3]) * v[1] * v[1]
-    A[3] -= Gamma312(x[0], x[1], x[2], x[3]) * v[1] * v[2]
-    A[3] -= Gamma313(x[0], x[1], x[2], x[3]) * v[1] * v[3]
-    A[3] -= Gamma320(x[0], x[1], x[2], x[3]) * v[2] * v[0]
-    A[3] -= Gamma321(x[0], x[1], x[2], x[3]) * v[2] * v[1]
-    A[3] -= Gamma322(x[0], x[1], x[2], x[3]) * v[2] * v[2]
-    A[3] -= Gamma323(x[0], x[1], x[2], x[3]) * v[2] * v[3]
-    A[3] -= Gamma330(x[0], x[1], x[2], x[3]) * v[3] * v[0]
-    A[3] -= Gamma331(x[0], x[1], x[2], x[3]) * v[3] * v[1]
-    A[3] -= Gamma332(x[0], x[1], x[2], x[3]) * v[3] * v[2]
-    A[3] -= Gamma333(x[0], x[1], x[2], x[3]) * v[3] * v[3]
+    Gammas = chr_sym(x)
+    for c in range(4):
+        for a in range(4):
+            for b in range(4):
+                A[c] -= Gammas[c,a,b] * v[a] * v[b]
 
     return np.array([v[0], v[1], v[2], v[3], A[0], A[1], A[2], A[3]])
+
+"""
+@njit(parallel=True, fastmath=True, cache=True)
+def kretsch_scal(x:np.ndarray, h:float=1e-7):
+    ""x: A spacetime point described in metric coordinates.
+
+    Returns the Kretschmann scalar of the metric at x.""
+    Gammas = chr_sym(x)
+    dGammas = np.zeros((4,4,4,4)) # dGammas[d,c,a,b] = Derivative of Gamma[c,a,b] with respect to x^d
+    for d in range(4):
+        xp = x.copy(); xp[d] += h
+        xm = x.copy(); xm[d] -= h
+        Gp, Gm = chr_sym(xp), chr_sym(xm)
+        dGammas[d] = (Gp - Gm) / (h * 2)
+    
+    riem = np.zeros((4,4,4,4))
+    for d in prange(4):
+        for c in prange(4):
+            for a in prange(4):
+                for b in prange(4):
+                    s = dGammas[a,d,c,b] - dGammas[b,d,c,a]
+                    for e in prange(4):
+                        s += Gammas[e,c,d] * Gammas[d,e,b]
+                        s -= Gammas[e,b,c] * Gammas[d,e,a]
+                    riem[d,c,a,b] = s
+    
+    K = 0.
+    for d in prange(4):
+        for c in prange(4):
+            for b in prange(4):
+                for a in prange(4):
+                    K += riem[d,c,a,b]**2
+    return K
+"""
 
 @njit
 def singularity(y):
@@ -90,10 +99,10 @@ def singularity(y):
         For detecting singularities where the metric blows up."""
     
     x = y[:4]
-    g_eval = [np.abs(g00(x[0], x[1], x[2], x[3])), np.abs(g01(x[0], x[1], x[2], x[3])), np.abs(g02(x[0], x[1], x[2], x[3])), np.abs(g03(x[0], x[1], x[2], x[3])),
-              np.abs(g10(x[0], x[1], x[2], x[3])), np.abs(g11(x[0], x[1], x[2], x[3])), np.abs(g12(x[0], x[1], x[2], x[3])), np.abs(g13(x[0], x[1], x[2], x[3])),
-              np.abs(g20(x[0], x[1], x[2], x[3])), np.abs(g21(x[0], x[1], x[2], x[3])), np.abs(g22(x[0], x[1], x[2], x[3])), np.abs(g23(x[0], x[1], x[2], x[3])),
-              np.abs(g30(x[0], x[1], x[2], x[3])), np.abs(g31(x[0], x[1], x[2], x[3])), np.abs(g32(x[0], x[1], x[2], x[3])), np.abs(g33(x[0], x[1], x[2], x[3]))]
+    g, g_eval = np.abs(metric_at(x)), []
+    for i in range(4):
+        for j in range(4):
+            g_eval.append(g[i,j])
     return max(g_eval)
             
 @njit
@@ -155,14 +164,6 @@ def mink_vel(vec:np.ndarray, pos:np.ndarray) -> np.ndarray:
                j2[0]*vec[0] + j2[1]*vec[1] + j2[2]*vec[2] + j2[3]*vec[3],
                j3[0]*vec[0] + j3[1]*vec[1] + j3[2]*vec[2] + j3[3]*vec[3]]
     return np.array(new_vel, dtype=float64)
-
-@njit
-def kretsch_scal(pos:np.ndarray) -> float:
-    """pos: A spacetime point described in metric coordinates.
-
-    Returns the Kretschmann scalar of the metric at pos."""
-
-    return K(pos[0], pos[1], pos[2], pos[3])
 
 @njit
 def normed(vec:Vec, pos:np.ndarray) -> np.ndarray:
