@@ -40,7 +40,7 @@ def integrator(settings:RenderSettings, y0:float, max_t:float=1000,
         # Adapt step size to how close the point is to any object
         speed = np.linalg.norm(GravMethod.geodesic_eq(t, y))
         min_dist = min(dists)
-        h = min(h, 1.5*min_dist/speed)
+        h = min(h, 2*min_dist/speed)
 
         # Perform integration
         if t + h > max_t: h = max_t - t # Prevents overstepping
@@ -72,8 +72,8 @@ def trace(pos:Vec, dir:Vec, settings:RenderSettings): # Returns color the light 
     X0 = GravMethod.coord_pos(np.array([0, pos.x, pos.y, pos.z]))
     V0 = GravMethod.normed(dir, np.array([0, pos.x, pos.y, pos.z]))
     y0 = np.array([X0[0], X0[1], X0[2], X0[3], V0[0], V0[1], V0[2], V0[3]])
-    hit_pt, message, obj = integrator(settings, y0, 1000, threshold=1e3)
-    
+    hit_pt, message, obj = integrator(settings, y0, max_t=settings.bg_rad*2, threshold=1e3)
+
     # Calculate hit point
     hit_pt = GravMethod.mink_pos(np.array([hit_pt[0], hit_pt[1], hit_pt[2], hit_pt[3]]))
     hit_pt = Vec(hit_pt[1], hit_pt[2], hit_pt[3])

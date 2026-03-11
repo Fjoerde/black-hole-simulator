@@ -65,7 +65,7 @@ class GravField:
         vel_metric = tensorcontraction(tensorproduct(self.jacobian_sp, vel_mink), (1,2))
         norm = sp.collect(tensorcontraction(tensorproduct(g, vel_metric, vel_metric), (0,2),(1,3)), vt)
         self.null_conds = sp.Array([norm.coeff(vt, 2), norm.coeff(vt, 1), norm.coeff(vt, 0)])
-        print("Finished evaluating required gravitational expressions")
+        print(f"Finished evaluating required gravitational expressions\n")
 
     def use(self, filename="funcs.py"):
         with open(filename, "w", encoding="utf-8") as f:
@@ -77,11 +77,13 @@ import numpy
         vx, vy, vz = sp.symbols("vx vy vz")
         for i in range(4): sympy_to_numba(self.coord_tf_sp[i], self.mink, f"X{i}", filename)
         for i in range(4): sympy_to_numba(self.mink_tf_sp[i], self.coords, ["T","X","Y","Z"][i], filename)
-        for (i,j) in product(range(4),repeat=2): sympy_to_numba(self.metric_sp[i,j], self.coords, f"g{i}{j}", filename)
+        for i in range(4):
+            for j in range(i,4): sympy_to_numba(self.metric_sp[i,j], self.coords, f"g{i}{j}", filename)
         for (i,j) in product(range(4),repeat=2): sympy_to_numba(self.jacobian_sp[i,j], self.mink, f"J{i}{j}", filename)
         for (i,j) in product(range(4),repeat=2): sympy_to_numba(self.jacobian_inv_sp[i,j], self.coords, f"Jinv{i}{j}", filename)
         for i in range(3): sympy_to_numba(self.null_conds[i], tuple(list(self.mink)+[vx,vy,vz]), f"null_cond_{["a","b","c"][i]}", filename, extra_code="x0, x1, x2, x3 = X0(t, x, y, z), X1(t, x, y, z), X2(t, x, y, z), X3(t, x, y, z)")
-        
+        print("Finished writing expressions to file\n")
+    
 
 class Minkowski(GravField):
     """Describe the gravitational field with the Minkowski metric, i.e. no curvature, no mass, no energy."""

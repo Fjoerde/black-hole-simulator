@@ -8,19 +8,19 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 
 # Numba-jitted functions
-@njit
+@njit(fastmath=True, nogil=True, cache=True)
 def metric_at(x:np.ndarray):
     """Returns the metric tensor evaluated at x.
     
     x: A point in spacetime described in metric coordinates."""
 
     g = np.array([[g00(x[0], x[1], x[2], x[3]), g01(x[0], x[1], x[2], x[3]), g02(x[0], x[1], x[2], x[3]), g03(x[0], x[1], x[2], x[3])],
-                  [g10(x[0], x[1], x[2], x[3]), g11(x[0], x[1], x[2], x[3]), g12(x[0], x[1], x[2], x[3]), g13(x[0], x[1], x[2], x[3])],
-                  [g20(x[0], x[1], x[2], x[3]), g21(x[0], x[1], x[2], x[3]), g22(x[0], x[1], x[2], x[3]), g23(x[0], x[1], x[2], x[3])],
-                  [g30(x[0], x[1], x[2], x[3]), g31(x[0], x[1], x[2], x[3]), g32(x[0], x[1], x[2], x[3]), g33(x[0], x[1], x[2], x[3])]], dtype=float64)
+                  [g01(x[0], x[1], x[2], x[3]), g11(x[0], x[1], x[2], x[3]), g12(x[0], x[1], x[2], x[3]), g13(x[0], x[1], x[2], x[3])],
+                  [g02(x[0], x[1], x[2], x[3]), g12(x[0], x[1], x[2], x[3]), g22(x[0], x[1], x[2], x[3]), g23(x[0], x[1], x[2], x[3])],
+                  [g03(x[0], x[1], x[2], x[3]), g13(x[0], x[1], x[2], x[3]), g23(x[0], x[1], x[2], x[3]), g33(x[0], x[1], x[2], x[3])]], dtype=float64)
     return g
 
-@njit(fastmath=True)
+@njit(fastmath=True, nogil=True, cache=True)
 def geodesic_eq(t, y, h:float=1e-7):
     x, v = y[:4], y[4:]
     A = np.zeros(4)
