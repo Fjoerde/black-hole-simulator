@@ -8,15 +8,15 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 print(f"Initializing...\n")
 t1 = time.perf_counter()
 
-from Classes.GravField.grav_lib import Minkowski, Schwarzschild, Kerr
+from render.Classes.GravField.grav_lib import Minkowski, Schwarzschild, Kerr
 # Minkowski().use()
 # Kerr(X=0., Y=0., Z=0., M=0.5, J=0.25).use()
 
 # Import other classes and initialize & render
-from Classes.base import *
-from Classes.tags import *
-from Classes.classes import Shape, Hittable, ColField, RenderSettings
-from rendering import render_seq
+from render.Classes.base import *
+from render.Classes.tags import *
+from render.Classes.classes import Shape, Hittable, ColField, RenderSettings
+from render.rendering import render_seq
 
 scene = [Hittable(tag=HITTABLE_LIGHT,
          shape=Shape(pos=Vec(0,0,0), rot=(np.pi/2,-np.pi/20,0), tag=SHAPE_ANNULUS, r_in=2.5, r_out=5, height=0.1),

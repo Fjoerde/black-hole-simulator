@@ -1,8 +1,8 @@
 import numpy as np
 from numba import njit, prange
 
-from Classes.base import *
-from Classes.GravField.funcs import *
+from render.Classes.base import *
+from render.Classes.GravField.funcs import *
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 

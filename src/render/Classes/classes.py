@@ -3,21 +3,25 @@ from numba import float64, int64
 from numba.experimental import jitclass
 from numba.core import types
 from numba.typed import List
+from numba_progress import ProgressBar
+from pykdtree.kdtree import KDTree
+import os
 
-from Classes.base import *
-from Classes.tags import *
-import Classes.GravField.methods as GravMethod
+from render.Classes.base import *
+from render.Classes.tags import *
+import render.Classes.GravField.methods as GravMethod
+import render.Classes.GravField.precomp as GravComp
 
-import Classes.Shapes.null as ShapeNull
-import Classes.Shapes.sphere as Sphere
-import Classes.Shapes.cylinder as Cylinder
-import Classes.Shapes.annulus as Annulus
+import render.Classes.Shapes.null as ShapeNull
+import render.Classes.Shapes.sphere as Sphere
+import render.Classes.Shapes.cylinder as Cylinder
+import render.Classes.Shapes.annulus as Annulus
 
-import Classes.ColFields.const_col as ConstCol
-import Classes.ColFields.checkerboard as Checkerboard
+import render.Classes.ColFields.const_col as ConstCol
+import render.Classes.ColFields.checkerboard as Checkerboard
 
-import Classes.Hittables.null as HittableNull
-import Classes.Hittables.light as Light
+import render.Classes.Hittables.null as HittableNull
+import render.Classes.Hittables.light as Light
 
 
 # Class
@@ -220,4 +224,25 @@ class RenderSettings:
         pos_mink = GravMethod.mink_pos(pos_metric) 
         pt = Vec(pos_mink[1], pos_mink[2], pos_mink[3])
         return (pt - self.cam_pos).length() - self.bg_rad
+    
+    def precomp_all(self, n:int=40, max_levels:int=3, var_threshold:float=0.02):
+        print(f"Generating grid...")
+        grid = GravComp.generate_grid(self.cam_pos, self.bg_rad, n=n, max_levels=max_levels, var_threshold=var_threshold)
+        np.save("GravField/Points/grid_pts.npy", grid)
+
+        print("Computing metric tensor...")
+        with ProgressBar(total=len(grid)) as pbar:
+            g_grid = GravComp.precomp_g(grid, pbar)
+        np.save("GravField/Points/metric_grid.npy", g_grid)
+
+        # Compute isotropic grid (so that no direction dominates closest neighbors)
+        print("Computing closest points...")
+        scale = GravComp.get_spacing(grid)
+        grid_norm = grid / np.maximum(scale, 1e-12)
+        _, neighbors = KDTree(grid_norm).query(grid_norm, k=20)
+
+        print("Computing Christoffel symbols...")
+        with ProgressBar(total=len(grid)) as pbar:
+            Gamma_grid = GravComp.precomp_Gamma(grid, neighbors, g_grid, pbar)  
+        np.save("GravField/Points/chr_sym_grid.npy", Gamma_grid)
     
