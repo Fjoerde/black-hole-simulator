@@ -1,58 +1,112 @@
 import numpy as np
-from numba import njit, prange
+from numba import njit
 
 from render.Classes.base import *
 from render.Classes.GravField.funcs import *
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-
 # Numba-jitted functions
-@njit(fastmath=True, nogil=True, cache=True)
-def metric_at(x:np.ndarray):
-    """Returns the metric tensor evaluated at x.
+@njit(fastmath=True)
+def metric_interp(x:np.ndarray, grid:np.ndarray, g_grid:np.ndarray, neighbors:np.ndarray,
+                  k:int=12, power:float=2.0, eps:float=1e-12):
+    """Returns the interpolated metric at x. Call only after grid points are saved to file.
     
-    x: A point in spacetime described in metric coordinates."""
+    x: A point in spacetime described in metric coordinates.
+    
+    g_grid: The metric tensor (N, 10) evaluated on a selection of grid points.
+    
+    neighbors: np.ndarray with shape (N, k) specifying the index (in grid) of the k-th closest neighbors to a given point.
+    Make sure that no direction dominates the closest neighbors.
+    
+    power: Describes how quickly the weights of neighboring points fall off with distance."""
 
-    g = np.array([[g00(x[0], x[1], x[2], x[3]), g01(x[0], x[1], x[2], x[3]), g02(x[0], x[1], x[2], x[3]), g03(x[0], x[1], x[2], x[3])],
-                  [g01(x[0], x[1], x[2], x[3]), g11(x[0], x[1], x[2], x[3]), g12(x[0], x[1], x[2], x[3]), g13(x[0], x[1], x[2], x[3])],
-                  [g02(x[0], x[1], x[2], x[3]), g12(x[0], x[1], x[2], x[3]), g22(x[0], x[1], x[2], x[3]), g23(x[0], x[1], x[2], x[3])],
-                  [g03(x[0], x[1], x[2], x[3]), g13(x[0], x[1], x[2], x[3]), g23(x[0], x[1], x[2], x[3]), g33(x[0], x[1], x[2], x[3])]], dtype=float64)
-    return g
+    assert k <= neighbors.shape[1]
+    pairs = np.array([(0,0),(0,1),(0,2),(0,3),(1,1),(1,2),(1,3),(2,2),(2,3),(3,3)])
+    dists = np.empty(k, dtype=np.float64); weights = np.empty(k, dtype=np.float64)
+
+    for i in range(k):
+        idx = neighbors[i]
+        dp = grid[idx] - x
+        d = np.sqrt(np.dot(dp, dp) + eps)
+        dists[i] = d
+        weights[i] = 1/(d**power) if d > 1e-20 else 1e20
+
+    sum_w = np.sum(weights)
+    if sum_w < 1e-20:
+        return np.eye(4, dtype=np.float64) * np.array([-1.,1.,1.,1.]) # If weights are too small assume Minkowski
+    g_eval = np.zeros((4,4), dtype=np.float64)
+    for i in range(10):
+        s = 0.
+        for j in range(k):
+            idx = neighbors[j]
+            s += weights[j] * g_grid[idx,j]
+        mu, nu = pairs[i]
+        g_eval[mu,nu] = s / sum_w
+        if mu != nu: g_eval[nu,mu] = s / sum_w
+    return g_eval
+
+@njit
+def Gamma_interp(x:np.ndarray, grid:np.ndarray, Gamma_grid:np.ndarray, neighbors:np.ndarray,
+                 k:int=12, power:float=2.0, eps:float=1e-12):
+    """Returns the interpolated metric at x. Call only after grid points are saved to file.
+    
+    x: A point in spacetime described in metric coordinates.
+    
+    g_grid: The metric tensor (N, 10) evaluated on a selection of grid points.
+    
+    neighbors: np.ndarray with shape (N, k) specifying the index (in grid) of the k-th closest neighbors to a given point.
+    Make sure that no direction dominates the closest neighbors.
+    
+    power: Describes how quickly the weights of neighboring points fall off with distance."""
+
+    assert k <= neighbors.shape[1]
+    pairs = np.array([(0,0,0),(0,0,1),(0,0,2),(0,0,3),(0,1,1),(0,1,2),(0,1,3),(0,2,2),(0,2,3),(0,3,3),
+                      (1,0,0),(1,0,1),(1,0,2),(1,0,3),(1,1,1),(1,1,2),(1,1,3),(1,2,2),(1,2,3),(1,3,3),
+                      (2,0,0),(2,0,1),(2,0,2),(2,0,3),(2,1,1),(2,1,2),(2,1,3),(2,2,2),(2,2,3),(2,3,3),
+                      (3,0,0),(3,0,1),(3,0,2),(3,0,3),(3,1,1),(3,1,2),(3,1,3),(3,2,2),(3,2,3),(3,3,3)])
+    dists = np.empty(k, dtype=np.float64)
+    weights = np.empty(k, dtype=np.float64)
+
+    for i in range(k):
+        idx = neighbors[i]
+        dp = grid[idx] - x
+        d = np.sqrt(np.dot(dp, dp) + eps)
+        dists[i] = d
+        weights[i] = 1/(d**power) if d > 1e-20 else 1e20
+
+    sum_w = np.sum(weights)
+    if sum_w < 1e-20: return np.zeros((4,4,4), dtype=np.float64)
+    Gamma_eval = np.zeros((4,4,4), dtype=np.float64)
+    for i in range(40):
+        s = 0.
+        for j in range(k):
+            idx = neighbors[j]
+            s += weights[j] * Gamma_grid[idx,j]
+        c, a, b = pairs[i]
+        Gamma_eval[c,a,b] = s / sum_w
+        if a != b: Gamma_eval[c,b,a] = s / sum_w
+    return Gamma_eval
 
 @njit(fastmath=True, nogil=True, cache=True)
-def geodesic_eq(t, y, h:float=1e-7):
+def geodesic_eq(_, y, grid, Gamma_grid, neighbors):
     x, v = y[:4], y[4:]
     A = np.zeros(4)
-    
-    g = metric_at(x)
-    g_inv = np.linalg.inv(g)
-    dg = np.zeros((4,4,4)) # dg[k,i,j] = Derivative of g_ij with respect to x^k
-    for k in range(4):
-        xp = x.copy(); xp[k] += h
-        xm = x.copy(); xm[k] -= h
-        gp, gm = metric_at(xp), metric_at(xm)
-        dg[k] = (gp - gm) / (h * 2)
-    
+    chr_syms = Gamma_interp(x, grid, Gamma_grid, neighbors)
     for c in range(4):
         for a in range(4):
             for b in range(4):
-                s = 0
-                for d in range(4):
-                    s += g_inv[c,d] * (dg[a,b,d] + dg[b,a,d] - dg[d,a,b])
-                chr_sym = s / 2
-                A[c] -= chr_sym * v[a] * v[b]
-
+                A[c] -= chr_syms[c,a,b] * v[a] * v[b]
     return np.array([v[0], v[1], v[2], v[3], A[0], A[1], A[2], A[3]])
 
 @njit
-def singularity(y):
+def singularity(y, grid, g_grid, neighbors):
     """Returns the largest-valued entry of the metric evaluated at y, subtracted by 1e10.
 
         For detecting singularities where the metric blows up."""
     
     x = y[:4]
-    g, g_eval = np.abs(metric_at(x)), []
+    g, g_eval = np.abs(metric_interp(x, grid, g_grid, neighbors)), []
     for i in range(4):
         for j in range(4):
             g_eval.append(g[i,j])
