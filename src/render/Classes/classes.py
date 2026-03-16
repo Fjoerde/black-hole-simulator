@@ -3,14 +3,10 @@ from numba import float64, int64
 from numba.experimental import jitclass
 from numba.core import types
 from numba.typed import List
-from numba_progress import ProgressBar
-from pykdtree.kdtree import KDTree
-import os
 
 from render.Classes.base import *
 from render.Classes.tags import *
 import render.Classes.GravField.methods as GravMethod
-import render.Classes.GravField.precomp as GravComp
 
 import render.Classes.Shapes.null as ShapeNull
 import render.Classes.Shapes.sphere as Sphere
@@ -23,6 +19,8 @@ import render.Classes.ColFields.checkerboard as Checkerboard
 import render.Classes.Hittables.null as HittableNull
 import render.Classes.Hittables.light as Light
 
+import os
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 # Class
 spec_shape = [# For all Shapes
@@ -168,27 +166,25 @@ default_scene = [Hittable(tag=HITTABLE_NULL,
                  shape=Shape(pos=Vec(0,0,0),rot=(0,0,0),tag=SHAPE_NULL))]
 
 spec_settings = [("w", int64), ("h", int64), ("aspect", float64), ("x", int64), ("y", int64), ("theta", float64), ("phi", float64),
-                 ("pos", float64[:]), ("dir", float64[:]),
+                 ("pos", float64[:]), ("dir", float64[:]), ("Y", float64[:]),
                  ("cam_pos", Vec.class_type.instance_type), ("cam_dir", Vec.class_type.instance_type),
                  ("scene", types.ListType(Hittable.class_type.instance_type)), ("background", float64[:,:,::1]),
-                 ("bg_rad", float64), ("threshold", float64), ("obj", Hittable.class_type.instance_type),
+                 ("bg_rad", float64), ("obj", Hittable.class_type.instance_type),
                  ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type),
-                 ("Y", float64[:])]
+                 ("grid", float64[:,:]), ("neighbors", int64[:,:]), ("g_grid", float64[:,:]), ("Gamma_grid", float64[:,:])]
 @jitclass(spec_settings)
 class RenderSettings:
     """The settings of the rendered scene. Includes parameters like camera position and angle, scene, background image, etc.
     
     For a scene with no object, simply omit the scene argument, or pass a list of a Hittable with a null Shape.
     
-    bg_rad: Radius of the background box.
-    
-    threshold: Used to determine if a straight-line approximation for a light ray is appropriate. If the Kretschmann scalar along the light ray
-    exceeds the threshold, then the approximation is deemed inaccurate."""
+    bg_rad: Radius of the background box."""
 
     def __init__(self, w:int=800, h:int=600, cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), # Width, height of image, position and direction of camera
                  scene:list[Hittable]=default_scene, # List of hittables in the scene
                  background:np.ndarray=np.zeros((1,1,3)), bg_rad:float=100, # Background image (default black)
-                 threshold:float=1e-6): # Threshold for the Kretschmann scalar to determine if a straight-line approximation is suitable
+                 grid:np.ndarray=np.zeros((1,4), dtype=np.float64), neighbors:np.ndarray=np.zeros((1,1), dtype=np.int64),
+                 g_grid:np.ndarray=np.array([[-1,0,0,0,1,0,0,1,0,1]], dtype=np.float64), Gamma_grid:np.ndarray=np.zeros((1,40), dtype=np.float64)):
         self.w = w
         self.h = h
         self.cam_pos = cam_pos
@@ -196,7 +192,10 @@ class RenderSettings:
         self.scene = List(scene)
         self.background = background
         self.bg_rad = bg_rad
-        self.threshold = threshold
+        self.grid = grid
+        self.neighbors = neighbors
+        self.g_grid = g_grid
+        self.Gamma_grid = Gamma_grid
 
         self.aspect = self.w / self.h
         self.cam_u = self.cam_dir.cross(Vec(0,0,1)).normal() # Need to deal with cam_dir being close to Vec(0,0,1)
@@ -204,7 +203,6 @@ class RenderSettings:
 
         for obj in scene:
             if (obj.shape.pos - cam_pos).length() > bg_rad: raise ValueError("All objects must be within the radius of the background image.")
-        if self.threshold <= 0: raise ValueError("Threshold must be a positive number.")
 
     def ray_dir_px(self, x:int, y:int) -> Vec:
         u = (2*(x+0.5)/self.w - 1) * self.aspect # Viewport coordinates, varies from -aspect to +aspect
@@ -224,25 +222,3 @@ class RenderSettings:
         pos_mink = GravMethod.mink_pos(pos_metric) 
         pt = Vec(pos_mink[1], pos_mink[2], pos_mink[3])
         return (pt - self.cam_pos).length() - self.bg_rad
-    
-    def precomp_all(self, n:int=40, max_levels:int=3, var_threshold:float=0.02):
-        print(f"Generating grid...")
-        grid = GravComp.generate_grid(self.cam_pos, self.bg_rad, n=n, max_levels=max_levels, var_threshold=var_threshold)
-        np.save("GravField/Points/grid_pts.npy", grid)
-
-        print("Computing metric tensor...")
-        with ProgressBar(total=len(grid)) as pbar:
-            g_grid = GravComp.precomp_g(grid, pbar)
-        np.save("GravField/Points/metric_grid.npy", g_grid)
-
-        # Compute isotropic grid (so that no direction dominates closest neighbors)
-        print("Computing closest points...")
-        scale = GravComp.get_spacing(grid)
-        grid_norm = grid / np.maximum(scale, 1e-12)
-        _, neighbors = KDTree(grid_norm).query(grid_norm, k=20)
-
-        print("Computing Christoffel symbols...")
-        with ProgressBar(total=len(grid)) as pbar:
-            Gamma_grid = GravComp.precomp_Gamma(grid, neighbors, g_grid, pbar)  
-        np.save("GravField/Points/chr_sym_grid.npy", Gamma_grid)
-    

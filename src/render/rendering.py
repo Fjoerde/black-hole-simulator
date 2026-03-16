@@ -12,11 +12,11 @@ import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 @njit
-def rk4_step(t, y, h): # h is a step size
-    k1 = GravMethod.geodesic_eq(t, y)
-    k2 = GravMethod.geodesic_eq(t+h/2, y+h*k1/2)
-    k3 = GravMethod.geodesic_eq(t+h/2, y+h*k2/2)
-    k4 = GravMethod.geodesic_eq(t+h, y+h*k3)
+def rk4_step(t, y, h, settings:RenderSettings): # h is a step size
+    k1 = GravMethod.geodesic_eq(t, y, settings.grid, settings.Gamma_grid, settings.neighbors)
+    k2 = GravMethod.geodesic_eq(t+h/2, y+h*k1/2, settings.grid, settings.Gamma_grid, settings.neighbors)
+    k3 = GravMethod.geodesic_eq(t+h/2, y+h*k2/2, settings.grid, settings.Gamma_grid, settings.neighbors)
+    k4 = GravMethod.geodesic_eq(t+h, y+h*k3, settings.grid, settings.Gamma_grid, settings.neighbors)
     return y + (h/6) * (k1 + 2*k2 + 2*k3 + k4)
 
 @njit
@@ -29,24 +29,26 @@ def integrator(settings:RenderSettings, y0:float, max_t:float=1000,
     while t < max_t:
 
         # Check for any hits
-        dists = []
-        for obj in settings.scene: # If the distance of closest approach is < 1e-4 or already inside
+        dists = np.empty(len(settings.scene), dtype=np.float64)
+        for i in range(len(settings.scene)): # If the distance of closest approach is < 1e-4 or already inside
+            obj = settings.scene[i]
             dist = obj.shape.in_shape_int(y)
             if np.abs(dist) < 1e-4: return y, "hit object", obj
-            dists.append(dist)
+            dists[i] = dist
         if settings.escape(y) > 0: return y, "background", settings.scene[0]
-        if GravMethod.singularity(y) > threshold: return y, "singularity", settings.scene[0]
+        if GravMethod.singularity(y, settings.grid, settings.g_grid, settings.neighbors) > threshold:
+            return y, "singularity", settings.scene[0]
 
         # Adapt step size to how close the point is to any object
-        speed = np.linalg.norm(GravMethod.geodesic_eq(t, y))
+        speed = np.linalg.norm(GravMethod.geodesic_eq(t, y, settings.grid, settings.Gamma_grid, settings.neighbors))
         min_dist = min(dists)
         h = min(h, 2*min_dist/speed)
 
         # Perform integration
         if t + h > max_t: h = max_t - t # Prevents overstepping
-        y_coarse = rk4_step(t, y, h) # Coarse step
-        y_mid = rk4_step(t, y, h/2)
-        y_fine = rk4_step(t+h/2, y_mid, h/2) # Fine step made of 2 substeps
+        y_coarse = rk4_step(t, y, h, settings) # Coarse step
+        y_mid = rk4_step(t, y, h/2, settings)
+        y_fine = rk4_step(t+h/2, y_mid, h/2, settings) # Fine step made of 2 substeps
         # Error estimate
         error = np.max(np.abs(y_coarse - y_fine)) / 15
         if error <= tol:
@@ -72,7 +74,7 @@ def trace(pos:Vec, dir:Vec, settings:RenderSettings): # Returns color the light 
     X0 = GravMethod.coord_pos(np.array([0, pos.x, pos.y, pos.z]))
     V0 = GravMethod.normed(dir, np.array([0, pos.x, pos.y, pos.z]))
     y0 = np.array([X0[0], X0[1], X0[2], X0[3], V0[0], V0[1], V0[2], V0[3]])
-    hit_pt, message, obj = integrator(settings, y0, max_t=settings.bg_rad*2, threshold=1e3)
+    hit_pt, message, obj = integrator(settings, y0, max_t=1000, threshold=1e3)
 
     # Calculate hit point
     hit_pt = GravMethod.mink_pos(np.array([hit_pt[0], hit_pt[1], hit_pt[2], hit_pt[3]]))

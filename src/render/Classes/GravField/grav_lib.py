@@ -65,9 +65,9 @@ class GravField:
         vel_metric = tensorcontraction(tensorproduct(self.jacobian_sp, vel_mink), (1,2))
         norm = sp.collect(tensorcontraction(tensorproduct(g, vel_metric, vel_metric), (0,2),(1,3)), vt)
         self.null_conds = sp.Array([norm.coeff(vt, 2), norm.coeff(vt, 1), norm.coeff(vt, 0)])
-        print(f"Finished evaluating required gravitational expressions\n")
+        print("Finished evaluating required gravitational expressions")
 
-    def use(self, filename="funcs.py"):
+    def use(self, filename):
         with open(filename, "w", encoding="utf-8") as f:
             f.write("""# This is an automatically generated file. Do not change its content manually.
 from numba import njit
