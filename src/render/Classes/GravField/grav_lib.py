@@ -81,7 +81,9 @@ import numpy
             for j in range(i,4): sympy_to_numba(self.metric_sp[i,j], self.coords, f"g{i}{j}", filename)
         for (i,j) in product(range(4),repeat=2): sympy_to_numba(self.jacobian_sp[i,j], self.mink, f"J{i}{j}", filename)
         for (i,j) in product(range(4),repeat=2): sympy_to_numba(self.jacobian_inv_sp[i,j], self.coords, f"Jinv{i}{j}", filename)
-        for i in range(3): sympy_to_numba(self.null_conds[i], tuple(list(self.mink)+[vx,vy,vz]), f"null_cond_{["a","b","c"][i]}", filename, extra_code="x0, x1, x2, x3 = X0(t, x, y, z), X1(t, x, y, z), X2(t, x, y, z), X3(t, x, y, z)")
+        sympy_to_numba(self.null_conds[0], tuple(list(self.mink)+[vx,vy,vz]), "null_cond_a", filename, extra_code="x0, x1, x2, x3 = X0(t, x, y, z), X1(t, x, y, z), X2(t, x, y, z), X3(t, x, y, z)")
+        sympy_to_numba(self.null_conds[1], tuple(list(self.mink)+[vx,vy,vz]), "null_cond_b", filename, extra_code="x0, x1, x2, x3 = X0(t, x, y, z), X1(t, x, y, z), X2(t, x, y, z), X3(t, x, y, z)")
+        sympy_to_numba(self.null_conds[2], tuple(list(self.mink)+[vx,vy,vz]), "null_cond_c", filename, extra_code="x0, x1, x2, x3 = X0(t, x, y, z), X1(t, x, y, z), X2(t, x, y, z), X3(t, x, y, z)")
         print("Finished writing expressions to file\n")
     
 

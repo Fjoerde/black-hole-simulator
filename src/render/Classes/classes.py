@@ -3,6 +3,7 @@ from numba import float64, int64
 from numba.experimental import jitclass
 from numba.core import types
 from numba.typed import List
+from numba_kdtree import KDTree, KDTreeType
 
 from render.Classes.base import *
 from render.Classes.tags import *
@@ -171,7 +172,7 @@ spec_settings = [("w", int64), ("h", int64), ("aspect", float64), ("x", int64), 
                  ("scene", types.ListType(Hittable.class_type.instance_type)), ("background", float64[:,:,::1]),
                  ("bg_rad", float64), ("obj", Hittable.class_type.instance_type),
                  ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type),
-                 ("grid", float64[:,:]), ("neighbors", int64[:,:]), ("g_grid", float64[:,:]), ("Gamma_grid", float64[:,:])]
+                 ("grid", float64[:,:]), ("g_grid", float64[:,:]), ("Gamma_grid", float64[:,:])]
 @jitclass(spec_settings)
 class RenderSettings:
     """The settings of the rendered scene. Includes parameters like camera position and angle, scene, background image, etc.
@@ -183,8 +184,8 @@ class RenderSettings:
     def __init__(self, w:int=800, h:int=600, cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), # Width, height of image, position and direction of camera
                  scene:list[Hittable]=default_scene, # List of hittables in the scene
                  background:np.ndarray=np.zeros((1,1,3)), bg_rad:float=100, # Background image (default black)
-                 grid:np.ndarray=np.zeros((1,4), dtype=np.float64), neighbors:np.ndarray=np.zeros((1,1), dtype=np.int64),
-                 g_grid:np.ndarray=np.array([[-1,0,0,0,1,0,0,1,0,1]], dtype=np.float64), Gamma_grid:np.ndarray=np.zeros((1,40), dtype=np.float64)):
+                 grid:np.ndarray=np.zeros((1,4), dtype=np.float64), g_grid:np.ndarray=np.array([[-1,0,0,0,1,0,0,1,0,1]], dtype=np.float64),
+                 Gamma_grid:np.ndarray=np.zeros((1,40), dtype=np.float64)):
         self.w = w
         self.h = h
         self.cam_pos = cam_pos
@@ -193,7 +194,6 @@ class RenderSettings:
         self.background = background
         self.bg_rad = bg_rad
         self.grid = grid
-        self.neighbors = neighbors
         self.g_grid = g_grid
         self.Gamma_grid = Gamma_grid
 

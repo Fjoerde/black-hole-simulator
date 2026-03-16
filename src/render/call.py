@@ -2,6 +2,7 @@ import numpy as np
 from PIL import Image
 import time
 from render.Classes.base import *
+import cProfile
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
@@ -26,19 +27,19 @@ scene = [Hittable(tag=HITTABLE_LIGHT,
          col_field=ColField(tag=COLFIELD_CONSTCOL, col=Vec(1,1,1)))] # Accretion disc
 bg = np.array(Image.open("Images/background2.jpg")) / 255.0
 grid = np.load("Classes/GravField/Points/grid_pts.npy")
-neighbors = np.load("Classes/GravField/Points/neigh_pts.npy").astype(int)
 g_grid = np.load("Classes/GravField/Points/metric_grid.npy")
 Gamma_grid = np.load("Classes/GravField/Points/chr_sym_grid.npy")
 settings = RenderSettings(w=800, h=600, cam_pos=cam_pos, cam_dir=Vec(1,0,0), scene=scene, background=bg, bg_rad=bg_rad,
-                          grid=grid, neighbors=neighbors, g_grid=g_grid, Gamma_grid=Gamma_grid)
+                          grid=grid, g_grid=g_grid, Gamma_grid=Gamma_grid)
 
 t2 = time.perf_counter()
 print(f"Initialization finished in {t2-t1:.4f} s\n")
 
 print("Rendering...")
-img = render_seq(settings)
+# img = render_seq(settings)
+cProfile.run("img = render_seq(settings)")
 filename = "test15.png"
-img.save(f"Images/{filename}") 
+# img.save(f"Images/{filename}") 
     
 t3 = time.perf_counter()
 print(f"Rendering finished in {(t3-t2)/60:.4f} min\n")

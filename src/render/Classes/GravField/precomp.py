@@ -1,7 +1,7 @@
 import numpy as np
 from numba import njit, prange
 from numba_progress import ProgressBar
-from pykdtree.kdtree import KDTree
+from numba_kdtree import KDTree
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
@@ -110,7 +110,7 @@ def generate_grid(center:Vec, bg_rad:float, n:float=10, max_levels:int=3,
         print(f"Generating level {level+1} of points...")
         N = grid.shape[0]; g = np.zeros((N, 4, 4))
         for i in range(N): g[i] = metric_at(grid[i])
-        dist, idx = KDTree(grid).query(grid, k=8)
+        dists, idx, _ = KDTree(grid).query(grid, k=8)
 
         with ProgressBar(total=len(grid)) as pbar:
             var = get_var(g, idx, pbar)
@@ -119,7 +119,7 @@ def generate_grid(center:Vec, bg_rad:float, n:float=10, max_levels:int=3,
         if len(high_var_pts) == 0: break
 
         with ProgressBar(total=len(high_var_pts)) as pbar:
-            new_pts = get_new_pts(high_var_pts, dist, pbar)
+            new_pts = get_new_pts(high_var_pts, dists, pbar)
 
         grid = np.vstack((grid, new_pts))
 
@@ -216,16 +216,14 @@ def precomp_all(save:bool=False, k:int=20, **kwargs):
         g_grid = precomp_g(grid, pbar)
 
     print("Computing Christoffel symbols...")
-    _, neighbors = KDTree(grid).query(grid, k=k)
+    _, neighbors, _ = KDTree(grid).query(grid, k=k)
     with ProgressBar(total=grid.shape[0]) as pbar:
         Gamma_grid = precomp_Gamma(grid, neighbors, g_grid, pbar)  
 
     if save:
         os.makedirs(os.path.dirname(f"Points/grid_pts.npy") or ".", exist_ok=True)
-        os.makedirs(os.path.dirname(f"Points/neigh_pts.npy") or ".", exist_ok=True)
         os.makedirs(os.path.dirname(f"Points/metric_grid.npy") or ".", exist_ok=True)
         os.makedirs(os.path.dirname(f"Points/chr_sym_grid.npy") or ".", exist_ok=True)
         np.save(f"Points/grid_pts.npy", grid)
-        np.save(f"Points/neigh_pts.npy", neighbors)
         np.save(f"Points/metric_grid.npy", g_grid)
         np.save(f"Points/chr_sym_grid.npy", Gamma_grid)
