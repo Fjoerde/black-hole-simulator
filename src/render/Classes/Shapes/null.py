@@ -20,6 +20,3 @@ def in_shape(self, pt:Vec): return False
     
 @njit
 def projection(self, pt:Vec): return 0, 0
-
-@njit
-def straight_hit(self, ray_pos:Vec, ray_dir:Vec): return np.inf

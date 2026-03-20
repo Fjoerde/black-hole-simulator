@@ -32,16 +32,3 @@ def projection(self, pt:Vec):
     theta, phi = np.arccos(cp.dot(self.Z)), np.arctan2(cp.dot(self.Y), cp.dot(self.X))
     u, v = theta/np.pi, (phi+np.pi)/(2*np.pi) 
     return u, v
-
-@njit
-def straight_hit(self, ray_pos:Vec, ray_dir:Vec):
-    ray_dir.is_normal()
-    if not self.bb.hit_bb(ray_pos, ray_dir): return np.inf
-
-    oc = self.pos - ray_pos
-    a = ray_dir.dot(ray_dir)
-    b = -2 * ray_dir.dot(oc)
-    c = oc.dot(oc) - self.radius ** 2
-    disc = b**2 - 4*a*c
-    if disc < 0: return np.inf
-    else: return (-b - np.sqrt(disc)) / (2 * a)

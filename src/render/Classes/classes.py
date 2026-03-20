@@ -3,11 +3,9 @@ from numba import float64, int64
 from numba.experimental import jitclass
 from numba.core import types
 from numba.typed import List
-from numba_kdtree import KDTree, KDTreeType
 
 from render.Classes.base import *
 from render.Classes.tags import *
-import render.Classes.GravField.methods as GravMethod
 
 import render.Classes.Shapes.null as ShapeNull
 import render.Classes.Shapes.sphere as Sphere
@@ -20,6 +18,10 @@ import render.Classes.ColFields.checkerboard as Checkerboard
 import render.Classes.Hittables.null as HittableNull
 import render.Classes.Hittables.light as Light
 
+import render.Classes.GravField.minkowski as Minkowski
+import render.Classes.GravField.schwarzschild as Schwarzschild
+import render.Classes.GravField.kerr as Kerr
+
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
@@ -28,7 +30,7 @@ spec_shape = [# For all Shapes
               ("pos", Vec.class_type.instance_type), ("rot", types.Tuple((float64, float64, float64))),
               ("X", Vec.class_type.instance_type), ("Y", Vec.class_type.instance_type), ("Z", Vec.class_type.instance_type),
               ("ray_pos", Vec.class_type.instance_type), ("ray_dir", Vec.class_type.instance_type), ("pt", Vec.class_type.instance_type),
-              ("bb", BoundingBox.class_type.instance_type), ("tag", int64), ("y", float64[:]),
+              ("bb", BoundingBox.class_type.instance_type), ("tag", int64), ("x", float64[:]),
               
               # For Sphere and Cylinder
               ("radius", float64),
@@ -78,17 +80,15 @@ class Shape: # Abstract class of any arbitrary geometric shape, i.e. any subclas
         if self.tag == SHAPE_CYLINDER: return Cylinder.in_shape(self, pt)
         if self.tag == SHAPE_ANNULUS: return Annulus.in_shape(self, pt)
 
-    def in_shape_int(self, y:list) -> float:
+    def in_shape_int(self, x:Vec) -> float:
         """Returns the distance to the closest point on the shape. Negative if the point is in the shape.
 
            Used as an event function for numerical integration."""
-        
-        pos_metric = np.array([y[0], y[1], y[2], y[3]])
-        pos_mink = GravMethod.mink_pos(pos_metric) 
-        pt = Vec(pos_mink[1], pos_mink[2], pos_mink[3])
+
+        pt = Vec(x[1], x[2], x[3])
         close_pt = self.closest_pt(pt)
         dist = (pt - close_pt).length()
-        return np.float64(-dist) if self.in_shape(pt) else np.float64(dist)
+        return -dist if self.in_shape(pt) else dist
 
     def projection(self, pt:Vec) -> tuple[float, float]:
         """Projects the surface of the shape onto a plane.
@@ -101,14 +101,6 @@ class Shape: # Abstract class of any arbitrary geometric shape, i.e. any subclas
         if self.tag == SHAPE_SPHERE: return Sphere.projection(self, pt)
         if self.tag == SHAPE_CYLINDER: return Cylinder.projection(self, pt)
         if self.tag == SHAPE_ANNULUS: return Annulus.projection(self, pt)
-
-    def straight_hit(self, ray_pos, ray_dir) -> float:
-        """Detects the parameter along the light ray path at which it would hit the shape assuming it travels in a straight line."""
-
-        if self.tag == SHAPE_NULL: return ShapeNull.straight_hit(self, ray_pos, ray_dir)
-        if self.tag == SHAPE_SPHERE: return Sphere.straight_hit(self, ray_pos, ray_dir)
-        if self.tag == SHAPE_CYLINDER: return Cylinder.straight_hit(self, ray_pos, ray_dir)
-        if self.tag == SHAPE_ANNULUS: return Annulus.straight_hit(self, ray_pos, ray_dir)
     
 
 # Color Fields
@@ -121,7 +113,7 @@ spec_colfield = [# For any ColField
                  # For Checkerboard
                  ("col1", Vec.class_type.instance_type), ("col2", Vec.class_type.instance_type)]
 @jitclass(spec_colfield)
-class ColField: # Defined on an abstract uv-plane [0,1]^2 that maps onto the surface of the shape
+class ColField: # Defined on an abstract uv-plane [0,1]x[0,1] that maps onto the surface of the shape
     def __init__(self, tag=int,
                  col:Vec=Vec(0,0,0),
                  col1:Vec=Vec(0,0,0), col2:Vec=Vec(0,0,0)):
@@ -144,7 +136,7 @@ spec_hittable = [# For all Hittables
                  # For Light
                  ("col_field", ColField.class_type.instance_type)]
 @jitclass(spec_hittable)
-class Hittable: # Abstract class of hittable objects in a scene
+class Hittable:
     def __init__(self, shape:Shape, tag:int,
                  col_field:ColField=ColField(tag=COLFIELD_CONSTCOL, col=Vec(0,0,0))):
         self.shape = shape
@@ -162,17 +154,146 @@ class Hittable: # Abstract class of hittable objects in a scene
         if self.tag == HITTABLE_LIGHT: return Light.color(self, pt)
 
 
+# Gravitational Fields
+spec_gravfield = [# For all GravFields
+                  ("tag", int64), ("x", float64[:]), ("v", float64[:]), ("V", Vec.class_type.instance_type),
+
+                  # For Schwarzschild and Kerr
+                  ("pos", Vec.class_type.instance_type), ("M", float64),
+
+                  # For Kerr
+                  ("rot", float64[:,:]), ("rot_inv", float64[:,:]),
+                  ("ax", Vec.class_type.instance_type), ("J", float64)]
+@jitclass(spec_gravfield)
+class GravField:
+    def __init__(self, tag:int,
+                 pos:Vec=Vec(0,0,0), M:float=0.,
+                 ax:Vec=Vec(0,0,1), J:float=0.):
+        self.tag = tag
+
+        ax.is_normal()
+        if M < 0 or J < 0: raise ValueError("M and J must be non-negative.")
+        if J > M: raise ValueError("J must be smaller than or equal to M.")
+
+        if self.tag == GRAVFIELD_MINKOWSKI: Minkowski.init(self)
+        if self.tag == GRAVFIELD_SCHWARZSCHILD: Schwarzschild.init(self, pos, M)
+        if self.tag == GRAVFIELD_KERR: Kerr.init(self, pos, M, ax, J)
+    
+    def sample_g(self, x:np.ndarray):
+        """Returns the metric tensor at x."""
+
+        if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.sample_g(self, x)
+        if self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.sample_g(self, x)
+        if self.tag == GRAVFIELD_KERR: return Kerr.sample_g(self, x)
+
+    def sample_Gamma(self, x:np.ndarray):
+        """Returns the Christoffel symbols at x."""
+
+        if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.sample_Gamma(self, x)
+        if self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.sample_Gamma(self, x)
+        if self.tag == GRAVFIELD_KERR: return Kerr.sample_Gamma(self, x)
+    
+    def coord_pos(self, x:np.ndarray):
+        """x: A spacetime event described in Minkowski coordinates (relative to a stationary observer at infinity).
+
+        Performs a coordinate transformation from Minkowski coordinates to that of the gravitational field's metric."""
+
+        if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.coord_pos(self, x)
+        elif self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.coord_pos(self, x)
+        elif self.tag == GRAVFIELD_KERR: return Kerr.coord_pos(self, x)
+        else: return np.zeros(4, dtype=np.float64)
+    
+    def mink_pos(self, x:np.ndarray) -> np.ndarray:
+        """x: A spacetime event described in the coordiantes of the metric (relative to a stationary observer at infinity).
+
+        Performs a coordinate transformation from the gravitational field's metric to Minkowski coordinates."""
+
+        if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.mink_pos(self, x)
+        elif self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.mink_pos(self, x)
+        elif self.tag == GRAVFIELD_KERR: return Kerr.mink_pos(self, x)
+        else: return np.zeros(4, dtype=np.float64)
+    
+    def jacobian(self, x:np.ndarray) -> np.ndarray:
+        """x: A spacetime event described in Minkowski coordinates (relative to a stationary observer at infinity).
+        
+        Returns the Jacobian matrix of the coordinate transformation at x."""
+
+        if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.jacobian(self, x)
+        if self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.jacobian(self, x)
+        if self.tag == GRAVFIELD_KERR: return Kerr.jacobian(self, x)
+
+    def jacobian_inv(self, x:np.ndarray) -> np.ndarray:
+        """x: A spacetime event described in the coordinates of the metric (relative to a stationary observer at infinity).
+        
+        Returns the inverse Jacobian matrix of the coordinate transformation at x."""
+
+        if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.jacobian_inv(self, x)
+        if self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.jacobian_inv(self, x)
+        if self.tag == GRAVFIELD_KERR: return Kerr.jacobian_inv(self, x)
+
+    def coord_vel(self, v:np.ndarray, x:np.ndarray) -> np.ndarray:
+        """v: A contravariant four-vector described in Minkowski coordinates (relative to a stationary observer at infinity).
+
+        x: A spacetime point described in Minkowski coordinates (relative to a stationary observer at infinity).
+
+        Performs a contravariant transformation of v at x from Minkowski coordinates to that of the gravitational field's metric."""
+
+        J = self.jacobian(x); V = np.zeros(4, dtype=np.float64)
+        for i in range(4):
+            for j in range(4): V[i] += J[i,j] * v[j]
+        return V
+    
+    def mink_vel(self, v:np.ndarray, x:np.ndarray) -> np.ndarray:
+        """v: A contravariant four-vector described in metric coordinates (relative to a stationary observer at infinity).
+
+        x: A spacetime point described in metric coordinates (relative to a stationary observer at infinity).
+
+        Performs a contravariant transformation of v at x from metric coordinates to Minkowski coordinates."""
+
+        J = self.jacobian_inv(x); V = np.zeros(4, dtype=np.float64)
+        for i in range(4):
+            for j in range(4): V[i] += J[i,j] * v[j]
+        return V
+    
+    def null_cond(self, V:Vec, x:np.ndarray) -> np.ndarray:
+        """v: A three-vector described in Cartesian coordinates (relative to a stationary observer at infinity).
+
+        x: A spacetime point described in Minkowski coordinates (relative to a stationary observer at infinity).
+    
+        Returns the normed vector (norm=0) at x in metric coordinates whose spatial components are the transformed components of vec."""
+
+        J = self.jacobian(x); g = self.sample_g(self.coord_pos(x))
+        k = np.zeros((4,4))
+        for i in range(4):
+            for j in range(4):
+                for mu in range(4):
+                    for nu in range(4): k[i,j] += g[mu,nu] * J[mu,i] * J[nu,j]
+    
+        v = np.array([0, V.x, V.y, V.z])
+        a = k[0,0]; b = c = 0
+        for i in range(1,4): b += 2 * k[0,i] * v[i]
+        for i in range(1,4):
+            for j in range(4): c += k[i,j] * v[i] * v[j]
+        disc = b**2 - 4*a*c
+        v[0] = min((-b-np.sqrt(disc))/(2*a), (-b+np.sqrt(disc))/(2*a))
+
+        return self.coord_vel(v, x)
+
+    def max_g(self, x) -> float:
+        return np.max(self.sample_g(x))
+
+
 # Render Settings
 default_scene = [Hittable(tag=HITTABLE_NULL,
                  shape=Shape(pos=Vec(0,0,0),rot=(0,0,0),tag=SHAPE_NULL))]
 
 spec_settings = [("w", int64), ("h", int64), ("aspect", float64), ("x", int64), ("y", int64), ("theta", float64), ("phi", float64),
-                 ("pos", float64[:]), ("dir", float64[:]), ("Y", float64[:]),
+                 ("pos", float64[:]), ("dir", float64[:]), ("Y", float64[:]), ("t", float64),
                  ("cam_pos", Vec.class_type.instance_type), ("cam_dir", Vec.class_type.instance_type),
                  ("scene", types.ListType(Hittable.class_type.instance_type)), ("background", float64[:,:,::1]),
-                 ("bg_rad", float64), ("obj", Hittable.class_type.instance_type),
-                 ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type),
-                 ("grid", float64[:,:]), ("g_grid", float64[:,:]), ("Gamma_grid", float64[:,:])]
+                 ("bg_rad", float64), ("grav_field", GravField.class_type.instance_type),
+                 ("obj", Hittable.class_type.instance_type),
+                 ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type)]
 @jitclass(spec_settings)
 class RenderSettings:
     """The settings of the rendered scene. Includes parameters like camera position and angle, scene, background image, etc.
@@ -184,8 +305,7 @@ class RenderSettings:
     def __init__(self, w:int=800, h:int=600, cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), # Width, height of image, position and direction of camera
                  scene:list[Hittable]=default_scene, # List of hittables in the scene
                  background:np.ndarray=np.zeros((1,1,3)), bg_rad:float=100, # Background image (default black)
-                 grid:np.ndarray=np.zeros((1,4), dtype=np.float64), g_grid:np.ndarray=np.array([[-1,0,0,0,1,0,0,1,0,1]], dtype=np.float64),
-                 Gamma_grid:np.ndarray=np.zeros((1,40), dtype=np.float64)):
+                 grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)): # Background gravitational field
         self.w = w
         self.h = h
         self.cam_pos = cam_pos
@@ -193,9 +313,7 @@ class RenderSettings:
         self.scene = List(scene)
         self.background = background
         self.bg_rad = bg_rad
-        self.grid = grid
-        self.g_grid = g_grid
-        self.Gamma_grid = Gamma_grid
+        self.grav_field = grav_field
 
         self.aspect = self.w / self.h
         self.cam_u = self.cam_dir.cross(Vec(0,0,1)).normal() # Need to deal with cam_dir being close to Vec(0,0,1)
@@ -216,9 +334,19 @@ class RenderSettings:
         x, y = int(u*(w-1)), int(v*(h-1)) # Pixel coordinate on the image
         col_array = self.background[y,x]
         return Vec(col_array[0], col_array[1], col_array[2])
+    
+    def geodesic_eq(self, t, y):
+        x, v = y[:4], y[4:]
+        chr_syms = self.grav_field.sample_Gamma(x)
+        A = np.zeros(4)
+        for c in range(4):
+            for a in range(4):
+                for b in range(4):
+                    A[c] -= chr_syms[c,a,b] * v[a] * v[b]
+        return np.array([v[0], v[1], v[2], v[3], A[0], A[1], A[2], A[3]])
 
     def escape(self, Y) -> float: # Event function for when the ray hits the background
         pos_metric = np.array([Y[0], Y[1], Y[2], Y[3]])
-        pos_mink = GravMethod.mink_pos(pos_metric) 
+        pos_mink = self.grav_field.mink_pos(pos_metric) 
         pt = Vec(pos_mink[1], pos_mink[2], pos_mink[3])
         return (pt - self.cam_pos).length() - self.bg_rad

@@ -56,32 +56,3 @@ def projection(self, pt:Vec):
     theta, phi = np.arccos(cp.dot(self.Z)), np.arctan2(cp.dot(self.Y), cp.dot(self.X))
     u, v = theta/np.pi, (phi+np.pi)/(2*np.pi) 
     return u, v
-
-@njit
-def straight_hit(self, ray_pos:Vec, ray_dir:Vec):
-    ray_dir.is_normal()
-    if not self.bb.hit_bb(ray_pos, ray_dir): return np.inf
-
-    top_k, base_k = self.c_top.dot(self.Z), self.c_base.dot(-self.Z)
-    if np.abs(ray_dir.dot(self.Z)) < 1e-10: t_top, t_base = 1e10, 1e10
-    else: t_top, t_base = (top_k-ray_pos.dot(self.Z))/(ray_dir.dot(self.Z)), (base_k-ray_pos.dot(-self.Z))/(ray_dir.dot(-self.Z))
-    hit_top, hit_base = ray_pos+t_top*ray_dir, ray_pos+t_base*ray_dir
-    if (hit_top - self.c_top).length() > self.radius: t_top = np.inf 
-    if (hit_base - self.c_base).length() > self.radius: t_base = np.inf 
-
-    pp = ray_pos - self.pos
-    a = 1 - ray_dir.dot(self.Z)**2
-    b = 2 * (ray_dir.dot(pp) - ray_dir.dot(self.Z)*pp.dot(self.Z))
-    c = pp.length()**2 - pp.dot(self.Z)**2 - self.radius**2
-    disc = b**2 - 4*a*c
-    if disc >= 0:
-        t_side = (-b - np.sqrt(disc)) / (2 * a)
-        hit_side = ray_pos + t_side*ray_dir
-        if np.abs((hit_side - self.pos).dot(self.Z)) > self.height/2: t_side = np.inf
-    else: t_side = np.inf
-
-    all_inf = True
-    for t in [t_top, t_base, t_side]:
-        if t != np.inf: all_inf = False
-    if all_inf: return np.inf
-    else: return min([t_top, t_base, t_side])
