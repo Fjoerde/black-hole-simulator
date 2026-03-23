@@ -16,16 +16,16 @@ scene = [Hittable(tag=HITTABLE_LIGHT,
          shape=Shape(pos=Vec(10,0,0), rot=(np.pi/2,-np.pi/20,0), tag=SHAPE_ANNULUS, r_in=2.5, r_out=5, height=0.1),
          col_field=ColField(tag=COLFIELD_CONSTCOL, col=Vec(1,1,1)))] # Accretion disc
 bg = np.array(Image.open("Images/background2.jpg")) / 255.0
-settings = RenderSettings(w=1920, h=1080, cam_pos=Vec(0,0,0), cam_dir=Vec(1,0,0), scene=scene, 
+settings = RenderSettings(w=1280, h=720, cam_pos=Vec(0,0,0), cam_dir=Vec(1,0,0), scene=scene, 
                           background=bg, bg_rad=20,
-                          grav_field=GravField(tag=GRAVFIELD_KERR, pos=Vec(10,0,0), M=0.5, ax=Vec(0,0,1), J=0.25))
+                          grav_field=GravField(tag=GRAVFIELD_KERRNEWMAN, pos=Vec(10,0,0), M=0.5, ax=Vec(0,0,1), J=0., Q=0.25))
 
 t2 = time.perf_counter()
 print(f"Initialization finished in {t2-t1:.4f} s\n")
 
 print("Rendering...")
 img = render_seq(settings)
-filename = "test16.png"
+filename = "test18.png"
 img.save(f"Images/{filename}") 
     
 t3 = time.perf_counter()

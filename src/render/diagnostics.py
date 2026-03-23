@@ -78,10 +78,40 @@ def plot(path:list, grav_field:GravField):
     plt.tight_layout()
     plt.show()
 
+
+## Functions to be called for diagnosing ##
+
 def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings):
+    """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
+
     ray_dir.is_normal()
     X0 = settings.grav_field.coord_pos(np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
     V0 = settings.grav_field.null_cond(ray_dir, np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
     y0 = np.array([X0[0], X0[1], X0[2], X0[3], V0[0], V0[1], V0[2], V0[3]])
     path = integrator(settings, y0)
     plot(path, settings.grav_field)
+
+def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray:
+    """For verifying that the typed-out Christoffel symbol function is correct. Not used for rendering.
+        
+    x: A spacetime point described in metric coordinates."""
+
+    dg = np.zeros((4,4,4), dtype=np.float64) # dg[k,i,j] is derivative of g[i,j] wrt x[k]
+    for k in range(4):
+        xp = x.copy(); xp[k] += h
+        xm = x.copy(); xm[k] -= h
+        gp = grav_field.sample_g(xp); gm = grav_field.sample_g(xm)
+        dg[k] = (gp - gm) / (2 * h)
+
+    real_Gamma = np.zeros((4,4,4), dtype=np.float64)
+    inv_g = np.linalg.inv(grav_field.sample_g(x))
+    for c in range(4):
+        for a in range(4):
+            for b in range(4):
+                s = 0.
+                for d in range(4):
+                    s += dg[a,b,d] + dg[b,a,d] - dg[d,a,b]
+                real_Gamma[c,a,b] = inv_g[c,d]/2 * s
+        
+    diff = real_Gamma - grav_field.sample_Gamma(x)
+    return diff

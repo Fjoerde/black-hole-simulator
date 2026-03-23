@@ -35,7 +35,8 @@ def integrator(settings:RenderSettings, y0:float, max_t:float=1000,
             if np.abs(d) < 1e-4: return y, "hit object", obj
             dists[i] = d
         if settings.escape(y) > 0: return y, "background", settings.scene[0]
-        if h < 8e-5: return y, "singularity", settings.scene[0]
+        if h < 1e-4:
+            if np.max(settings.grav_field.sample_g(y[:4])) > 200: return y, "singularity", settings.scene[0]
 
         # Adapt step size to how close the point is to any object
         speed = np.linalg.norm(settings.geodesic_eq(t, y))

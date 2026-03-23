@@ -21,6 +21,7 @@ import render.Classes.Hittables.light as Light
 import render.Classes.GravField.minkowski as Minkowski
 import render.Classes.GravField.schwarzschild as Schwarzschild
 import render.Classes.GravField.kerr as Kerr
+import render.Classes.GravField.kerr_newman as KerrNewman
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -157,43 +158,51 @@ class Hittable:
 # Gravitational Fields
 spec_gravfield = [# For all GravFields
                   ("tag", int64), ("x", float64[:]), ("v", float64[:]), ("V", Vec.class_type.instance_type),
+                  ("h", float64),
 
-                  # For Schwarzschild and Kerr
+                  # For Schwarzschild, Kerr, and Kerr-Newman
                   ("pos", Vec.class_type.instance_type), ("M", float64),
 
-                  # For Kerr
+                  # For Kerr and Kerr-Newman
                   ("rot", float64[:,:]), ("rot_inv", float64[:,:]),
-                  ("ax", Vec.class_type.instance_type), ("J", float64)]
+                  ("ax", Vec.class_type.instance_type), ("J", float64),
+                  
+                  # For Kerr-Newman
+                  ("Q", float64)]
 @jitclass(spec_gravfield)
-class GravField:
+class GravField: # In natural units, G = c = 1, epsilon_0 = 1/(4*pi)
     def __init__(self, tag:int,
-                 pos:Vec=Vec(0,0,0), M:float=0.,
-                 ax:Vec=Vec(0,0,1), J:float=0.):
+                 pos:Vec=Vec(0,0,0), M:float=1e-15,
+                 ax:Vec=Vec(0,0,1), J:float=0.,
+                 Q:float=0.):
         self.tag = tag
 
         ax.is_normal()
-        if M < 0 or J < 0: raise ValueError("M and J must be non-negative.")
-        if J > M: raise ValueError("J must be smaller than or equal to M.")
+        if M < 0 or J < 0: raise ValueError("M and J must be non-negative. If J is negative, flip the axis.")
+        if (J/M)**2 + Q**2 > M**2: raise ValueError("Black hole exhibits a naked singularity.")
 
         if self.tag == GRAVFIELD_MINKOWSKI: Minkowski.init(self)
         if self.tag == GRAVFIELD_SCHWARZSCHILD: Schwarzschild.init(self, pos, M)
         if self.tag == GRAVFIELD_KERR: Kerr.init(self, pos, M, ax, J)
+        if self.tag == GRAVFIELD_KERRNEWMAN: KerrNewman.init(self, pos, M, ax, J, Q)
     
-    def sample_g(self, x:np.ndarray):
+    def sample_g(self, x:np.ndarray) -> np.ndarray:
         """Returns the metric tensor at x."""
 
         if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.sample_g(self, x)
         if self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.sample_g(self, x)
         if self.tag == GRAVFIELD_KERR: return Kerr.sample_g(self, x)
+        if self.tag == GRAVFIELD_KERRNEWMAN: return KerrNewman.sample_g(self, x)
 
-    def sample_Gamma(self, x:np.ndarray):
+    def sample_Gamma(self, x:np.ndarray) -> np.ndarray:
         """Returns the Christoffel symbols at x."""
 
         if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.sample_Gamma(self, x)
         if self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.sample_Gamma(self, x)
         if self.tag == GRAVFIELD_KERR: return Kerr.sample_Gamma(self, x)
+        if self.tag == GRAVFIELD_KERRNEWMAN: return KerrNewman.sample_Gamma(self, x)
     
-    def coord_pos(self, x:np.ndarray):
+    def coord_pos(self, x:np.ndarray) -> np.ndarray:
         """x: A spacetime event described in Minkowski coordinates (relative to a stationary observer at infinity).
 
         Performs a coordinate transformation from Minkowski coordinates to that of the gravitational field's metric."""
@@ -201,6 +210,7 @@ class GravField:
         if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.coord_pos(self, x)
         elif self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.coord_pos(self, x)
         elif self.tag == GRAVFIELD_KERR: return Kerr.coord_pos(self, x)
+        elif self.tag == GRAVFIELD_KERRNEWMAN: return KerrNewman.coord_pos(self, x)
         else: return np.zeros(4, dtype=np.float64)
     
     def mink_pos(self, x:np.ndarray) -> np.ndarray:
@@ -211,6 +221,7 @@ class GravField:
         if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.mink_pos(self, x)
         elif self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.mink_pos(self, x)
         elif self.tag == GRAVFIELD_KERR: return Kerr.mink_pos(self, x)
+        elif self.tag == GRAVFIELD_KERRNEWMAN: return KerrNewman.mink_pos(self, x)
         else: return np.zeros(4, dtype=np.float64)
     
     def jacobian(self, x:np.ndarray) -> np.ndarray:
@@ -221,6 +232,7 @@ class GravField:
         if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.jacobian(self, x)
         if self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.jacobian(self, x)
         if self.tag == GRAVFIELD_KERR: return Kerr.jacobian(self, x)
+        if self.tag == GRAVFIELD_KERRNEWMAN: return KerrNewman.jacobian(self, x)
 
     def jacobian_inv(self, x:np.ndarray) -> np.ndarray:
         """x: A spacetime event described in the coordinates of the metric (relative to a stationary observer at infinity).
@@ -230,6 +242,7 @@ class GravField:
         if self.tag == GRAVFIELD_MINKOWSKI: return Minkowski.jacobian_inv(self, x)
         if self.tag == GRAVFIELD_SCHWARZSCHILD: return Schwarzschild.jacobian_inv(self, x)
         if self.tag == GRAVFIELD_KERR: return Kerr.jacobian_inv(self, x)
+        if self.tag == GRAVFIELD_KERRNEWMAN: return KerrNewman.jacobian_inv(self, x)
 
     def coord_vel(self, v:np.ndarray, x:np.ndarray) -> np.ndarray:
         """v: A contravariant four-vector described in Minkowski coordinates (relative to a stationary observer at infinity).
@@ -277,11 +290,8 @@ class GravField:
         disc = b**2 - 4*a*c
         v[0] = min((-b-np.sqrt(disc))/(2*a), (-b+np.sqrt(disc))/(2*a))
 
-        return self.coord_vel(v, x)
-
-    def max_g(self, x) -> float:
-        return np.max(self.sample_g(x))
-
+        return self.coord_vel(v, x)                    
+    
 
 # Render Settings
 default_scene = [Hittable(tag=HITTABLE_NULL,
@@ -335,7 +345,7 @@ class RenderSettings:
         col_array = self.background[y,x]
         return Vec(col_array[0], col_array[1], col_array[2])
     
-    def geodesic_eq(self, t, y):
+    def geodesic_eq(self, _, y):
         x, v = y[:4], y[4:]
         chr_syms = self.grav_field.sample_Gamma(x)
         A = np.zeros(4)
