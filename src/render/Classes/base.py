@@ -41,8 +41,7 @@ def vec_mul(v1, v2):
     elif v1 == Vec.class_type.instance_type and v2 == float64: return lambda v1,v2: Vec(v1.x*v2, v1.y*v2, v1.z*v2)
 
 
-spec_bb = [("min_corner", Vec.class_type.instance_type), ("max_corner", Vec.class_type.instance_type),
-           ("pt", Vec.class_type.instance_type), ("pos", Vec.class_type.instance_type), ("dir", Vec.class_type.instance_type)]
+spec_bb = [("min_corner", Vec.class_type.instance_type), ("max_corner", Vec.class_type.instance_type)]
 @jitclass(spec_bb)
 class BoundingBox:
     def __init__(self, min_corner:Vec, max_corner:Vec):
@@ -56,14 +55,5 @@ class BoundingBox:
         
         min, max = self.min_corner, self.max_corner
         return (min.x < pt.x < max.x) and (min.y < pt.y < max.y) and (min.z < pt.z < max.z)
-    
-    def hit_bb(self, pos:Vec, dir:Vec) -> bool:
-        """Detects if a straight line starting oriented in the direction of dir will hit the bounding box."""
 
-        dir.is_normal()
-        min_np, max_np, pos_np, dir_np = self.min_corner.np_array(), self.max_corner.np_array(), pos.np_array(), dir.np_array()
-        inv_dir = np.where(np.abs(dir_np) > 1e-6, 1./dir_np, np.sign(dir_np)*1e30)
-        t0, t1 = (min_np-pos_np)*inv_dir, (max_np-pos_np)*inv_dir
-        t_enter, t_exit = np.max(np.minimum(t0, t1)), np.min(np.maximum(t0, t1))
-        return (t_enter <= t_exit and t_exit >= 0)
     

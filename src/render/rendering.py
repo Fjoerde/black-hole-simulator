@@ -19,10 +19,10 @@ def rk4_step(t, y, h, settings:RenderSettings): # h is a step size
     return y + (h/6) * (k1 + 2*k2 + 2*k3 + k4)
 
 @njit(fastmath=True)
-def integrator(settings:RenderSettings, y0:float, max_t:float=1000,
+def integrator(settings:RenderSettings, y0:list, t_init:float=0., max_t:float=1000,
                tol:float=1e-8, h_init:float=0.1, safety:float=0.9):
     """Returns the point and the object the light ray hits."""
-    t, y, h = 0., y0, h_init
+    t, y, h = t_init, y0, h_init
     hit_obj, message = settings.scene[0], "singularity"
 
     while t < max_t:

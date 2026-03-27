@@ -30,8 +30,7 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 spec_shape = [# For all Shapes
               ("pos", Vec.class_type.instance_type), ("rot", types.Tuple((float64, float64, float64))),
               ("X", Vec.class_type.instance_type), ("Y", Vec.class_type.instance_type), ("Z", Vec.class_type.instance_type),
-              ("ray_pos", Vec.class_type.instance_type), ("ray_dir", Vec.class_type.instance_type), ("pt", Vec.class_type.instance_type),
-              ("bb", BoundingBox.class_type.instance_type), ("tag", int64), ("x", float64[:]),
+              ("bb", BoundingBox.class_type.instance_type), ("tag", int64),
               
               # For Sphere and Cylinder
               ("radius", float64),
@@ -42,7 +41,7 @@ spec_shape = [# For all Shapes
               # For Annulus
               ("r_in", float64), ("r_out", float64)]
 @jitclass(spec_shape)
-class Shape: # Abstract class of any arbitrary geometric shape, i.e. any subclass of Shape must contain the following methods
+class Shape:
     def __init__(self, pos:Vec, rot:tuple[float,float,float], tag:int, # Rotation is represented by the three Euler angles
                  radius:float=0, height:float=0, r_in:float=0, r_out:float=0): 
         self.pos = pos
@@ -132,7 +131,7 @@ class ColField: # Defined on an abstract uv-plane [0,1]x[0,1] that maps onto the
 
 # Hittables
 spec_hittable = [# For all Hittables
-                 ("shape", Shape.class_type.instance_type), ("tag", int64), ("pt", Vec.class_type.instance_type),
+                 ("shape", Shape.class_type.instance_type), ("tag", int64),
 
                  # For Light
                  ("col_field", ColField.class_type.instance_type)]
@@ -157,15 +156,13 @@ class Hittable:
 
 # Gravitational Fields
 spec_gravfield = [# For all GravFields
-                  ("tag", int64), ("x", float64[:]), ("v", float64[:]), ("V", Vec.class_type.instance_type),
-                  ("h", float64),
+                  ("tag", int64),
 
                   # For Schwarzschild, Kerr, and Kerr-Newman
                   ("pos", Vec.class_type.instance_type), ("M", float64),
 
                   # For Kerr and Kerr-Newman
-                  ("rot", float64[:,:]), ("rot_inv", float64[:,:]),
-                  ("ax", Vec.class_type.instance_type), ("J", float64),
+                  ("rot", float64[:,:]), ("rot_inv", float64[:,:]), ("J", float64),
                   
                   # For Kerr-Newman
                   ("Q", float64)]
@@ -297,13 +294,11 @@ class GravField: # In natural units, G = c = 1, epsilon_0 = 1/(4*pi)
 default_scene = [Hittable(tag=HITTABLE_NULL,
                  shape=Shape(pos=Vec(0,0,0),rot=(0,0,0),tag=SHAPE_NULL))]
 
-spec_settings = [("w", int64), ("h", int64), ("aspect", float64), ("x", int64), ("y", int64), ("theta", float64), ("phi", float64),
-                 ("pos", float64[:]), ("dir", float64[:]), ("Y", float64[:]), ("t", float64),
+spec_settings = [("w", int64), ("h", int64), ("aspect", float64),
                  ("cam_pos", Vec.class_type.instance_type), ("cam_dir", Vec.class_type.instance_type),
+                 ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type),
                  ("scene", types.ListType(Hittable.class_type.instance_type)), ("background", float64[:,:,::1]),
-                 ("bg_rad", float64), ("grav_field", GravField.class_type.instance_type),
-                 ("obj", Hittable.class_type.instance_type),
-                 ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type)]
+                 ("bg_rad", float64), ("grav_field", GravField.class_type.instance_type)]
 @jitclass(spec_settings)
 class RenderSettings:
     """The settings of the rendered scene. Includes parameters like camera position and angle, scene, background image, etc.
