@@ -5,105 +5,95 @@ from numba_progress import ProgressBar
 
 from render.Classes.base import *
 from render.Classes.tags import *
-from render.Classes.classes import RenderSettings
+from render.Classes.classes import *
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 @njit(fastmath=True)
-def rk4_step(t, y, h, settings:RenderSettings): # h is a step size
-    k1 = settings.geodesic_eq(t, y)
-    k2 = settings.geodesic_eq(t+h/2, y+h*k1/2)
-    k3 = settings.geodesic_eq(t+h/2, y+h*k2/2)
-    k4 = settings.geodesic_eq(t+h, y+h*k3)
-    return y + (h/6) * (k1 + 2*k2 + 2*k3 + k4)
+def trace(integrator:Integrator, y0:np.ndarray, bg_rad:float) -> np.ndarray:
+    """Returns a null geodesic representing the path of a light ray that ends up at the camera, given over regular intervals.
+    Path given in Minkowski coordinates.
+    
+    y0: The initial state vector used to perform ray-marching.
+    
+    bg_rad: The radius of the background box."""
+    
+    if integrator.tag != INTEGRATOR_GEODESICEQ: raise ValueError("Invalid tag for integrator.")
+    geodesic = integrator.solve(0, y0, h_init=bg_rad/50, max_t=bg_rad*5)
+    length = np.max(geodesic.grid.pts)
+    grid = Grid(Patch(np.linspace(0, length, 101)))
+    geodesic = geodesic.resample(grid)
+    vals = np.empty((len(grid.pts), 8), dtype=np.float64)
+    for i in range(len(grid.pts)):
+        vals[i,:4] = integrator.grav_field.mink_pos(geodesic.vals[i,:4])
+        vals[i,4:] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:8]) * length
+    return np.flipud(vals)
 
-@njit(fastmath=True)
-def integrator(settings:RenderSettings, y0:list, t_init:float=0., max_t:float=1000,
-               tol:float=1e-8, h_init:float=0.1, safety:float=0.9):
-    """Returns the point and the object the light ray hits."""
-    t, y, h = t_init, y0, h_init
-    hit_obj, message = settings.scene[0], "singularity"
+@njit(parallel=True, fastmath=True)
+def get_geodesics(settings:RenderSettings, pbar:ProgressBar) -> np.ndarray: 
+    """Returns the paths of the light ray over each pixel in the image."""
 
-    while t < max_t:
-
-        # Check for any hits
-        dists = np.empty(len(settings.scene), dtype=np.float64)
-        for i in range(len(settings.scene)): # If the distance of closest approach is < 1e-4 or already inside
-            obj = settings.scene[i]
-            d = obj.shape.in_shape_int(settings.grav_field.mink_pos(y[:4]))
-            if np.abs(d) < 1e-4: return y, "hit object", obj
-            dists[i] = d
-        if settings.escape(y) > 0: return y, "background", settings.scene[0]
-        if h < 1e-4:
-            if np.max(settings.grav_field.sample_g(y[:4])) > 200: return y, "singularity", settings.scene[0]
-
-        # Adapt step size to how close the point is to any object
-        speed = np.linalg.norm(settings.geodesic_eq(t, y))
-        min_dist = min(dists)
-        h = min(h, 1.25*min_dist/speed)
-        if t + h > max_t: h = max_t - t # Prevents overstepping
-
-        # Perform integration
-        y_coarse = rk4_step(t, y, h, settings) # Coarse step
-        y_mid = rk4_step(t, y, h/2, settings)
-        y_fine = rk4_step(t+h/2, y_mid, h/2, settings) # Fine step made of 2 substeps
-        # Error estimate
-        error = np.max(np.abs(y_coarse - y_fine)) / 15
-        if error <= tol:
-            t += h
-            y = y_fine
-            if error < 1e-15 : h *= safety * 5.
-            else:
-                factor = (tol / error) ** (1/5)
-                if factor < 0.1: h *= safety * 0.1
-                elif 0.1 < factor < 5.0: h *= safety * factor
-                else: h *= safety * 5.
-        else: # Reject solution and reduce step size
-            factor = (tol / error) ** (1/5)
-            if factor > 0.1: h *= safety * factor
-            else: h *= safety * 0.1
-
-    return y, message, hit_obj
-
-@njit
-def trace(pos:Vec, dir:Vec, settings:RenderSettings) -> Vec: # Returns color the light ray starting from pos in dir 'sees'
-    dir.is_normal()
-    col = Vec(0,0,0)
-    X0 = settings.grav_field.coord_pos(np.array([0, pos.x, pos.y, pos.z]))
-    V0 = settings.grav_field.null_cond(dir, np.array([0, pos.x, pos.y, pos.z]))
-
-    y0 = np.array([X0[0], X0[1], X0[2], X0[3], V0[0], V0[1], V0[2], V0[3]])
-    hit_pt, message, obj = integrator(settings, y0,
-                                      max_t=settings.bg_rad*5, h_init=settings.bg_rad/100)
-    # Calculate hit point
-    hit_pt = settings.grav_field.mink_pos(np.array([hit_pt[0], hit_pt[1], hit_pt[2], hit_pt[3]]))
-    hit_pt = Vec(hit_pt[1], hit_pt[2], hit_pt[3])
-
-    if message == "background": # If light ray escapes, i.e. hits background
-        cp = (hit_pt - settings.cam_pos).normal()
-        theta, phi = np.arccos(cp.z), np.arctan2(cp.y, cp.x)
-        col = settings.sample_bg(theta, phi)
-    elif message == "singularity": col = Vec(0,0,0) # If light ray hits a singularity return a black color
-    elif message == "hit object": col = obj.color(hit_pt) # If it hits something
-        
-    return col
-
-@njit(parallel=True, nogil=True)
-def first_render(settings:RenderSettings, pbar:ProgressBar): # First render
-    settings.cam_dir.is_normal()
-    img = np.zeros((settings.h, settings.w, 3), dtype=np.float32)
+    integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene, cam_pos=settings.cam_pos)
+    geodesics = np.empty((settings.w*settings.h, 101, 8))
+    x0 = np.array([0, settings.cam_pos.x, settings.cam_pos.y, settings.cam_pos.z])
+    X0 = settings.grav_field.coord_pos(x0)
 
     for i in prange(settings.w * settings.h):
         x, y = i//settings.h, i%settings.h
         ray_dir = settings.ray_dir_px(x, y)
-        col = trace(settings.cam_pos, ray_dir, settings)
-        img[y,x] = np.clip(col.np_array(), 0, 1) # Raise to the power of 1/2.2 if human perception of color is to be accounted for
+        V0 = settings.grav_field.null_cond(ray_dir, x0)
+        y0 = np.concatenate((X0, V0, [0]))
+        geodesics[i] = trace(integrator, y0, settings.bg_rad)
+        pbar.update(1)
+    return geodesics
+
+@njit(parallel=True, fastmath=True)
+def get_colors(geodesics:np.ndarray, settings:RenderSettings, pbar:ProgressBar) -> np.ndarray:
+    """Returns the spectral intensity values over a given grid over each pixel in the image.
+    
+    geodesics: Shape (n_px, 101, 8) storing the positions on and tangent vector to the geodesic (hence 8),
+    along 101 different points on the geodesic, for each pixel."""
+
+    n_px = settings.w * settings.h
+    grid = settings.col_converter.grid
+    vels = settings.gas.vel.interp(geodesics[:,:,:4].reshape(n_px*101, 4)).reshape(n_px, 101, 4)
+    temps = settings.gas.temp.interp(geodesics[:,:,:4].reshape(n_px*101, 4)).reshape(n_px, 101)
+    ext_coeffs = settings.gas.ext_coeff.interp(geodesics[:,:,:4].reshape(n_px*101, 4)).reshape(n_px, 101)
+    grid0 = Grid(Patch([np.linspace(0, 1, 101)]))
+    x0 = np.array([0, settings.cam_pos.x, settings.cam_pos.y, settings.cam_pos.z])
+    obs_vel = settings.grav_field.timelike_cond(settings.cam_vel, x0)
+    img = np.empty((n_px, 3), dtype=np.float64)
+
+    for i in prange(n_px):
+        spec_int0 = np.zeros(len(grid.pts), dtype=np.float64)
+        x0 = geodesics[i,0,:4]; pos = Vec(x0[1], x0[2], x0[3])
+        if (pos - settings.cam_pos).length() >= settings.bg_rad: # If light ray hits the background
+            theta = np.acos(pos.z / pos.length()); phi = np.atan2(pos.y, pos.x)
+            spec_int0 = settings.col_converter.get_spec_int(settings.sample_bg(theta, phi)).vals
+        else: # Find which object the light ray hits
+            for obj in settings.scene:
+                if obj.shape.on_surface(pos):
+                    spec_int0 = obj.spec_int.vals
+                    break
+        gas = Gas(vel=Function(grid0, vels[i]), temp=Function(grid0, temps[i]), ext_coeff=Function(grid0, ext_coeffs[i]))
+        integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=grid, geodesic=Function(grid0, geodesics[i]),
+                                gas=gas, grav_field=settings.grav_field, obs_vel=obs_vel)
+        spec_int = integrator.solve(0, spec_int0, h_init=0.02, max_t=1, tol=1e-3).vals[-1]
+        ray_dir = -geodesics[i,-1,4:]; ray_dir = Vec(ray_dir[1], ray_dir[2], ray_dir[3]) # Recover initial ray direction
+        spec_int /= settings.aberration(ray_dir) # Relativistic aberration
+        img[i] = settings.col_converter.get_rgb(Function(grid, spec_int)) * 255.
         pbar.update(1)
 
-    return (img*255).astype(np.uint8)
+    return img
 
-def render_seq(settings:RenderSettings):
+
+def render_seq(settings:RenderSettings) -> Image:
+    print("Calculating geodesics...")
     with ProgressBar(total=settings.w*settings.h) as pbar:
-        img = first_render(settings, pbar)
-    return Image.fromarray(img)
+        geodesics = get_geodesics(settings, pbar)
+    print("Calculating colors...")
+    with ProgressBar(total=settings.w*settings.h) as pbar:
+        img = get_colors(geodesics, settings, pbar)
+    img = img.reshape(settings.w, settings.h, 3)
+    return Image.fromarray(img.astype(np.uint8))

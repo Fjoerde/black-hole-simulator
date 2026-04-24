@@ -1,71 +1,29 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from itertools import product
+from PIL import Image
 
 from render.Classes.base import *
-from render.Classes.classes import GravField, RenderSettings
+from render.Classes.tags import *
+from render.Classes.classes import def_cc, Integrator, GravField, RenderSettings
 
-# Copied functions from rendering.py but without @njit decorator
+def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings):
+    """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
 
-def rk4_step(t, y, h, settings:RenderSettings):
-    k1 = settings.geodesic_eq(t, y)
-    k2 = settings.geodesic_eq(t+h/2, y+h*k1/2)
-    k3 = settings.geodesic_eq(t+h/2, y+h*k2/2)
-    k4 = settings.geodesic_eq(t+h, y+h*k3)
-    return y + (h/6) * (k1 + 2*k2 + 2*k3 + k4)
-
-def integrator(settings:RenderSettings, y0:float, max_t:float=1000,
-               tol:float=1e-8, h_init:float=0.1, safety:float=0.9):
-    """Returns the point and the object the light ray hits."""
-    t, y, h = 0., y0, h_init
-    path = [y0]
-
-    while t < max_t:
-        
-        # Check for any hits
-        dists = np.empty(len(settings.scene), dtype=np.float64)
-        for i in range(len(settings.scene)): # If the distance of closest approach is < 1e-4 or already inside
-            obj = settings.scene[i]
-            d = obj.shape.in_shape_int(settings.grav_field.mink_pos(y[:4]))
-            if np.abs(d) < 1e-4: return path
-            dists[i] = d
-        if settings.escape(y) > 0: return path
-        if h < 1e-4: return path
-
-        # Adapt step size to how close the point is to any object
-        speed = np.linalg.norm(settings.geodesic_eq(t, y))
-        min_dist = min(dists)
-        h = min(h, 1.25*min_dist/speed)
-        if t + h > max_t: h = max_t - t # Prevents overstepping
-
-        # Perform integration
-        y_coarse = rk4_step(t, y, h, settings) # Coarse step
-        y_mid = rk4_step(t, y, h/2, settings)
-        y_fine = rk4_step(t+h/2, y_mid, h/2, settings) # Fine step made of 2 substeps
-        # Error estimate
-        error = np.max(np.abs(y_coarse - y_fine)) / 15
-        if error <= tol:
-            t += h
-            y = y_fine
-            path.append(y)
-            if error < 1e-15 : h *= safety * 5.
-            else:
-                factor = (tol / error) ** (1/5)
-                if factor < 0.1: h *= safety * 0.1
-                elif 0.1 < factor < 5.0: h *= safety * factor
-                else: h *= safety * 5.
-        else: # Reject solution and reduce step size
-            factor = (tol / error) ** (1/5)
-            if factor > 0.1: h *= safety * factor
-            else: h *= safety * 0.1
-
-    return path
-
-def plot(path:list, grav_field:GravField):
+    print("hi")
+    ray_dir.is_normal()
+    X0 = settings.grav_field.coord_pos(np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
+    V0 = settings.grav_field.null_cond(ray_dir, np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
+    y0 = np.concatenate((X0, V0, [0]))
+    integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene, cam_pos=settings.cam_pos, gas=settings.gas)
+    print("hi2")
+    geodesic = integrator.solve(0, y0, h_init=settings.bg_rad/50, max_t=settings.bg_rad*5)
+    print("hi3")
+    # Plot
     x_plot, y_plot, z_plot = [], [], []
-    for i in range(len(path)):
-        mink_x = grav_field.mink_pos(path[i][:4])
+    for i in range(len(geodesic.grid.pts)):
+        mink_x = settings.grav_field.mink_pos(geodesic.grid.vals[i][:4])
         x_plot.append(mink_x[1]); y_plot.append(mink_x[2]); z_plot.append(mink_x[3])
-
     fig = plt.figure()
     ax = plt.axes(projection="3d")
     ax.plot3D(x_plot, y_plot, z_plot, color="tab:olive")
@@ -74,22 +32,8 @@ def plot(path:list, grav_field:GravField):
     ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
     ax.grid(False)
     ax.set_title("Light Ray")
-
     plt.tight_layout()
     plt.show()
-
-
-## Functions to be called for diagnosing ##
-
-def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings):
-    """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
-
-    ray_dir.is_normal()
-    X0 = settings.grav_field.coord_pos(np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
-    V0 = settings.grav_field.null_cond(ray_dir, np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
-    y0 = np.array([X0[0], X0[1], X0[2], X0[3], V0[0], V0[1], V0[2], V0[3]])
-    path = integrator(settings, y0)
-    plot(path, settings.grav_field)
 
 def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray:
     """For verifying that the typed-out Christoffel symbol function is correct. Not used for rendering.
@@ -102,7 +46,6 @@ def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray
         xm = x.copy(); xm[k] -= h
         gp = grav_field.sample_g(xp); gm = grav_field.sample_g(xm)
         dg[k] = (gp - gm) / (2 * h)
-
     real_Gamma = np.zeros((4,4,4), dtype=np.float64)
     inv_g = np.linalg.inv(grav_field.sample_g(x))
     for c in range(4):
@@ -111,7 +54,80 @@ def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray
                 s = 0.
                 for d in range(4):
                     s += dg[a,b,d] + dg[b,a,d] - dg[d,a,b]
-                real_Gamma[c,a,b] = inv_g[c,d]/2 * s
-        
+                real_Gamma[c,a,b] = inv_g[c,d]/2 * s    
     diff = real_Gamma - grav_field.sample_Gamma(x)
     return diff
+
+def plot_func(func, min:np.ndarray, max:np.ndarray):
+    """Plot a function."""
+
+    if func.dim not in [1,2]: raise ValueError("Function must only depend on 1 or 2 variables.")
+    if func.entries != 1: raise ValueError("Function must only have 1 entry.")
+    if not (min.shape[0] == max.shape[0] == func.dim): raise ValueError("Invalid shape for min and max.")
+
+    if func.dim == 1:
+        xx = np.linspace(min[0], max[0], 1000)
+        plt.plot(xx, func.interp(xx.reshape(xx.shape[0], 1)), label="Function")
+        plt.xlabel("x"); plt.ylabel("y")
+        plt.legend()
+        plt.show()
+    else:
+        X = np.linspace(min[0], max[0], 250); Y = np.linspace(min[1], max[1], 250)
+        xx, yy = np.meshgrid(X, Y); zz = func.interp(Patch([X,Y]).pts).reshape(250, 250)
+        fig = plt.figure()
+        ax = plt.axes(projection="3d")
+        ax.plot_surface(xx, yy, zz, cmap="YlOrRd", label="Function")
+        ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+def test_func(func:Function, ref, min:np.ndarray, max:np.ndarray):
+    """Test the accuracy of a function given by its approximation (func) with its actual expression (ref).
+    For a 1D function, plot both the reference and the interpolated functions.
+    For a 2D function, plot the absolute difference between both."""
+    
+    if func.dim not in [1,2]: raise ValueError("Function must only depend on 1 or 2 variables.")
+    if func.entries != 1: raise ValueError("Function must only have 1 entry.")
+    if not (min.shape[0] == max.shape[0] == func.dim): raise ValueError("Invalid shape for min and max.")
+    if not callable(ref): raise ValueError("ref must be a callable.")
+
+    if func.dim == 1:
+        xx = np.linspace(min[0], max[0], 1000)
+        plt.plot(xx, ref(xx), label="Reference")
+        plt.plot(xx, func.interp(xx.reshape(xx.shape[0], 1)), label="Interpolated")
+        plt.xlabel("x"); plt.ylabel("y")
+        plt.legend()
+        plt.show()
+    else:
+        X = np.linspace(min[0], max[0], 250); Y = np.linspace(min[1], max[1], 250)
+        xx, yy = np.meshgrid(X, Y); zz_ref = ref(xx, yy)
+        zz_interp = func.interp(Patch([X,Y]).pts).reshape(250, 250)
+        diff = np.abs(zz_ref - zz_interp)
+
+        fig = plt.figure()
+        ax = plt.axes(projection="3d")
+        ax.plot_surface(xx, yy, diff, cmap="YlOrRd", label="Difference")
+        ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+def look_col(spec_int:Function, col_converter:ColConverter=def_cc):
+    rgb = col_converter.get_rgb(spec_int)
+    img = np.empty((100, 100, 3))
+    for i,j in product(range(100), range(100)): img[i,j] = rgb * 255
+    img = Image.fromarray(img.astype(np.uint8))
+    img.show()
+    return rgb
+
+def look_specint(col:np.ndarray, col_converter:ColConverter=def_cc, lux:float=-1.):
+    spec_int = col_converter.get_spec_int(col, lux)
+    min, max = np.min(spec_int.grid.pts), np.max(spec_int.grid.pts)
+    xx = np.linspace(min, max, 1000)
+    plt.plot(xx, spec_int.interp(xx.reshape(xx.shape[0], 1)), label="Spectral Intensity")
+    plt.xlabel(r"$\lambda~/~\mathrm{nm}$"); plt.ylabel(r"$I_{\lambda}~/~\mathrm{W~m^{-2}~nm^{-1}}$")
+    plt.legend()
+    plt.show()
+    return spec_int
+

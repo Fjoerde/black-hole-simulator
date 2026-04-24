@@ -6,11 +6,7 @@ import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 @njit
-def bounding_box(self): return BoundingBox(Vec(np.inf,np.inf,np.inf), Vec(np.inf,np.inf,np.inf))
-
-@njit
-def init(self):
-    self.bb = bounding_box(self)
+def init(self): pass
 
 @njit
 def closest_pt(self, pt:Vec): return Vec(np.inf,np.inf,np.inf)

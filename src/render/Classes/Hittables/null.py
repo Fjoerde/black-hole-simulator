@@ -5,4 +5,4 @@ from render.Classes.base import *
 def init(self): pass
 
 @njit
-def color(self, pt): return Vec(0,0,0)
+def spec_int(self, pt): return Function()

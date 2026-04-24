@@ -6,16 +6,9 @@ import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 @njit
-def bounding_box(self):
-    min = self.pos - self.radius*Vec(1,1,1)
-    max = self.pos + self.radius*Vec(1,1,1)
-    return BoundingBox(min, max)
-
-@njit
 def init(self, radius:float):
     self.radius = radius
     if self.radius <= 0: raise ValueError("Sphere has non-positive radius.")
-    self.bb = bounding_box(self)
 
 @njit
 def closest_pt(self, pt:Vec):
