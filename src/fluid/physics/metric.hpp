@@ -2,7 +2,6 @@
 #include <cmath>
 #include <vector>
 #include <array>
-#include <iostream>
 
 // this document holds the metric class and components struct.
 // it contains the basic function headers for metric components,
@@ -23,7 +22,6 @@ struct metriccomp {
 
 class metric {
 public:
-
     // black hole parameters
     double M; // mass
     double a; // spin
