@@ -29,7 +29,7 @@ public:
 
     metric(double M, double a, double Q): M(M), a(a), Q(Q) {};
 
-    metriccomp comp(double r, double th); // compute metric at given coordinates, only requiring r and \theta
+    metriccomp comp(double r, double th) const; // compute metric at given coordinates, only requiring r and \theta
 
     // metric component functions
     void gcova(double r, double th, double g[4][4]) const;

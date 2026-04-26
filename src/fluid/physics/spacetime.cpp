@@ -117,3 +117,18 @@ void metric::smgaminv(double g_inv[4][4], double gam_inv[3][3]) const {
 void metric::smgamdet(double alpha, double sqrtdetg, double sqrtdetgam) const {
     sqrtdetgam = alpha*sqrtdetg;
 }
+
+// assign expressions to metriccomp struct
+metriccomp metric::comp(double r, double th) const {
+    metriccomp mc;
+    gcova(r,th,mc.g);
+    gcntr(r,th,mc.g_inv);
+    gdet(a,r,th,mc.sqrtdetg);
+    christ(M,a,Q,r,th,mc.g_inv,mc.Gamma);
+    lapse(H(r,th),r,th,mc.alpha);
+    shift(mc.g_inv,r,th,mc.beta);
+    smgam(mc.g, mc.gam);
+    smgaminv(mc.g_inv,mc.gam_inv);
+    smgamdet(mc.alpha,mc.sqrtdetg,mc.sqrtdetgam);
+    return mc;
+}
