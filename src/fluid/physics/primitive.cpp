@@ -39,9 +39,9 @@ double primitive::bsq(double B[3], double v[3], const metriccomp mc) const {
 }
 
 // compute rest of the primitive variables
-primvar primitive::comp(double rho, double eps, double v[3], double B[3], double r, double th) const {
+prim primitive::comp(double rho, double eps, double v[3], double B[3], double r, double th) const {
     const metriccomp mc = mtr.comp(r,th);
-    primvar pv;
+    prim pv;
 
     pv.rho = rho;
     pv.eps = eps;

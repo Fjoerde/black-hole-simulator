@@ -46,7 +46,7 @@ public:
     void smgaminv(double g_inv[4][4], double gam_inv[3][3]) const;
     void smgamdet(double alpha, double sqrtdetg, double sqrtdetgam) const;
 
-    private:
+private:
     double Sigma(double r, double th) const;
     double H(double r, double th) const;
 };
