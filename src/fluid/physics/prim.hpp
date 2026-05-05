@@ -11,7 +11,7 @@
 // variable vector \mathbf{W}. several important primitive quantities
 // are derived from the metric and equation of state.
 
-struct primvar {
+struct prim {
     // primitive variables
     double rho; // rest mass density
     double eps; // specific internal energy
@@ -33,7 +33,7 @@ public:
     primitive(const metric& m, const state& s) : mtr(m), st(s) {};
 
     // compute quantities
-    primvar comp(double rho, double eps, double v[3], double B[3], double r, double th) const;
+    prim comp(double rho, double eps, double v[3], double B[3], double r, double th) const;
     double lorentz(double v[3], const metriccomp mc) const;
     double bsq(double B[3], double v[3], const metriccomp mc) const;    
 };
