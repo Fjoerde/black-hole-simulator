@@ -9,8 +9,12 @@ def init(self, pos, M):
 @njit
 def sample_g(self, x):
     t, r, theta, phi = x
-    g = np.diag(np.array([-(1-2*self.M/r), 1/(1-2*self.M/r), r**2, r**2*np.sin(theta)**2], dtype=np.float64))
-    return g
+    g = np.zeros((4,4), dtype=np.float64)
+    g[0,0] = -(1-2*self.M/r)
+    g[1,1] = 1/(1-2*self.M/r)
+    g[2,2] = r**2
+    g[3,3] = r**2*np.sin(theta)**2
+    return np.ascontiguousarray(g)
 
 @njit
 def sample_Gamma(self, x):
@@ -21,7 +25,7 @@ def sample_Gamma(self, x):
     Gamma[2,1,2] = Gamma[2,2,1] = Gamma[3,1,3] = Gamma[3,3,1] = 1/r
     Gamma[2,3,3] = -np.sin(theta)*np.cos(theta)
     Gamma[3,2,3] = Gamma[3,3,2] = 1/np.tan(theta)
-    return Gamma
+    return np.ascontiguousarray(Gamma)
 
 @njit
 def coord_pos(self, x):
@@ -32,7 +36,7 @@ def coord_pos(self, x):
     out[1] = r = np.sqrt((X-self.pos.x)**2 + (Y-self.pos.y)**2 + (Z-self.pos.z)**2)
     out[2] = np.acos((Z-self.pos.z) / r)
     out[3] = np.atan2(Y-self.pos.y, X-self.pos.x)
-    return out
+    return np.ascontiguousarray(out)
 
 @njit
 def mink_pos(self, x):
@@ -43,7 +47,7 @@ def mink_pos(self, x):
     out[1] = R * np.sin(THETA) * np.cos(PHI)
     out[2] = R * np.sin(THETA) * np.sin(PHI)
     out[3] = R * np.cos(THETA)
-    return out
+    return np.ascontiguousarray(out)
 
 @njit
 def jacobian(self, x):
@@ -54,7 +58,7 @@ def jacobian(self, x):
     J[2,1:3] = np.array([X-self.pos.x, Y-self.pos.y]) * (Z-self.pos.z)/(np.sqrt((X-self.pos.x)**2 + (Y-self.pos.y)**2)*((X-self.pos.x)**2 + (Y-self.pos.y)**2 + (Z-self.pos.z)**2))
     J[2,3] = -np.sqrt((X-self.pos.x)**2 + (Y-self.pos.y)**2)/((X-self.pos.x)**2 + (Y-self.pos.y)**2 + (Z-self.pos.z)**2)
     J[3] = np.array([0, -(Y-self.pos.y), X-self.pos.x, 0]) / ((X-self.pos.x)**2 + (Y-self.pos.y)**2)
-    return J
+    return np.ascontiguousarray(J)
 
 @njit
 def jacobian_inv(self, x):
@@ -64,4 +68,4 @@ def jacobian_inv(self, x):
     J[1] = np.array([0, np.sin(THETA)*np.cos(PHI), R*np.cos(THETA)*np.cos(PHI), -R*np.sin(THETA)*np.sin(PHI)])
     J[2] = np.array([0, np.sin(THETA)*np.sin(PHI), R*np.cos(THETA)*np.sin(PHI), R*np.sin(THETA)*np.cos(PHI)])
     J[3] = np.array([0, np.cos(THETA), -R*np.sin(THETA), 0])
-    return J
+    return np.ascontiguousarray(J)

@@ -3,9 +3,8 @@ from numba import njit
 @njit
 def init(self, col1, col2, n, col_converter):
     self.n = n
-    self.spec_int1 = self.col_converter.get_spec_int(col1)
-    self.spec_int2 = self.col_converter.get_spec_int(col2)
-    self.col_converter = col_converter
+    self.spec_int1 = col_converter.get_spec_int(col1)
+    self.spec_int2 = col_converter.get_spec_int(col2)
 
 @njit
 def spec_int(self, pt):

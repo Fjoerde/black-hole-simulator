@@ -2,42 +2,25 @@ import numpy as np
 from numba import njit
 
 @njit
-def matmul(A:np.ndarray, B:np.ndarray) -> np.ndarray: 
-    m, n = A.shape
-    p = B.shape[1]
-    C = np.zeros((m,p))
-    for i in range(m):
-        for j in range(p):
-            for k in range(n): C[i,j] += A[i,k] * B[k,j]
-    return C
-
-@njit
-def matvec(A:np.ndarray, b:np.ndarray) -> np.ndarray:
-    m, n = A.shape
-    C = np.zeros(m)
-    for i in range(m):
-        for j in range(n): C[i] += A[i,j] * b[j]
-    return C
-
-@njit
 def init(self, pos, M, ax, J):
     self.pos = pos
     self.M = M
     self.J = J
 
     theta, phi = np.acos(ax.z), np.atan2(ax.y, ax.x)
-    self.rot = np.zeros((4,4), dtype=np.float64)
-    self.rot[0,0] = 1
-    self.rot[1,1] = np.cos(theta)*np.cos(phi)
-    self.rot[1,2] = np.cos(theta)*np.sin(phi)
-    self.rot[1,3] = -np.sin(theta)
-    self.rot[2,1] = -np.sin(phi)
-    self.rot[2,2] = np.cos(phi)
-    self.rot[3,1] = np.sin(theta)*np.cos(phi)
-    self.rot[3,2] = np.sin(theta)*np.sin(phi)
-    self.rot[3,3] = np.cos(theta)
+    rot = np.zeros((4,4), dtype=np.float64)
+    rot[0,0] = 1
+    rot[1,1] = np.cos(theta)*np.cos(phi)
+    rot[1,2] = np.cos(theta)*np.sin(phi)
+    rot[1,3] = -np.sin(theta)
+    rot[2,1] = -np.sin(phi)
+    rot[2,2] = np.cos(phi)
+    rot[3,1] = np.sin(theta)*np.cos(phi)
+    rot[3,2] = np.sin(theta)*np.sin(phi)
+    rot[3,3] = np.cos(theta)
 
-    self.rot_inv = np.linalg.inv(self.rot)
+    self.rot = np.ascontiguousarray(rot)
+    self.rot_inv = np.ascontiguousarray(np.linalg.inv(self.rot))
 
 @njit
 def sample_g(self, x):
@@ -51,7 +34,7 @@ def sample_g(self, x):
     g[1,1] = rho/delta
     g[2,2] = rho
     g[3,3] = (r**2+a**2+2*self.M*a**2*r*np.sin(theta)**2/rho)*np.sin(theta)**2
-    return g
+    return np.ascontiguousarray(g)
 
 @njit
 def sample_Gamma(self, x):
@@ -81,13 +64,14 @@ def sample_Gamma(self, x):
     Gamma[3,1,3] = Gamma[3,3,1] = (r*sigma**2+self.M*(a**4*np.sin(theta)**2*np.cos(theta)**2-r**2*(sigma+r**2+a**2)))/(sigma**2*delta)
     Gamma[3,2,3] = Gamma[3,3,2] = (sigma**2+2*self.M*a**2*r*np.sin(theta)**2)/(np.tan(theta)*sigma**2)
 
-    return Gamma
+    return np.ascontiguousarray(Gamma)
 
 @njit
 def coord_pos(self, x):
     T0, X0, Y0, Z0 = x
     trans = np.array([T0, X0-self.pos.x, Y0-self.pos.y, Z0-self.pos.z], dtype=np.float64)
-    T, X, Y, Z = matvec(self.rot, trans)
+    trans = np.ascontiguousarray(trans)
+    T, X, Y, Z = self.rot @ trans
     a = self.J / self.M
     s = X**2 + Y**2 + Z**2 - a**2
 
@@ -96,7 +80,7 @@ def coord_pos(self, x):
     out[1] = r = np.sqrt((s + np.sqrt(s**2+4*a**2*Z**2)) / 2)
     out[2] = np.acos(Z/r)
     out[3] = np.atan2(Y,X)
-    return out
+    return np.ascontiguousarray(out)
 
 @njit
 def mink_pos(self, x):
@@ -108,13 +92,15 @@ def mink_pos(self, x):
     out[1] = np.sqrt(R**2+a**2) * np.sin(THETA) * np.cos(PHI)
     out[2] = np.sqrt(R**2+a**2) * np.sin(THETA) * np.sin(PHI)
     out[3] = R * np.cos(THETA)
-    T0, X0, Y0, Z0 = matvec(self.rot_inv, out)
-    return np.array([T0, X0+self.pos.x, Y0+self.pos.y, Z0+self.pos.z], dtype=np.float64)
+    out = np.ascontiguousarray(out)
+    T0, X0, Y0, Z0 = self.rot_inv @ out
+    return np.ascontiguousarray(np.array([T0, X0+self.pos.x, Y0+self.pos.y, Z0+self.pos.z], dtype=np.float64))
 
 @njit
 def jacobian(self, x):
     trans = x - np.array([0, self.pos.x, self.pos.y, self.pos.z])
-    T, X, Y, Z = matvec(self.rot, trans)
+    trans = np.ascontiguousarray(trans)
+    T, X, Y, Z = self.rot @ trans
     a = self.J / self.M
     s = X**2 + Y**2 + Z**2 - a**2
     r = np.sqrt((s + np.sqrt(s**2+4*a**2*Z**2)) / 2)
@@ -130,7 +116,8 @@ def jacobian(self, x):
     J[2,3] = (Z*j13-r)/(r**2*np.sin(theta))
     J[3,1] = -Y/(X**2+Y**2)
     J[3,2] = X/(X**2+Y**2)
-    return matmul(J, self.rot)
+    J = np.ascontiguousarray(J)
+    return J @ self.rot
 
 @njit
 def jacobian_inv(self, x):
@@ -146,4 +133,5 @@ def jacobian_inv(self, x):
     J[2,3] = np.sqrt(R**2+a**2) * np.sin(THETA) * np.cos(PHI)
     J[3,1] = np.cos(THETA)
     J[3,2] = -R * np.sin(THETA)
-    return matmul(self.rot_inv, J)
+    J = np.ascontiguousarray(J)
+    return self.rot_inv @ J

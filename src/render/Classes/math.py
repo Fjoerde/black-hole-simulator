@@ -227,18 +227,6 @@ class Grid:
             if not in_child: return patch
         return patch
 
-    def get_overlaps(self, min:np.ndarray, max:np.ndarray) -> np.ndarray[int]:
-        """Returns a list of patch indices that overlap with the box defined its minimum and maximum corners."""
-
-        patch_arr = np.empty(len(self.patches), dtype=np.int64); n = 0
-        for i in range(len(self.patches)):
-            patch = self.patches[i]
-            if patch.in_patch(min) and patch.in_patch(max): patch_arr[n] = i; n += 1; continue
-            for corner in patch.corners:
-                if np.any(min < corner < max): patch_arr[n] = i; n += 1; break
-        patch_arr = patch_arr[:n]
-        return patch_arr
-
     def get_idx(self, pts:np.ndarray) -> np.ndarray[int]:
         """Returns the index of an array of patch pts."""
 
@@ -341,11 +329,11 @@ class Function:
                 if not deriv & (1 << dim): h[:,dim,deriv] = 1
         for i in range(len(pts)):
             for j in range(n): dval[i,:,j] *= np.prod(h[i,:,j]) # Chain rule
-        normed = np.clip(np.where(max_cell-min_cell > 0, (pts-min_cell)/(max_cell-min_cell), 0), 0, 1) # Normalized coords
+        normed = np.clip(np.where(max_cell-min_cell > 1e-16, (pts-min_cell)/(max_cell-min_cell), 0), 0, 1) # Normalized coords
         for i in range(self.dim-1, -1, -1):
             for corner in range(1 << i): # For every pair of corners
-                f0 = dval[:, corner, :(1<<i)]; f1 = dval[:, corner+1<<i, :(1<<i)]
-                df0 = dval[:, corner, (1<<i):(1<<(i+1))]; df1 = dval[:, corner+1<<i, (1<<i):(1<<(i+1))]
+                f0 = dval[:, corner, :(1<<i)]; f1 = dval[:, corner+(1<<i), :(1<<i)]
+                df0 = dval[:, corner, (1<<i):(1<<(i+1))]; df1 = dval[:, corner+(1<<i), (1<<i):(1<<(i+1))]
                 u = np.repeat(normed[:,i], (1<<i)*self.entries).reshape(len(pts), 1<<i, self.entries)
                 # Interpolate
                 h11 = 2*f0 - 2*f1 + df0 + df1
@@ -353,7 +341,7 @@ class Function:
                 h01 = df0
                 h00 = f0
                 dval[:, corner, :(1<<i)] = h00 + u*(h01 + u*(h10 + u*h11)) # Horner's method
-        return dval[:,0,0]
+        return np.ascontiguousarray(dval[:,0,0])
 
     def resample(self, grid:Grid):
         """Resample the function over a given grid."""
@@ -432,7 +420,7 @@ class Function:
         int_vals = self.integrate_cell(corners, min_cell, max_cell, norm_mins, norm_maxs)
         result = np.empty(self.entries, dtype=np.float64)
         for i in range(self.entries): result[i] = np.sum(int_vals[:,i])
-        return result
+        return np.ascontiguousarray(result)
 
 
 # Color Converters
@@ -528,7 +516,7 @@ class ColConverter:
     
     def reflectance(self, tst_vals:np.ndarray) -> np.ndarray:
         """Calculates the reflectance for a given triplet of tristimulus values by solving for the
-        least-hyperbolic-tangent-square-slope (LHTSS) graph (so that it stays between 0 and 1)."""
+        least-hyperbolic-tangent-squared-slope (LHTSS) graph (so that it stays between 0 and 1)."""
 
         z = np.zeros(len(self.grid.pts), dtype=np.float64) # Initial guess, R = 0.5 everywhere
         last_dz = np.inf # To check if sequence is converging
