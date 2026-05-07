@@ -4,9 +4,9 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "cons.hpp"
-#include "metric.hpp"
-#include "prim.hpp"
+#include "src/fluid/cons.hpp"
+#include "src/fluid/metric.hpp"
+#include "src/fluid/prim.hpp"
 
 // this document contains the methods for analytical conserved
 // variable construction and primitive variable reconstruction by

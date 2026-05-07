@@ -23,9 +23,9 @@ struct metriccomp {
 class metric {
 public:
     // black hole parameters
-    double M; // mass
-    double a; // spin
-    double Q; // charge
+    const double M; // mass
+    const double a; // spin
+    const double Q; // charge
 
     metric(double M, double a, double Q): M(M), a(a), Q(Q) {};
 

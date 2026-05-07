@@ -1,8 +1,8 @@
-#include "metric.hpp"
 #include <cmath>
 #include <vector>
 #include <array>
 #include <iostream>
+#include "src/fluid/metric.hpp"
 
 // this document contains the methods responsible for computing
 // the various metric struct components, as well as the christoffel
