@@ -2,7 +2,7 @@
 #include <vector>
 #include <array>
 #include <stdexcept>
-#include "prim.hpp"
+#include "src/fluid/prim.hpp"
 
 // this document includes the method definitions for the primitive
 // quantities from the metric components and thermodynamic state.
