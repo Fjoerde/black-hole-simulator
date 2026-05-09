@@ -19,8 +19,8 @@ def derivative(self, _, y:np.ndarray) -> np.ndarray:
     chr_syms = self.grav_field.sample_Gamma(x)
     A = np.zeros(4, dtype=np.float64)
     for c in range(4): A[c] -= (chr_syms[c] @ v) @ v # Geodesic equation
-    tau = np.linalg.norm(v[1:]) * self.gas.ext_coeff.interp(x.reshape(1, 4))[0] # Optical depth
-    y_new = np.concatenate((v, A, tau))
+    # tau = np.linalg.norm(v[1:]) * self.gas.interp(x.reshape(1, 4))[0,-1] # Optical depth
+    y_new = np.concatenate((v, A))
     return np.ascontiguousarray(y_new)
 
 @njit
@@ -40,6 +40,12 @@ def term_cond(self, _, y:np.ndarray, h:float) -> bool:
         d = obj.shape.in_shape_int(self.grav_field.mink_pos(y[:4]))
         if np.abs(d) < 1e-4: return True
     return False
+
+@njit
+def sample_func(self, _, y:np.ndarray) -> np.ndarray:
+    x = y[:4]; x_arr = x.reshape(1, 4)
+    gas_params = self.gas.interp(x_arr)[0]
+    return gas_params
 
 @njit
 def max_step(self, t:float, y:np.ndarray, _) -> float:

@@ -20,11 +20,11 @@ spec_integrator = [("tag", int64),
                    ("bg_rad", float64),
                    
                    # For GeodesicEqs and SpecInts
-                   ("grav_field", GravField.class_type.instance_type), ("gas", Gas.class_type.instance_type),
+                   ("grav_field", GravField.class_type.instance_type), ("gas", Function.class_type.instance_type),
 
                    # For SpecInts
-                   ("geodesics", types.ListType(Function.class_type.instance_type)), ("specint_grid", Grid.class_type.instance_type),
-                   ("doppler_obs", float64[::1]), ("solve_idx", int64)]
+                   ("specint_grid", Grid.class_type.instance_type), ("geodesics", types.ListType(Function.class_type.instance_type)),
+                   ("gas_params", types.ListType(Function.class_type.instance_type)), ("doppler_obs", float64[::1]), ("solve_idx", int64)]
 @jitclass(spec_integrator)
 class Integrator:
     """Initiate an integrator that solves differential equations.
@@ -45,12 +45,13 @@ class Integrator:
 
     def __init__(self, tag:int,
                  grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI), scene:list[Hittable]=def_scene,
-                 cam_pos:Vec=Vec(0,0,0), bg_rad:float=20, gas:Gas=Gas(), specint_grid:Grid=Grid(),
-                 geodesics:list[Function]=[Function()], obs_vel:np.ndarray=np.array([1,0,0,0], dtype=np.float64)):
+                 cam_pos:Vec=Vec(0,0,0), bg_rad:float=20, gas:Function=def_gas, specint_grid:Grid=Grid(),
+                 geodesics:list[Function]=[Function()], gas_params:list[Function]=[Function()],
+                 obs_vel:np.ndarray=np.array([1,0,0,0], dtype=np.float64)):
     
         self.tag = tag
         if self.tag == INTEGRATOR_GEODESICEQ: GeodesicEq.init(self, grav_field, scene, cam_pos, bg_rad, gas)
-        if self.tag == INTEGRATOR_SPECINT: SpecInt.init(self, specint_grid, geodesics, gas, grav_field, obs_vel)
+        if self.tag == INTEGRATOR_SPECINT: SpecInt.init(self, specint_grid, geodesics, gas_params, grav_field, obs_vel)
 
     def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
         """Returns the derivative of the state vector y."""
@@ -75,7 +76,14 @@ class Integrator:
         elif self.tag == INTEGRATOR_SPECINT: return SpecInt.term_cond(self, t, y, h)
         else: return False
     
-    def max_step(self, t:float, y:float, h:float) -> float:
+    def sample_func(self, t:float, y:np.ndarray) -> np.ndarray:
+        """Sample a function along the solution to the differential equation."""
+        
+        if self.tag == INTEGRATOR_GEODESICEQ: return GeodesicEq.sample_func(self, t, y)
+        elif self.tag == INTEGRATOR_SPECINT: return SpecInt.sample_func(self, t, y)
+        else: return np.ascontiguousarray(np.zeros(1, dtype=np.float64))
+    
+    def max_step(self, t:float, y:np.ndarray, h:float) -> float:
         """Returns the maximum step the integrator is allowed to achieve. Threshold may depend on state vector, parameter value, and step size."""
 
         if self.tag == INTEGRATOR_GEODESICEQ: return GeodesicEq.max_step(self, t, y, h)
@@ -83,25 +91,47 @@ class Integrator:
         else: return np.inf
 
     def solve(self, t0:float, y0:np.ndarray,
-              h_init:float=0.1, max_t:float=1e3, tol:float=1e-8, max_iter:int=100, safety:float=0.9) -> Function:
-        """Solves the differential equation and returns the function representing it."""
+              h_init:float=0.1, max_t:float=1e3, tol:float=1e-8,
+              max_iter:int=100, safety:float=0.9) -> tuple[Function, Function]:
+        """Solves the differential equation and returns the function representing it.
+        Allows sampling of a function f(x,y) along the solution g(t) = f(x, y(x))."""
 
         t, y, h, iter = t0, y0, h_init, 0
         ts, ys = np.array([t0], dtype=np.float64), y0.reshape(1, y0.shape[0])
+        gs = self.sample_func(t0, y0); gs = gs.reshape(1, gs.shape[0])
         while (t < max_t and iter < max_iter):
-            if np.isnan(y).any(): raise ValueError("Encountered NaN values.")
+
+            # Set integration step
+            if np.isnan(ys).any() or np.isnan(gs).any(): raise ValueError("Encountered NaN values.")
             if self.term_cond(t, y, h): break
             h = min(h, self.max_step(t, y, h))
             if t + h > max_t: h = max_t - t
+
             # Perform integration
             y_coarse = self.rk4_step(t, y, h) # Coarse step
             y_mid = self.rk4_step(t, y, h/2)
             y_fine = self.rk4_step(t+h/2, y_mid, h/2) # Fine step made of 2 substeps
+
+            # Sample function
+            g_mid = self.sample_func(t, y_mid)
+            g0 = gs[-1]; g1 = self.sample_func(t, y_fine)
+            dg1 = g1 - g0
+            if len(ts) != 1: dg0 = (g1 - gs[-2]) / (h + ts[-1] - ts[-2]) * h
+            else: dg0 = dg1.copy()
+            a = 2*g0 - 2*g1 + dg0 + dg1
+            b = -3*g0 + 3*g1 - 2*dg0 - dg1
+            c = dg0; d = g0
+            g_mid_est = a/8 + b/4 + c/2 + d # Hermite interpolation in the middle
+            
             # Error estimate
-            error = np.max(np.abs(y_coarse - y_fine)) / 15
+            ode_error = np.max(np.abs(y_coarse - y_fine)) / 15
+            g_error = np.max(np.abs(g_mid_est - g_mid))
+            error = max(ode_error, g_error)
             if error <= tol: # Accept solution
                 t += h; y = y_fine
-                ts = np.append(ts, t); ys = np.vstack((ys, y.reshape(1, len(y))))
+                ts = np.append(ts, t)
+                ys = np.vstack((ys, y.reshape(1, len(y))))
+                gs = np.vstack((gs, g1.reshape(1, len(g1))))
                 if error < 1e-15 : h *= safety * 5.
                 else:
                     factor = (tol / error) ** (1/5)
@@ -113,8 +143,10 @@ class Integrator:
                 if factor > 0.1: h *= safety * factor
                 else: h *= safety * 0.1
             iter += 1
-        func = Function(Grid(Patch([ts])), ys)
-        return func
+
+        sol = Function(Grid(Patch([ts])), ys)
+        func = Function(Grid(Patch([ts])), gs)
+        return sol, func
 
 
 # Render Settings
@@ -123,7 +155,8 @@ spec_settings = [("w", int64), ("h", int64), ("aspect", float64),
                  ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type),
                  ("scene", types.ListType(Hittable.class_type.instance_type)),
                  ("background", float64[:,:,::1]), ("bg_rad", float64),
-                 ("col_converter", ColConverter.class_type.instance_type), ("gas", Gas.class_type.instance_type),
+                 ("bg_specints", float64[:,::1]),
+                 ("col_converter", ColConverter.class_type.instance_type), ("gas", Function.class_type.instance_type),
                  ("grav_field", GravField.class_type.instance_type)]
 @jitclass(spec_settings)
 class RenderSettings:
@@ -131,25 +164,27 @@ class RenderSettings:
     
     For a scene with no object, simply omit the scene argument, or pass a list of a Hittable with a null Shape.
     
-    bg_rad: Radius of the background box."""
+    bg_rad: Radius of the background box.
+    
+    bg_cols, bg_specints: The unqiue colors and spectral intensities of the background image.
+    Must be consistent with the color converter grid and the image. No check is done to ensure that colors are truly
+    unique, no colors are missed, and that every color has occurred in the image."""
 
     def __init__(self, w:int=800, h:int=600, # Width, height of image
                  cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), cam_vel:Vec=Vec(0,0,0), # Position, direction, and velocity of camera
-                 scene:list[Hittable]=def_scene, # List of hittables in the scene
-                 background:np.ndarray=np.zeros((1,1,3)), bg_rad:float=20, # Background image (default black)
-                 col_converter:ColConverter=def_cc, gas:Gas=Gas(), grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
+                 scene:list[Hittable]=def_scene, bg_rad:float=20, # List of hittables in the scene
+                 col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
        
         if cam_vel.length() >= 1: raise ValueError("Velocity of camera must be smaller than 1.")
         for obj in scene:
             if (obj.shape.pos - cam_pos).length() > bg_rad: raise ValueError("All objects must be within the radius of the background image.")
-       
+
         self.w = w
         self.h = h
         self.cam_pos = cam_pos
         self.cam_dir = cam_dir
         self.cam_vel = cam_vel
         self.scene = List(scene)
-        self.background = background
         self.bg_rad = bg_rad
         self.col_converter = col_converter
         self.gas = gas
@@ -160,6 +195,8 @@ class RenderSettings:
         self.cam_v = self.cam_u.cross(self.cam_dir).normal()
 
     def ray_dir_px(self, x:int, y:int) -> Vec:
+        """Returns the three-direction of the light ray corresponding to a pixel on the final rendered image."""
+
         u = (2*(x+0.5)/self.w - 1) * self.aspect # Viewport coordinates, varies from -aspect to +aspect
         v = 1 - 2*(y+0.5)/self.h # varies from -1 to +1
         ray_dir_p = (self.cam_dir + u*self.cam_u + v*self.cam_v).normal() # p stands for primed (in the moving camera's frame)
@@ -173,8 +210,12 @@ class RenderSettings:
         ray_dir = np.cos(theta)*n_vel + np.sin(theta)*Y
         return ray_dir.normal()
     
-    def sample_bg(self, theta:float, phi:float) -> np.ndarray:
+    """
+    def sample_bg(self, theta:float, phi:float) -> Function:
         u, v = (phi+np.pi)/(2*np.pi), theta/np.pi
         h, w, _ = self.background.shape
         x, y = int(u*(w-1)), int(v*(h-1)) # Pixel coordinate on the image
-        return self.background[y,x]
+        spec_int_val = self.bg_specints[y,x]
+        spec_int = Function(self.col_converter.grid, spec_int_val.reshape(len(spec_int_val), 1))
+        return spec_int
+    """

@@ -103,7 +103,7 @@ spec_hittable = [# For all Hittables
                  ("shape", Shape.class_type.instance_type), ("tag", int64),
 
                  # For Blackbody
-                 ("temp", float64),
+                 ("temp", float64), ("specint_grid", Grid.class_type.instance_type),
                  
                  # For Checkerboard
                  ("spec_int1", Function.class_type.instance_type), ("spec_int2", Function.class_type.instance_type),
@@ -118,7 +118,7 @@ class Hittable:
         self.tag = tag
 
         if self.tag == HITTABLE_NULL: HittableNull.init(self)
-        if self.tag == HITTABLE_BLACKBODY: Blackbody.init(self, temp)
+        if self.tag == HITTABLE_BLACKBODY: Blackbody.init(self, temp, col_converter)
         if self.tag == HITTABLE_CHECKERBOARD: Checkerboard.init(self, col1, col2, n, col_converter)
 
     def spec_int(self, pt) -> Function:
@@ -238,6 +238,12 @@ class GravField:
         return self.jacobian_inv(x) @ np.ascontiguousarray(v) 
 
     def timelike_cond(self, V:Vec, x:np.ndarray) -> np.ndarray:
+        """v: A three-vector described in Cartesian coordinates (relative to a stationary observer at infinity).
+
+        x: A spacetime point described in Minkowski coordinates (relative to a stationary observer at infinity).
+    
+        Returns the timelike vector (norm=-1) at x in metric coordinates whose spatial components are the transformed components of vec."""
+
         J = self.jacobian(x); g = self.sample_g(self.coord_pos(x))
         k = (g @ J) @ J
         v = np.ascontiguousarray(np.array([0, V.x, V.y, V.z]))
@@ -267,25 +273,4 @@ null_4d_grid = Grid(Patch([np.zeros(1, dtype=np.float64),
                            np.zeros(1, dtype=np.float64),
                            np.zeros(1, dtype=np.float64),
                            np.zeros(1, dtype=np.float64)]))
-null_scal_func = Function(null_4d_grid)
-null_vec_func = Function(null_4d_grid, np.array([[1, 0, 0, 0]], dtype=np.float64))
-spec_gas = [("vel", Function.class_type.instance_type), ("temp", Function.class_type.instance_type),
-            ("ext_coeff", Function.class_type.instance_type)]
-@jitclass(spec_gas)
-class Gas:
-    """Wrapper class for a gas that permeated the background box of the scene.
-    
-    vel: The proper velocity of the gas in Minkowski coordinates in terms of Minkowski coordinates, with respect to an observer at infinity.
-    
-    temp, ext_coeff: The temperature and extinction coefficient of the gas given in Minkowski coordinates."""
-
-    def __init__(self, vel:Function=null_vec_func, temp:Function=null_scal_func, ext_coeff:Function=null_scal_func):
-        if vel.entries != 4: raise ValueError("vel must have 4 entries.")
-        if temp.entries != 1: raise ValueError("temp must have 1 entry.")
-        if ext_coeff.entries != 1: raise ValueError("ext_coeff must have 1 entry.")
-
-        if not (vel.dim == temp.dim == ext_coeff.dim == 4): raise ValueError("Functions must be 4-dimensional.")
-
-        self.vel = vel
-        self.temp = temp
-        self.ext_coeff = ext_coeff
+def_gas = Function(null_4d_grid, np.array([[1, 0, 0, 0, 0, 0]], dtype=np.float64))

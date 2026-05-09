@@ -16,14 +16,12 @@ t2 = time.perf_counter()
 print(f"Lowering finished in {t2-t1:.4f} s\n")
 
 print("Initializing...")
-scene = [Hittable(tag=HITTABLE_BLACKBODY,
-                  shape=Shape(pos=Vec(10,0,0), rot=(0,0,0), tag=SHAPE_SPHERE, radius=3), temp=3e3)]
+test1 = [Hittable(tag=HITTABLE_BLACKBODY,
+                  shape=Shape(pos=Vec(0,0,0), rot=(0,0,0), tag=SHAPE_SPHERE, radius=3), temp=3e3)]
 disk = [Hittable(tag=HITTABLE_BLACKBODY,
-                 shape=Shape(pos=Vec(10,0,0), rot=(np.pi,-np.pi/20,0), tag=SHAPE_ANNULUS, r_in=2.5, r_out=5), temp=3e3)]
-# bg = np.array(Image.open("Images/background2.jpg")).astype(np.float64) / 255.0
+                 shape=Shape(pos=Vec(0,0,0), rot=(np.pi,-np.pi/20,0), tag=SHAPE_ANNULUS, r_in=2.5, r_out=5, height=0.25), temp=3e3)]
 settings = RenderSettings(w=1280, h=720,
-                          cam_pos=Vec(0,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0),
-                          scene=disk, bg_rad=20)
+                          cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), scene=test1)
 
 t3 = time.perf_counter()
 print(f"Initialization finished in {t3-t2:.4f} s\n")

@@ -4,17 +4,16 @@ from numba import njit
 from render.Classes.math import *
 
 @njit
-def init(self, temp):
+def init(self, temp, col_converter):
     self.temp = temp
+    self.specint_grid = col_converter.grid
 
 @njit
 def spec_int(self, pt):
     if not self.shape.on_surface(pt): raise ValueError("Expected a point on the surface of the Shape.")
     
     h = 6.63e-34; c = 3e8; k = 1.38e-23
-    w_peak = 2.898e-3 / self.temp
-    w_min = 0.05 * w_peak; w_max = 10 * w_peak
-    grid = Grid(Patch([np.logspace(np.log10(w_min), np.log10(w_max), 81)]))
-    wvls = grid.pts.reshape(len(grid.pts))
-    vals = 2*h*c*2/wvls**5 * 1/(np.exp((h*c)/(wvls*k*self.temp)) - 1)
+    grid = self.specint_grid
+    wvls = grid.pts.reshape(len(grid.pts)) * 1e-9
+    vals = 2*h*c*2/wvls**5 * 1/(np.exp((h*c)/(wvls*k*self.temp)) - 1) * 1e-9
     return Function(grid, vals.reshape(len(vals), 1))
