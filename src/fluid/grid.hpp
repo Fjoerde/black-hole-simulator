@@ -29,7 +29,7 @@ struct patch {
     std::vector<double> yedge; 
     std::vector<double> zedge;
     std::vector<cell> cells; // cells indexed within patch
-    // fluxes
+    // fluxes in each direction
     std::vector<double> Fx;
     std::vector<double> Fy;
     std::vector<double> Fz;
@@ -48,17 +48,28 @@ struct patch {
     double dy() const;
     double dz() const;
     void cell_init(); // geometry initialisation
+
+    // direction of faces
+    struct facedir {
+        enum {X=0, Y=1, Z=2};
+    };
 };
 // amr (adaptive mesh refinement) tree struct
-struct amrtree {
+class amrtree {
+    public:
     // constructor
     std::vector<std::unique_ptr<patch>> quilt; // quilt = collection of patches
     amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nqlt);
+    patch* nbhd(patch* p, int dim, int side) const;
     
     // refinement functions
     void regrid();
     void step(double dt);
-    void ghosts(patch* p);
     void refine();
     void flatten();
+    // ghosts
+    void ghosts(patch* p);
+    void gh_copy(patch* p, patch* nb, int dim, int side);
+    void gh_prolong(patch* p, patch* nb, int dim, int side);
+    void gh_bndy(patch* p, int dim, int side);
 };

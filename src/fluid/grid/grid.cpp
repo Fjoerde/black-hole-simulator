@@ -96,3 +96,145 @@ amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nql
         }
     }
 }
+
+// patch neighbour finding
+patch* amrtree::nbhd(patch* p, int dim, int side) const {
+    std::array<int,3> nb_ijk = p->ijk;
+    nb_ijk[dim] += side;
+    // search quilt for same-level patch
+    for(auto& q : quilt) {
+        if(q->lvl == p->lvl && q->ijk == nb_ijk) {
+            return q.get();
+        }
+    }
+    // if search fails, find coarser patch
+    if(p->lvl>0) {
+        std::array<int,3> crs_ijk;
+        for(int i=0; i<3; i++) {
+            crs_ijk[i] = p->ijk[i]/2;
+        }
+        crs_ijk[dim] += side;
+
+        for(auto& q : quilt) {
+            if(q->lvl == p->lvl-1 && q->ijk == crs_ijk) {
+                return q.get();
+            }
+        }
+    }
+    // on the boundary return a null pointer (no cells past boundary)
+    return nullptr;
+}
+
+// ghost processing
+// copying cell data into ghosts
+void amrtree::gh_copy(patch* p, patch* nb, int dim, int side) {
+    // get start of indices in p and nb
+    int pstart; int nbstart;
+    if(side==1) {
+        pstart = block;
+        nbstart = 0;
+    } else {
+        pstart = -ghost;
+        nbstart = block-ghost;
+    }
+    // iterate over ghost width and other two directions
+    for(int g=0; g<ghost; g++) {
+        for(int t1=-ghost; t1<block+ghost; t1++) {
+            for(int t2=-ghost; t2<block+ghost; t2++) {
+                int pi,pj,pk;
+                int ni,nj,nk;
+                // map coordinate indices by face direction
+                if(dim==0) {
+                    pi = pstart+g; pj = t1; pk = t2;
+                    ni = nbstart+g; nj = t1; nk = t2;
+                } else if(dim==1) {
+                    pi = t1; pj = pstart+g; pk = t2;
+                    ni = t1; nj = nbstart+g; nk = t2;
+                } else {
+                    pi = t1; pj = t2; pk = pstart+g;
+                    ni = t1; nj = t2; nk = nbstart+g;
+                }
+                // boundary checks
+                if(t1<0 || t1>=block || t2<0 || t2>=block) continue;
+                // value copying
+                p->cell_(pi,pj,pk).U = nb->cell_(ni,nj,nk).U;
+                p->cell_(pi,pj,pk).W = nb->cell_(ni,nj,nk).W;
+            }
+        }
+    }
+}
+// prolongation to interpolate ghosts into coarser neighbours
+void amrtree::gh_prolong(patch* p, patch* nb_crs, int dim, int side) {
+    int pstart = (side==1)? block : -ghost;
+    for(int g=0; g<ghost; g++) {
+        for(int t1=0; t1<block; t1++) {
+            for(int t2=0; t2<block; t2++) {
+                // determine cell to interpolate into
+                int fi,fj,fk;
+                if(dim==0) {
+                    fi = pstart+g; fj = t1; fk = t2;
+                } else if(dim==1) {
+                    fi = t1; fj = pstart+g; fk = t2;
+                } else {
+                    fi = t1; fj = t2; fk = pstart+g;
+                }
+                // determine part of coarse cell interpolated into
+                int ci = (dim==0)? g/2 : t1/2;
+                int cj = (dim==1)? g/2 : (dim==0? t1/2 : t2/2);
+                int ck = (dim==2)? g/2 : t2/2;
+                // offsets
+                double offg = (g%2==0)? -0.25 : 0.25;
+                double offt1 = (t1%2==0)? -0.25 : 0.25;
+                double offt2 = (t2%2==0)? -0.25 : 0.25;
+                cell& cc = nb_crs->cell_(ci,cj,ck);
+                // transverse slopes
+                auto intp_sc = [&](double vm, double vc, double vp, double on, double ot1, double ot2, double vm1, double vp1, double vm2, double vp2) -> double {
+                    double sn = minmod(vc-vm,vp-vc); // normal
+                    double st1 = minmod(vc-vm1,vp1-vc);
+                    double st2 = minmod(vc-vm2,vp2-vc);
+                    return vc+sn*on+st1*ot1+st2*ot2;
+                };
+                // prolongate for each conserved variable
+                auto get_c = [&](int di, int dj, int dk) -> cell& {
+                    return nb_crs->cell_(ci+di,cj+dj,ck+dk);
+                };
+                // normal offsets
+                double on, ot1, ot2;
+                if(dim==0) {
+                    on = offg; ot1 = offt1; ot2 = offt2;
+                } else if(dim==1) {
+                    on = offt1; ot1 = offg; ot2 = offt2;
+                } else {
+                    on = offt1; ot1 = offt2; ot2 = offg;
+                }
+                cell& p_cell = p->cell_(fi,fj,fk);
+                // get conserved variables
+                p_cell.U.D = intp_sc(get_c(-1,0,0).U.D, cc.U.D, get_c(1,0,0).U.D, on, ot1, ot2, get_c(0,-1,0).U.D, get_c(0,1,0).U.D, get_c(0,0,-1).U.D, get_c(0,0,1).U.D);
+                p_cell.U.tau = intp_sc(get_c(-1,0,0).U.tau, cc.U.tau, get_c(1,0,0).U.tau, on, ot1, ot2, get_c(0,-1,0).U.tau, get_c(0,1,0).U.tau, get_c(0,0,-1).U.tau, get_c(0,0,1).U.tau);
+                for(int i=0; i<3; i++) {
+                    p_cell.U.B[i] = intp_sc(get_c(-1,0,0).U.B[i], cc.U.B[i], get_c(1,0,0).U.B[i], on, ot1, ot2, get_c(0,-1,0).U.B[i], get_c(0,1,0).U.B[i], get_c(0,0,-1).U.B[i], get_c(0,0,1).U.B[i]);
+                    p_cell.U.S[i] = intp_sc(get_c(-1,0,0).U.S[i], cc.U.S[i], get_c(1,0,0).U.S[i], on, ot1, ot2, get_c(0,-1,0).U.S[i], get_c(0,1,0).U.S[i], get_c(0,0,-1).U.S[i], get_c(0,0,1).U.S[i]);
+                }
+                // TO DO: copy cell geometry and primitives, recompute metric
+            }
+        }
+    }
+}
+
+// TO DO: gh_bndy ghost processing on boundaries
+
+// ghost processing for a given patch pointer p.
+void amrtree::ghosts(patch* p) {
+    for(int dim=0; dim<3; dim++) {
+        for(int side : {-1,1}) {
+            patch* nb = nbhd(p, dim, side);
+            if(nb && nb->lvl == p->lvl) {
+                gh_copy(p,nb,dim,side);
+            } else if (nb && nb->lvl < p->lvl) {
+                gh_prolong(p,nb,dim,side);
+            } else if (!nb) {
+                gh_bndy(p,dim,side);
+            }
+        }
+    }
+}
