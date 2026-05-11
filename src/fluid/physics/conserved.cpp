@@ -226,6 +226,5 @@ bool conserved::cp_bd(double xa, double xb, double Ssq, double Bsq, double SB, d
             std::swap(fa,fb);
         }
     }
-    // note for later: add floor guesses for when even the brent-dekker solver breaks
     return false;
 }

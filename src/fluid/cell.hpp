@@ -12,7 +12,7 @@
 // struct for each cell
 struct cell {
     // index
-    double i, j, k; // spatial index within patch
+    int i, j, k; // spatial index within patch
     // variables
     cons U;
     prim W;
