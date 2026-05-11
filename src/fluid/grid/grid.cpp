@@ -54,6 +54,17 @@ double patch::dx() const {return xedge[1]-xedge[0];}
 double patch::dy() const {return yedge[1]-yedge[0];}
 double patch::dz() const {return zedge[1]-zedge[0];}
 
+// floor state protection
+prim amrtree::pvfs(double r, double th) const {
+    prim W;
+    double rfscal = std::pow(r/r_floor_ref,-1.5);
+    W.rho = rho_floor_r0*rfscal;
+    W.eps = eps_floor_r0*rfscal;
+    W.v[0] = W.v[1] = W.v[2] = 0.0;
+    W.B[0] = W.B[1] = W.B[2] = 0.0;
+    return W;
+}
+
 // cell initialisation
 void patch::cell_init() {
     for(int i=-ghost; i<block+ghost; i++) {
@@ -82,7 +93,7 @@ void patch::cell_init() {
     }
 }
 // amr tree initialisation
-amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nqlt) {
+amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nqlt, double M, double a, double Q, double gm) : mtr(M,a,Q), stt(gm), prmv(mtr,stt), cnsv(mtr,stt,prmv) {
     // coordinate sizes of each initial patch
     double px = (dom_h[0]-dom_l[0])/nqlt; double py = (dom_h[1]-dom_l[1])/nqlt; double pz = (dom_h[2]-dom_l[2])/nqlt;
     // divide quilt into nqlt x nqlt x nqlt patches + index in quilt
@@ -215,14 +226,50 @@ void amrtree::gh_prolong(patch* p, patch* nb_crs, int dim, int side) {
                     p_cell.U.B[i] = intp_sc(get_c(-1,0,0).U.B[i], cc.U.B[i], get_c(1,0,0).U.B[i], on, ot1, ot2, get_c(0,-1,0).U.B[i], get_c(0,1,0).U.B[i], get_c(0,0,-1).U.B[i], get_c(0,0,1).U.B[i]);
                     p_cell.U.S[i] = intp_sc(get_c(-1,0,0).U.S[i], cc.U.S[i], get_c(1,0,0).U.S[i], on, ot1, ot2, get_c(0,-1,0).U.S[i], get_c(0,1,0).U.S[i], get_c(0,0,-1).U.S[i], get_c(0,0,1).U.S[i]);
                 }
-                // TO DO: copy cell geometry and primitives, recompute metric
+                // primitive floors
+                prim pv;
+                bool ok = cnsv.ctop(p_cell.U,p_cell.r,p_cell.th,pv);
+                if(ok) {
+                    p_cell.W = pv;
+                } else {
+                    prim fl = pvfs(p_cell.r,p_cell.th);
+                    fl.B[0] = p_cell.W.B[0]; fl.B[1] = p_cell.W.B[1]; fl.B[2] = p_cell.W.B[2];
+                    p_cell.U = cnsv.ptoc(p_cell.W,p_cell.r,p_cell.th);
+                }
             }
         }
     }
 }
-
-// TO DO: gh_bndy ghost processing on boundaries
-
+// ghost boundaries for when nbhd returns nullptr
+void amrtree::gh_bndy(patch* p, int dim, int side) {
+    int pstart = (side==1)? block : ghost;
+    // iterate over cells
+    for(int g=0; g<ghost; g++) {
+        for(int t1=0; t1<block; t1++) {
+            for(int t2=0; t2<block; t2++) {
+                // ghost and active cell indices
+                int gi, gj, gk;
+                int ai, aj, ak;
+                // casewise by dimension again
+                if(dim==0) {
+                    gi = pstart+g; gj = t1; gk = t2;
+                    ai = (side==1)? block-1-g : g; aj = t1; ak = t2;
+                } else if(dim==1) {
+                    gi = t1; gj = pstart+g; gk = t2;
+                    ai = t1; aj = (side==1)? block-1-g : g; ak = t2;
+                } else {
+                    gi = t1; gj = t2; gk = pstart+g;
+                    ai = t1; aj = t2; ak = (side==2)? block-1-g : g;
+                }
+                // assignments
+                cell& gc = p->cell_(gi,gj,gk);
+                cell& ac = p->cell_(ai,aj,ak);
+                // boundary conditions:
+                gc.U = ac.U; gc.W = ac.W;
+            }
+        }
+    }
+}
 // ghost processing for a given patch pointer p.
 void amrtree::ghosts(patch* p) {
     for(int dim=0; dim<3; dim++) {
@@ -234,6 +281,25 @@ void amrtree::ghosts(patch* p) {
                 gh_prolong(p,nb,dim,side);
             } else if (!nb) {
                 gh_bndy(p,dim,side);
+            }
+        }
+    }
+    // assign pointers and value
+    for(int i=-ghost; i<block+ghost; i++) {
+        for(int j=-ghost; j<block+ghost; j++) {
+            for(int k=-ghost; k<block+ghost; k++) {
+                cell& c = p->cell_(i,j,k);
+                if(!c.ghost) continue;
+                // primitives and floor protections
+                prim pv;
+                bool ok = cnsv.ctop(c.U,c.r,c.th,pv);
+                if(ok) {
+                    c.W = pv;
+                } else {
+                    prim fl = pvfs(c.r,c.th);
+                    fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
+                    c.U = cnsv.ptoc(c.W,c.r,c.th);
+                }
             }
         }
     }
