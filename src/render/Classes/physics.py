@@ -2,22 +2,22 @@ import numpy as np
 from numba import float64, int64
 from numba.experimental import jitclass
 
-from render.Classes.math import *
-from render.Classes.tags import *
+from Classes.math import *
+from Classes.tags import *
 
-import render.Classes.Shapes.null as ShapeNull
-import render.Classes.Shapes.sphere as Sphere
-import render.Classes.Shapes.cylinder as Cylinder
-import render.Classes.Shapes.annulus as Annulus
+import Classes.Shapes.null as ShapeNull
+import Classes.Shapes.sphere as Sphere
+import Classes.Shapes.cylinder as Cylinder
+import Classes.Shapes.annulus as Annulus
 
-import render.Classes.Hittables.null as HittableNull
-import render.Classes.Hittables.blackbody as Blackbody
-import render.Classes.Hittables.checkerboard as Checkerboard
+import Classes.Hittables.null as HittableNull
+import Classes.Hittables.blackbody as Blackbody
+import Classes.Hittables.checkerboard as Checkerboard
 
-import render.Classes.GravField.minkowski as Minkowski
-import render.Classes.GravField.schwarzschild as Schwarzschild
-import render.Classes.GravField.kerr as Kerr
-import render.Classes.GravField.kerr_newman as KerrNewman
+import Classes.GravField.minkowski as Minkowski
+import Classes.GravField.schwarzschild as Schwarzschild
+import Classes.GravField.kerr as Kerr
+import Classes.GravField.kerr_newman as KerrNewman
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))

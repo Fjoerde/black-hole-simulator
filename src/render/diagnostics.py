@@ -3,10 +3,10 @@ import matplotlib.pyplot as plt
 from itertools import product
 from PIL import Image
 
-from render.Classes.math import *
-from render.Classes.tags import *
-from render.Classes.physics import GravField
-from render.Classes.int_and_settings import Integrator, RenderSettings
+from Classes.math import *
+from Classes.tags import *
+from Classes.physics import GravField
+from Classes.int_and_settings import Integrator, RenderSettings
 
 def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
@@ -15,7 +15,7 @@ def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     x0 = np.ascontiguousarray(np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
     X0 = settings.grav_field.coord_pos(x0)
     V0 = settings.grav_field.null_cond(ray_dir, x0)
-    y0 = np.concatenate((X0, V0, np.array([0])))
+    y0 = np.concatenate((X0, V0))
     integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene,
                             cam_pos=settings.cam_pos, bg_rad=settings.bg_rad, gas=settings.gas)
     geodesic, gas_param = integrator.solve(0, y0, settings.bg_rad/50, settings.bg_rad*5)
@@ -37,20 +37,19 @@ def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     plt.show()
 
     # Flip geodesic, change to Minkowski coordinates, and return
-    gdsic_vals = np.empty((len(geodesic.grid.pts), 9), dtype=np.float64)
+    gdsic_vals = np.empty((len(geodesic.grid.pts), 8), dtype=np.float64)
     for i in range(len(geodesic.grid.pts)):
         x0 = geodesic.vals[i,:4]
         gdsic_vals[i,:4] = integrator.grav_field.mink_pos(x0)
-        gdsic_vals[i,4:8] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:8], x0)
-        gdsic_vals[i,8] = geodesic.vals[i,8]
+        gdsic_vals[i,4:] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:], x0)
     gdsic_vals = np.ascontiguousarray(np.flipud(gdsic_vals))
     gas_vals = np.ascontiguousarray(np.flipud(gas_param.vals))
+    new_vals = np.hstack((gdsic_vals, gas_vals))
 
     grid_pts = geodesic.grid.pts.reshape(len(geodesic.grid.pts))
     grid_pts = np.ascontiguousarray(np.flip(np.max(grid_pts) - grid_pts))
-    grid = Grid(Patch([grid_pts]))
-    geodesic = Function(grid, gdsic_vals); gas_param = Function(grid, gas_vals)
-    return geodesic, gas_param
+    geodesic = Function(Grid(Patch([grid_pts])), new_vals)
+    return geodesic
 
 
 def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray:
@@ -151,7 +150,7 @@ def display_specint(spec_int:Function):
     plt.show()
 
 
-def ray_col(geodesic:Function, gas_param:Function, vel:Vec, settings:RenderSettings) -> tuple[Function, np.ndarray]:
+def ray_col(geodesic:Function, vel:Vec, settings:RenderSettings) -> tuple[Function, np.ndarray]:
     """Returns the spectral intensity and corresponding RGB color as seen by an observer receiving a
     light ray following a geodesic.
     
@@ -163,21 +162,16 @@ def ray_col(geodesic:Function, gas_param:Function, vel:Vec, settings:RenderSetti
     cam_pos = geodesic.vals[-1,:4]
     obs_vel = settings.grav_field.timelike_cond(vel, cam_pos)
     integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=grid, geodesics=[geodesic],
-                            gas_params=[gas_param], grav_field=settings.grav_field, obs_vel=obs_vel)
+                            grav_field=settings.grav_field, obs_vel=obs_vel)
     spec_int0 = np.zeros(len(grid.pts), dtype=np.float64) # Find initial spectral intensity
     x0 = geodesic.vals[0,:4]; pos = Vec(x0[1], x0[2], x0[3])
-    if (pos - settings.cam_pos).length() - settings.bg_rad >= -1e-4: # If light ray hits the background
-        theta = np.acos(pos.z / pos.length()); phi = np.atan2(pos.y, pos.x)
-        spec_int0 = settings.sample_bg(theta, phi).vals
-        spec_int0 = spec_int0.reshape(len(spec_int0))
-    else: # Find which object the light ray hits
-        for obj in settings.scene:
-            if obj.shape.on_surface(pos):
-                spec_int0 = obj.spec_int(pos).vals
-                spec_int0 = spec_int0.reshape(len(spec_int0))
-                break
+    for obj in settings.scene:
+        if obj.shape.on_surface(pos):
+            spec_int0 = obj.spec_int(pos).vals
+            spec_int0 = spec_int0.reshape(len(spec_int0))
+            break
     max_t = np.max(geodesic.grid.pts)
     spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4)[0].vals[-1]
     spec_int = Function(grid, spec_int.reshape(len(spec_int), 1))
-    rgb = settings.col_converter.get_rgb(spec_int) * 255.
+    rgb = settings.col_converter.get_rgb(spec_int)
     return spec_int, rgb

@@ -3,12 +3,11 @@ from numba import njit
 from numba.typed import List
 
 @njit
-def init(self, specint_grid, geodesics, gas_params, grav_field, obs_vel):
+def init(self, specint_grid, geodesics, grav_field, obs_vel):
     if obs_vel.shape != (4,): raise ValueError("Invalid shape for obs_vel.")
 
     self.specint_grid = specint_grid
     self.geodesics = List(geodesics)
-    self.gas_params = List(gas_params)
     self.grav_field = grav_field
     self.solve_idx = 0
     self.doppler_obs = np.empty(len(geodesics), dtype=np.float64)
@@ -24,15 +23,10 @@ def init(self, specint_grid, geodesics, gas_params, grav_field, obs_vel):
 def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
     t_arr = np.array([[t]], dtype=np.float64)
     geodesic = self.geodesics[self.solve_idx]
-    gas_param = self.gas_params[self.solve_idx]
+    vals_interp = geodesic.interp(t_arr)[0]
+    x = vals_interp[:4]; k = vals_interp[4:8]
+    vel = vals_interp[8:12]; temp = vals_interp[12]; ext_coeff = vals_interp[13]
 
-    gas_param_interp = gas_param.interp(t_arr)[0]
-    vel = gas_param_interp[:4]
-    temp = gas_param_interp[4]
-    ext_coeff = gas_param_interp[5]
-
-    X = geodesic.interp(t_arr)[0]
-    x = X[:4]; k = X[4:8]
     J = self.grav_field.jacobian(x); g = self.grav_field.sample_g(self.grav_field.coord_pos(x))
     g = (g @ J) @ J # Coordinate transformation to Minkowski
     D_src = (g @ k) @ vel; D_obs = self.doppler_obs[self.solve_idx]
@@ -53,7 +47,7 @@ def term_cond(self, t:float, y:np.ndarray, h:float) -> bool:
     return False
 
 @njit
-def sample_func(self, t:float, y:np.ndarray) -> np.ndarray:
+def sample_func(self, y:np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(np.zeros(1, dtype=np.float64))
 
 @njit

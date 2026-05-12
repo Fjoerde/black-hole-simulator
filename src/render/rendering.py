@@ -3,17 +3,17 @@ from PIL import Image
 from numba import njit, prange
 from numba_progress import ProgressBar
 
-from render.Classes.math import *
-from render.Classes.tags import *
-from render.Classes.physics import *
-from render.Classes.int_and_settings import *
+from Classes.math import *
+from Classes.tags import *
+from Classes.physics import *
+from Classes.int_and_settings import *
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 # Njitted functions
 @njit(fastmath=True)
-def trace_geodesic(integrator:Integrator, y0:np.ndarray, bg_rad:float) -> tuple[Function, Function]:
+def trace_geodesic(integrator:Integrator, y0:np.ndarray, bg_rad:float) -> Function:
     """Returns a null geodesic representing the path of a light ray that ends up at the camera, given over regular intervals.
     Path is given in Minkowski coordinates.
     
@@ -27,31 +27,30 @@ def trace_geodesic(integrator:Integrator, y0:np.ndarray, bg_rad:float) -> tuple[
     for i in range(len(geodesic.grid.pts)):
         x0 = geodesic.vals[i,:4]
         gdsic_vals[i,:4] = integrator.grav_field.mink_pos(x0)
-        gdsic_vals[i,4:8] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:8], x0)
+        gdsic_vals[i,4:] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:], x0)
     gdsic_vals = np.ascontiguousarray(np.flipud(gdsic_vals))
     gas_vals = np.ascontiguousarray(np.flipud(gas_param.vals))
+    new_vals = np.hstack((gdsic_vals, gas_vals))
 
     grid_pts = geodesic.grid.pts.reshape(len(geodesic.grid.pts))
     grid_pts = np.ascontiguousarray(np.flip(np.max(grid_pts) - grid_pts))
-    grid = Grid(Patch([grid_pts]))
-    geodesic = Function(grid, gdsic_vals); gas_param = Function(grid, gas_vals)
-    return geodesic, gas_param
+    geodesic = Function(Grid(Patch([grid_pts])), new_vals)
+    return geodesic
 
 @njit(parallel=True, fastmath=True)
-def get_geodesics(integrator:Integrator, geodesics:list[Function], gas_params:list[Function],
-                  settings:RenderSettings, pbar:ProgressBar) -> tuple[list[Function], list[Function]]: 
+def get_geodesics(integrator:Integrator, geodesics:list[Function], settings:RenderSettings, pbar:ProgressBar) -> list[Function]:
     """Returns the paths of the light ray over each pixel in the image."""
 
     x0 = np.ascontiguousarray(np.array([0, settings.cam_pos.x, settings.cam_pos.y, settings.cam_pos.z]))
     X0 = settings.grav_field.coord_pos(x0)
     for i in prange(settings.w * settings.h):
-        x, y = i//settings.h, i%settings.h
+        y, x = i//settings.w, i%settings.w
         ray_dir = settings.ray_dir_px(x, y)
         V0 = settings.grav_field.null_cond(ray_dir, x0)
         y0 = np.concatenate((X0, V0))
-        geodesics[i], gas_params[i] = trace_geodesic(integrator, y0, settings.bg_rad)
+        geodesics[i] = trace_geodesic(integrator, y0, settings.bg_rad)
         pbar.update(1)
-    return geodesics, gas_params
+    return geodesics
 
 @njit(parallel=True, fastmath=True)
 def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar) -> np.ndarray:
@@ -63,7 +62,7 @@ def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar)
     if integrator.tag != INTEGRATOR_SPECINT: raise ValueError("Invalid tag for integrator.")
 
     n = len(integrator.geodesics)
-    cols = np.empty((n, 3), dtype=np.float64)
+    cols = np.zeros((n, 3), dtype=np.float64)
     for i in prange(n):
         spec_int0 = np.zeros(len(integrator.specint_grid.pts), dtype=np.float64)
         geodesic = integrator.geodesics[i]
@@ -83,7 +82,7 @@ def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar)
     return cols
 
 
-# Functions to actually call
+# Function to actually call
 def render_seq(settings:RenderSettings) -> Image:
     """Call to perform the rendering sequence."""
 
@@ -91,13 +90,12 @@ def render_seq(settings:RenderSettings) -> Image:
     integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene,
                             cam_pos=settings.cam_pos, bg_rad=settings.bg_rad, gas=settings.gas)
     geodesics = [Function() for _ in range(settings.w * settings.h)]
-    gas_params = geodesics.copy()
     with ProgressBar(total=settings.w*settings.h) as pbar:
-        geodesics, gas_params = get_geodesics(integrator, geodesics, gas_params, settings, pbar)
+        geodesics = get_geodesics(integrator, geodesics, settings, pbar)
     print("Calculating colors...")
     x0 = np.array([0, settings.cam_pos.x, settings.cam_pos.y, settings.cam_pos.z])
-    integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=settings.col_converter.grid, geodesics=geodesics,
-                            gas_params=gas_params, grav_field=settings.grav_field,
+    integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=settings.col_converter.grid,
+                            geodesics=geodesics, grav_field=settings.grav_field,
                             obs_vel=settings.grav_field.timelike_cond(settings.cam_vel, x0))
     with ProgressBar(total=settings.w*settings.h) as pbar:
         cols = get_colors(integrator, settings, pbar)

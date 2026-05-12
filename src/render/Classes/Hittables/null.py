@@ -1,5 +1,5 @@
 from numba import njit
-from render.Classes.math import *
+from Classes.math import *
 
 @njit
 def init(self): pass

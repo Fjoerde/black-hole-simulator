@@ -1,7 +1,7 @@
 import numpy as np
 from numba import njit
 
-from render.Classes.math import *
+from Classes.math import *
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 

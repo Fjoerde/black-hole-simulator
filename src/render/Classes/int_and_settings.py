@@ -3,12 +3,12 @@ from numba import int64, float64
 from numba.core import types
 from numba.typed import List
 
-from render.Classes.math import *
-from render.Classes.physics import *
-from render.Classes.tags import *
+from Classes.math import *
+from Classes.physics import *
+from Classes.tags import *
 
-import render.Classes.Integrators.geodesiceq as GeodesicEq
-import render.Classes.Integrators.specint as SpecInt
+import Classes.Integrators.geodesiceq as GeodesicEq
+import Classes.Integrators.specint as SpecInt
 
 # Integrator
 def_scene = [Hittable(tag=HITTABLE_NULL,
@@ -24,7 +24,7 @@ spec_integrator = [("tag", int64),
 
                    # For SpecInts
                    ("specint_grid", Grid.class_type.instance_type), ("geodesics", types.ListType(Function.class_type.instance_type)),
-                   ("gas_params", types.ListType(Function.class_type.instance_type)), ("doppler_obs", float64[::1]), ("solve_idx", int64)]
+                   ("doppler_obs", float64[::1]), ("solve_idx", int64)]
 @jitclass(spec_integrator)
 class Integrator:
     """Initiate an integrator that solves differential equations.
@@ -46,12 +46,11 @@ class Integrator:
     def __init__(self, tag:int,
                  grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI), scene:list[Hittable]=def_scene,
                  cam_pos:Vec=Vec(0,0,0), bg_rad:float=20, gas:Function=def_gas, specint_grid:Grid=Grid(),
-                 geodesics:list[Function]=[Function()], gas_params:list[Function]=[Function()],
-                 obs_vel:np.ndarray=np.array([1,0,0,0], dtype=np.float64)):
+                 geodesics:list[Function]=[Function()], obs_vel:np.ndarray=np.array([1,0,0,0], dtype=np.float64)):
     
         self.tag = tag
         if self.tag == INTEGRATOR_GEODESICEQ: GeodesicEq.init(self, grav_field, scene, cam_pos, bg_rad, gas)
-        if self.tag == INTEGRATOR_SPECINT: SpecInt.init(self, specint_grid, geodesics, gas_params, grav_field, obs_vel)
+        if self.tag == INTEGRATOR_SPECINT: SpecInt.init(self, specint_grid, geodesics, grav_field, obs_vel)
 
     def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
         """Returns the derivative of the state vector y."""
@@ -76,11 +75,11 @@ class Integrator:
         elif self.tag == INTEGRATOR_SPECINT: return SpecInt.term_cond(self, t, y, h)
         else: return False
     
-    def sample_func(self, t:float, y:np.ndarray) -> np.ndarray:
+    def sample_func(self, y:np.ndarray) -> np.ndarray:
         """Sample a function along the solution to the differential equation."""
         
-        if self.tag == INTEGRATOR_GEODESICEQ: return GeodesicEq.sample_func(self, t, y)
-        elif self.tag == INTEGRATOR_SPECINT: return SpecInt.sample_func(self, t, y)
+        if self.tag == INTEGRATOR_GEODESICEQ: return GeodesicEq.sample_func(self, y)
+        elif self.tag == INTEGRATOR_SPECINT: return SpecInt.sample_func(self, y)
         else: return np.ascontiguousarray(np.zeros(1, dtype=np.float64))
     
     def max_step(self, t:float, y:np.ndarray, h:float) -> float:
@@ -89,16 +88,50 @@ class Integrator:
         if self.tag == INTEGRATOR_GEODESICEQ: return GeodesicEq.max_step(self, t, y, h)
         elif self.tag == INTEGRATOR_SPECINT: return SpecInt.max_step(self, t, y, h)
         else: return np.inf
+    
+    def mid_g_interp(self, ts:np.ndarray, gs:np.ndarray, g_new:np.ndarray, h:float) -> np.ndarray:
+        """Returns the Hermite-interpolated value of the sample function in the middle of a step, given
+        all previous values (gs) at specified parameter values (ts), and the new sample function value (g_new)
+        at the new integration step of size h."""
+
+        g0 = gs[-1]; g1 = g_new
+        dg1 = g1 - g0
+        if len(ts) != 1: dg0 = (g1 - gs[-2]) / (h + ts[-1] - ts[-2]) * h
+        else: dg0 = dg1.copy()
+        a = 2*g0 - 2*g1 + dg0 + dg1
+        b = -3*g0 + 3*g1 - 2*dg0 - dg1
+        c = dg0; d = g0
+        g_mid_est = a/8 + b/4 + c/2 + d # Hermite interpolation in the middle
+        return g_mid_est
+
+    def adapt_stepsize(self, h:float, ode_error:float, g_error:float,
+                       ode_tol:float=1e-8, g_tol:float=1e-3, safety:float=0.9) -> float:
+        """Returns the adapted step size based on error and inputted tolerance."""
+
+        if (ode_error <= ode_tol) and (g_error <= g_tol):
+            if ode_error > 0: ode_factor = (ode_tol / ode_error) ** (1/5)
+            else: ode_factor = 5.
+            if g_error > 0: g_factor = (g_tol / g_error) ** (1/4)
+            else: g_factor = 5.
+            factor = min(ode_factor, g_factor)
+            return h * safety * factor
+        else:
+            if ode_error > 0: ode_factor = (ode_tol / ode_error) ** (1/5)
+            else: ode_factor = 0.1
+            if g_error > 0: g_factor = (g_tol / g_error) ** (1/4)
+            else: g_factor = 0.1
+            factor = min(ode_factor, g_factor)
+            return h * safety * max(0.1, factor)
 
     def solve(self, t0:float, y0:np.ndarray,
-              h_init:float=0.1, max_t:float=1e3, tol:float=1e-8,
+              h_init:float=0.1, max_t:float=1e3, ode_tol:float=1e-8, g_tol:float=1e-3,
               max_iter:int=100, safety:float=0.9) -> tuple[Function, Function]:
         """Solves the differential equation and returns the function representing it.
         Allows sampling of a function f(x,y) along the solution g(t) = f(x, y(x))."""
 
         t, y, h, iter = t0, y0, h_init, 0
         ts, ys = np.array([t0], dtype=np.float64), y0.reshape(1, y0.shape[0])
-        gs = self.sample_func(t0, y0); gs = gs.reshape(1, gs.shape[0])
+        gs = self.sample_func(y0); gs = gs.reshape(1, gs.shape[0])
         while (t < max_t and iter < max_iter):
 
             # Set integration step
@@ -113,36 +146,19 @@ class Integrator:
             y_fine = self.rk4_step(t+h/2, y_mid, h/2) # Fine step made of 2 substeps
 
             # Sample function
-            g_mid = self.sample_func(t, y_mid)
-            g0 = gs[-1]; g1 = self.sample_func(t, y_fine)
-            dg1 = g1 - g0
-            if len(ts) != 1: dg0 = (g1 - gs[-2]) / (h + ts[-1] - ts[-2]) * h
-            else: dg0 = dg1.copy()
-            a = 2*g0 - 2*g1 + dg0 + dg1
-            b = -3*g0 + 3*g1 - 2*dg0 - dg1
-            c = dg0; d = g0
-            g_mid_est = a/8 + b/4 + c/2 + d # Hermite interpolation in the middle
+            g_mid = self.sample_func(y_mid)
+            g_fine = self.sample_func(y_fine)
+            g_mid_est = self.mid_g_interp(ts, gs, g_fine, h)
             
             # Error estimate
             ode_error = np.max(np.abs(y_coarse - y_fine)) / 15
             g_error = np.max(np.abs(g_mid_est - g_mid))
-            error = max(ode_error, g_error)
-            if error <= tol: # Accept solution
+            if (ode_error <= ode_tol) and (g_error <= g_tol): # Accept solution
                 t += h; y = y_fine
                 ts = np.append(ts, t)
                 ys = np.vstack((ys, y.reshape(1, len(y))))
-                gs = np.vstack((gs, g1.reshape(1, len(g1))))
-                if error < 1e-15 : h *= safety * 5.
-                else:
-                    factor = (tol / error) ** (1/5)
-                    if factor < 0.1: h *= safety * 0.1
-                    elif 0.1 < factor < 5.0: h *= safety * factor
-                    else: h *= safety * 5.
-            else: # Reject solution and reduce step size
-                factor = (tol / error) ** (1/5)
-                if factor > 0.1: h *= safety * factor
-                else: h *= safety * 0.1
-            iter += 1
+                gs = np.vstack((gs, g_fine.reshape(1, len(g_fine))))
+            h = self.adapt_stepsize(h, ode_error, g_error, ode_tol, g_tol, safety)
 
         sol = Function(Grid(Patch([ts])), ys)
         func = Function(Grid(Patch([ts])), gs)
@@ -154,10 +170,8 @@ spec_settings = [("w", int64), ("h", int64), ("aspect", float64),
                  ("cam_pos", Vec.class_type.instance_type), ("cam_dir", Vec.class_type.instance_type), ("cam_vel", Vec.class_type.instance_type),
                  ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type),
                  ("scene", types.ListType(Hittable.class_type.instance_type)),
-                 ("background", float64[:,:,::1]), ("bg_rad", float64),
-                 ("bg_specints", float64[:,::1]),
-                 ("col_converter", ColConverter.class_type.instance_type), ("gas", Function.class_type.instance_type),
-                 ("grav_field", GravField.class_type.instance_type)]
+                 ("bg_rad", float64), ("col_converter", ColConverter.class_type.instance_type),
+                 ("gas", Function.class_type.instance_type), ("grav_field", GravField.class_type.instance_type)]
 @jitclass(spec_settings)
 class RenderSettings:
     """The settings of the rendered scene. Includes parameters like camera position and angle, scene, background image, etc.
@@ -172,7 +186,7 @@ class RenderSettings:
 
     def __init__(self, w:int=800, h:int=600, # Width, height of image
                  cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), cam_vel:Vec=Vec(0,0,0), # Position, direction, and velocity of camera
-                 scene:list[Hittable]=def_scene, bg_rad:float=20, # List of hittables in the scene
+                 scene:list[Hittable]=def_scene, bg_rad:float=20, 
                  col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
        
         if cam_vel.length() >= 1: raise ValueError("Velocity of camera must be smaller than 1.")
@@ -209,13 +223,3 @@ class RenderSettings:
         theta = np.atan2(np.sin(theta_p), gamma*(np.cos(theta_p)-beta)) # Relativistic aberration
         ray_dir = np.cos(theta)*n_vel + np.sin(theta)*Y
         return ray_dir.normal()
-    
-    """
-    def sample_bg(self, theta:float, phi:float) -> Function:
-        u, v = (phi+np.pi)/(2*np.pi), theta/np.pi
-        h, w, _ = self.background.shape
-        x, y = int(u*(w-1)), int(v*(h-1)) # Pixel coordinate on the image
-        spec_int_val = self.bg_specints[y,x]
-        spec_int = Function(self.col_converter.grid, spec_int_val.reshape(len(spec_int_val), 1))
-        return spec_int
-    """
