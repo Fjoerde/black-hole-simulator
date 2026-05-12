@@ -6,20 +6,199 @@
 
 // this document contains the methods for the HLLD solver.
 
-// define magnetic 4-vector
-std::array<double,4> hlld::Bfl(const prim& W, const metriccomp& mc) {
-    std::array<double,4> b = {0.0, 0.0, 0.0, 0.0};
-    double vB = 0.0;
-    double v_i = 0.0;
+// internal structs
+// precompute values at the faces and cache
+struct side {
+    double rho, eps, p, h; // thermodynamic quantities
+    double vn, vt1, vt2; // normal and transverse velocities
+    double Bn, Bt1, Bt2; // transverse and normal magnetic field
+    double v2; // square norm of velocity
+    double ltz, ltz2; // lorentz
+    double b2; // square norm of lagrangian magnetic 4-vector
+    double pt; // total pressure
+    double cf; // fast magnetosonic speed
+    double D, tau; // conserved D and \tau
+    double Sn, St1, St2; // conserved normal and transverse momentum
+    double Bc; // conserved eulerian magnetic field
+    double E; // total energy
+};
+// conserved variable intermediate state
+struct cons_stt {
+    double D, Sn, St1, St2, tau, Bn, Bt1, Bt2;
+};
+
+// helper functions
+// fast magnetosonic wave speeds
+static double fastspeed(double rho, double h, double b2, double cs2) {
+    double va2 = b2/(rho*h+b2); // square of alfvén wave speed
+    double cf2 = cs2+va2*(1-cs2); // angle-averaged fast waves peed
+    cf2 = std::min(cf2, 1-1e-10);
+    return std::sqrt(cf2);
+}
+// magnetic related computations
+static void magcomp(const prim& W, const metriccomp& mc, int dim, double& b2, double& pt, double& Bn, double& Bt1, double& Bt2, double vn, double vt1, double vt2, double v2, double ltz, double ltz2) {
+    int t1 = (dim+1)%3, t2 = (dim+2)%3;
+    // velocity and lorentz factor
+    double vlow[3] = {}, Blow[3] = {};
+    double v2 = 0.0;
     for(int i=0; i<3; i++) {
         for(int j=0; j<3; j++) {
-            v_i += mc.gam[i][j]*W.v[j];
+            vlow[i] += mc.gam[i][j]*W.v[j];
+            Blow[i] += mc.gam[i][j]*W.B[j];
         }
-        vB += v_i*W.B[i];
+        v2 += vlow[i]*W.v[i];
     }
-    b[0] += W.lor*vB/mc.alpha;
+    v2 = std::min(v2,1-1e-10);
+    ltz2 = 1.0/(1.0-v2);
+    ltz = std::sqrt(ltz2);
+    // B_i v^i
+    double Bv = 0.0;
     for(int i=0; i<3; i++) {
-        b[i+1]=(W.B[i]+mc.alpha*b[0]*W.lor*W.v[i])/W.lor;
+        Bv += Blow[i]*W.v[i];
     }
-    return b;
+    // B_i B^i
+    double Bsq = 0.0;
+    for(int i=0; i<3; i++) {
+        Bsq += Blow[i]*W.B[i];
+    }
+    // value assignments
+    b2 = Bv*Bv+Bsq/ltz2;
+    pt = 0.0+b2/2;
+    vn = W.v[dim]; vt1 = W.v[t1]; vt2 = W.v[t2];
+    Bn = W.B[dim]; vt1 = W.B[t1]; vt2 = W.B[t2];
+}
+// side initialisation
+static side side_(const prim& W, const cons& U, const metriccomp& mc, const state& stt, double sqrtg, int dim) {
+    side s;
+    int t1 = (dim+1)%3; int t2 = (dim+2)%3;
+    // assign values
+    s.rho = W.rho; s.eps = W.eps;
+    s.p = stt.press(W.rho,W.eps);
+    s.h = stt.enth(W.rho,W.eps);
+    // pressure
+    double dum_pt;
+    magcomp(W,mc,dim,s.b2,dum_pt,s.Bn,s.Bt1,s.Bt2,s.vn,s.vt1,s.vt2,s.v2,s.ltz,s.ltz2);
+    s.pt = s.p+s.b2/2;
+    // sound speeds
+    double cs2 = stt.cs2(W.rho,W.eps);
+    s.cf = fastspeed(s.rho,s.h,s.b2,cs2);
+    // conserved stripping
+    s.D = U.D/sqrtg; s.tau = U.tau/sqrtg;
+    s.Sn = U.S[dim]/sqrtg; s.St1 = U.S[t1]/sqrtg;
+    s.Bc = U.B[dim]/sqrtg;
+    s.E = s.tau+s.D;
+
+    return s;
+}
+
+// physical flux
+static cons_stt physflux(const side& s) {
+    cons_stt F;
+    double vn = s.vn;
+    // fluxes in each variable
+    F.D = s.D*vn;
+    F.tau = (s.E+s.pt)*vn-s.Bn*(s.Bn*vn+s.Bt1*s.vt1+s.Bt2*s.vt2)/s.ltz2;
+    F.Sn = s.Sn*vn-s.Bn*s.Bn/s.ltz2+s.pt;
+    F.St1 = s.St1*vn-s.Bt1*s.Bn/s.ltz2;
+    F.St2 = s.St2*vn-s.Bt2*s.Bn/s.ltz2;
+    F.Bn = 0.0;
+    F.Bt1 = s.Bt1*vn-s.Bn*s.vt1;
+    F.Bt2 = s.Bt2*vn-s.Bn*s.vt2;
+
+    return F;
+}
+// hll flux fallback
+static cons_stt hll_flux(const side& L, const side& R, const cons_stt& FL, const cons_stt& FR, double SL, double SR) {
+    double dS = SR-SL; cons_stt F;
+    // hll fluxes by variable; see toro ch10.3 for reference
+    F.D = (SR*FL.D-SL*FR.D+SL*SR*(R.D-L.D))/dS;
+    F.tau = (SR*FL.tau-SL*FR.tau+SL*SR*(R.tau-L.tau))/dS;
+    F.Sn = (SR*FL.Sn-SL*FR.Sn+SL*SR*(R.Sn-L.Sn))/dS;
+    F.St1 = (SR*FL.St1-SL*FR.St1+SL*SR*(R.St1-L.St1))/dS;
+    F.St2 = (SR*FL.St2-SL*FR.St2+SL*SR*(R.St2-L.St2))/dS;
+    F.Bn = (SR*FL.Bn-SL*FR.Bn+SL*SR*(R.Bn-L.Bn))/dS;
+    F.Bt1 = (SR*FL.Bt1-SL*FR.Bt1+SL*SR*(R.Bt1-L.Bt1))/dS;
+    F.Bt2 = (SR*FL.Bt2-SL*FR.Bt2+SL*SR*(R.Bt2-L.Bt2))/dS;
+
+    return F;
+}
+
+// star state construction across fast waves U^*
+static cons_stt star_stt(const side& s, cons_stt& F, double SK, double SM, double pt_x) {
+    cons_stt Ux;
+    Ux.D = s.D*(SK-s.vn)/(SK-SM);
+    Ux.tau = (s.E*(SK-s.vn)-s.pt*s.vn+pt_x*SM)/(SK-SM)-Ux.D;
+    Ux.Sn = (s.Sn*(SK-s.vn)-s.pt+pt_x)/(SK-SM);
+    Ux.St1 = s.St1*(SK-s.vn)/(SK-SM);
+    Ux.St2 = s.St2*(SK-s.vn)/(SK-SM);
+    Ux.Bn = s.Bc;
+    // transverse magnetic fields
+    double den = s.D*(SK-s.vn)*(SK-SM)-s.Bn*s.Bn;
+    if(std::abs(den)>1e-14) {
+        double k = s.Bn*(SM-s.vn)/den;
+        Ux.Bt1 = s.Bt1-s.Bn*(s.vt1*(SK-s.vn)+s.Bn*s.Bt1/s.D)*k;
+        Ux.Bt2 = s.Bt2-s.Bn*(s.vt2*(SK-s.vn)+s.Bn*s.Bt2/s.D)*k;
+    } else {
+        Ux.Bt1 = s.Bt1; Ux.Bt2 = s.Bt2;
+    }
+
+    return Ux;
+}
+// double star state construction across alfvén waves U^{**}
+static void alfstar_stt(const cons_stt& UxL, const cons_stt& UxR, const side& L, const side& R, double SL, double SR, double SM, double pt_x, cons_stt& UxxL, cons_stt& UxxR) {
+    // preliminary U^{**} values preserved in D^* and \tau^*
+    UxxL.D = UxL.D; UxxL.tau = UxL.tau;
+    UxxR.D = UxR.D; UxxR.tau = UxR.tau;
+    UxxL.Bn = UxL.Bn; UxxR.Bn = UxR.Bn;
+    // alfvén wave speeds
+    double sq_DL = std::sqrt(std::abs(UxL.D));
+    double sq_DR = std::sqrt(std::abs(UxR.D));
+    double Bn = L.Bn;
+    double den = sq_DL+sq_DR;
+    if(std::abs(den)<1e-14 || std::abs(Bn)<1e-14) {
+        UxxL = UxL; UxxR = UxR;
+    }
+
+    double sgnBn = (Bn>=0.0)? 1.0 : -1.0;
+    // transverse velocity in ** region
+    double vt1xx = (sq_DL*UxL.St1/UxL.D+sq_DR*UxR.St1/UxR.D+sgnBn*(UxR.Bt1-UxL.Bt1))/den;
+    double vt2xx = (sq_DL*UxL.St2/UxL.D+sq_DR*UxR.St2/UxR.D+sgnBn*(UxR.Bt2-UxL.Bt2))/den;
+    // transverse magnetic field
+    double Bt1xx = (sq_DL*UxL.Bt1/UxL.D+sq_DR*UxR.Bt1/UxR.D+sgnBn*sq_DL*sq_DR*(UxR.St1/UxR.D-UxL.St1/UxL.D))/den;
+    double Bt2xx = (sq_DL*UxL.Bt2/UxL.D+sq_DR*UxR.Bt2/UxR.D+sgnBn*sq_DL*sq_DR*(UxR.St2/UxR.D-UxL.St2/UxL.D))/den;
+    
+    // assign states
+    UxxL.St1 = UxL.D*vt1xx; UxxR.St1 = UxR.D*vt1xx;
+    UxxL.St2 = UxL.D*vt2xx; UxxR.St2 = UxR.D*vt2xx;
+    UxxL.Bt1 = Bt1xx; UxxR.Bt1 = Bt1xx;
+    UxxL.Bt2 = Bt2xx; UxxR.Bt2 = Bt2xx;
+    UxxL.Sn = UxL.D*SM; UxxR.Sn = UxR.D*SM;
+    UxxL.tau = UxL.tau-sq_DL*sgnBn*(UxL.St1/(UxL.D*UxL.Bt1)+UxL.St2/(UxL.D*UxL.Bt2)-vt1xx*Bt1xx-vt2xx*Bt2xx)-UxL.D;
+    UxxR.tau = UxR.tau-sq_DR*sgnBn*(UxR.St1/(UxR.D*UxR.Bt1)+UxR.St2/(UxR.D*UxR.Bt2)-vt1xx*Bt1xx-vt2xx*Bt2xx)-UxR.D;
+}
+// intermediate state flux
+static cons_stt interflux(const cons_stt& F_K, double SK, const cons_stt& Ux, const side& s_K) {
+    cons_stt F;
+    // assign values
+    F.D = F_K.D+SK*(Ux.D-s_K.D);
+    F.tau = F_K.tau+SK*(Ux.tau-(s_K.E-s_K.D));
+    F.Sn = F_K.Sn+SK*(Ux.Sn-s_K.Sn);
+    F.St1 = F_K.St1+SK*(Ux.St1-s_K.St1);
+    F.St2 = F_K.St2+SK*(Ux.St2-s_K.St2);
+    F.Bn = F_K.Bn+SK*(Ux.Bn-s_K.Bc);
+    F.Bt1 = F_K.Bt1+SK*(Ux.Bt1-s_K.Bt1);
+    F.Bt2 = F_K.Bt2+SK*(Ux.Bt2-s_K.Bt2);
+
+    return F;
+}
+// restore flux with \sqrt{-g} factor proper ordering
+static cons flux(const cons_stt& F, double sg, int dim) {
+    int t1 = (dim+1)%3; int t2 = (dim+2)%3;
+    cons c;
+    // assign values
+    c.D = sg*F.D; c.tau = sg*F.tau;
+    c.B[dim] = sg*F.Bn; c.B[t1] = sg*F.Bt1; c.B[t2] = sg*F.Bt2;
+    c.S[dim] = sg*F.Sn; c.S[t1] = sg*F.St1; c.S[t2] = sg*F.St2;
+    
+    return c;
 }
