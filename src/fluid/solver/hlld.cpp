@@ -36,11 +36,10 @@ static double fastspeed(double rho, double h, double b2, double cs2) {
     return std::sqrt(cf2);
 }
 // magnetic related computations
-static void magcomp(const prim& W, const metriccomp& mc, int dim, double& b2, double& pt, double& Bn, double& Bt1, double& Bt2, double vn, double vt1, double vt2, double v2, double ltz, double ltz2) {
+static void magcomp(const prim& W, const metriccomp& mc, int dim, double& b2, double& pt, double& Bn, double& Bt1, double& Bt2, double& vn, double& vt1, double& vt2, double& v2, double& ltz, double& ltz2) {
     int t1 = (dim+1)%3, t2 = (dim+2)%3;
     // velocity and lorentz factor
     double vlow[3] = {}, Blow[3] = {};
-    double v2 = 0.0;
     for(int i=0; i<3; i++) {
         for(int j=0; j<3; j++) {
             vlow[i] += mc.gam[i][j]*W.v[j];
@@ -65,7 +64,7 @@ static void magcomp(const prim& W, const metriccomp& mc, int dim, double& b2, do
     b2 = Bv*Bv+Bsq/ltz2;
     pt = 0.0+b2/2;
     vn = W.v[dim]; vt1 = W.v[t1]; vt2 = W.v[t2];
-    Bn = W.B[dim]; vt1 = W.B[t1]; vt2 = W.B[t2];
+    Bn = W.B[dim]; Bt1 = W.B[t1]; Bt2 = W.B[t2];
 }
 // side initialisation
 static side side_(const prim& W, const cons& U, const metriccomp& mc, const state& stt, double sqrtg, int dim) {
@@ -92,7 +91,7 @@ static side side_(const prim& W, const cons& U, const metriccomp& mc, const stat
 }
 
 // physical flux
-static cons_stt physflux(const side& s) {
+static cons_stt physflux(const side& s, const metriccomp& mc, int dim) {
     cons_stt F;
     double vn = s.vn;
     // fluxes in each variable
@@ -104,6 +103,17 @@ static cons_stt physflux(const side& s) {
     F.Bn = 0.0;
     F.Bt1 = s.Bt1*vn-s.Bn*s.vt1;
     F.Bt2 = s.Bt2*vn-s.Bn*s.vt2;
+    // ADM 3+1 correction for near-horizon fluxes
+    double a = mc.alpha;
+    double btn = mc.beta[dim];
+    F.D = a*F.D-btn*s.D;
+    F.tau = a*F.tau-btn*s.tau;
+    F.Sn = a*F.Sn-btn*s.Sn;
+    F.St1 = a*F.St1-btn*s.St1;
+    F.St2 = a*F.St2-btn*s.St2;
+    F.Bn = a*F.Bn-btn*s.Bn;
+    F.Bt1 = a*F.Bt1-btn*s.Bt1;
+    F.Bt2 = a*F.Bt2-btn*s.Bt2;
 
     return F;
 }
@@ -201,4 +211,88 @@ static cons flux(const cons_stt& F, double sg, int dim) {
     c.S[dim] = sg*F.Sn; c.S[t1] = sg*F.St1; c.S[t2] = sg*F.St2;
     
     return c;
+}
+
+// main hlld solver function
+hlldflux hlld(const prim& WL, const prim& WR, const cons& UL, const cons& UR, const metric& mtr, double r, double th, const state& stt, int dim) {
+    hlldflux fx;
+    // metric
+    metriccomp mc = mtr.comp(r,th);
+    double sg = mc.sqrtdetg;
+    // side structs
+    side L = side_(WL,UL,mc,stt,sg,dim);
+    side R = side_(WR,UR,mc,stt,sg,dim);
+
+    // wave speeds estimates and fluxes
+    double SL = std::min(L.vn-L.cf,R.vn-R.cf);
+    double SR = std::max(L.vn+L.cf,R.vn+R.cf);
+    cons_stt FL = physflux(L,mc,dim); cons_stt FR = physflux(R,mc,dim);
+    fx.ctspeed = std::max(std::abs(SL),std::abs(SR));
+    if(SR-SL<1e-12) {
+        fx.F = flux(hll_flux(L,R,FL,FR,SL,SR),sg,dim);
+    }
+    if(SL>=0.0) {
+        fx.F = flux(FL,sg,dim);
+        return fx;
+    }
+    if(SR<=0.0) {
+        fx.F = flux(FR,sg,dim);
+        return fx;
+    }
+    // total pressure and contact waves
+    double pt_x = (SR*L.pt-SL*R.pt+SL*SR*(R.Sn-L.Sn))/(SR-SL);
+    double SM_u = SR*L.E-SL*R.E-FR.tau-FR.D+FL.tau+FL.D;
+    double SM_d = SR*L.D-SL*R.D-FR.D+FL.D;
+    if(std::abs(SM_d)<1e-12) {
+        fx.F = flux(hll_flux(L,R,FL,FR,SL,SR),sg,dim);
+        return fx;
+    }
+    double SM = SM_u/SM_d;
+    // alfvén waves
+    cons_stt UxL = star_stt(L,FL,SL,SM,pt_x);
+    cons_stt UxR = star_stt(R,FR,SR,SM,pt_x);
+    double SLx = SM-std::abs(L.Bn)/std::sqrt(std::abs(UxL.D));
+    double SRx = SM+std::abs(R.Bn)/std::sqrt(std::abs(UxR.D));
+    if(UxL.D<=0.0 || UxR.D<=0.0) {
+        fx.F = flux(hll_flux(L,R,FL,FR,SL,SR),sg,dim);
+        return fx;
+    }
+
+    // flux selector
+    if(SM>=0.0) {
+        if(SLx>=0.0) {
+            // L^*
+            cons_stt Fx = interflux(FL,SL,UxL,L);
+            fx.F = flux(Fx,sg,dim);
+        } else {
+            // L^{**}
+            cons_stt UxxL, UxxR;
+            alfstar_stt(UxL,UxR,L,R,SL,SR,SM,pt_x,UxxL,UxxR);
+            cons_stt FLx = interflux(FL,SL,UxL,L);
+            cons_stt Fxx = interflux(FLx,SLx,UxxL,L);
+            fx.F = flux(Fxx,sg,dim);
+        }
+    } else {
+        if(SRx>=0.0) {
+            // L^*
+            cons_stt Fx = interflux(FR,SR,UxR,R);
+            fx.F = flux(Fx,sg,dim);
+        } else {
+            // L^{**}
+            cons_stt UxxL, UxxR;
+            alfstar_stt(UxL,UxR,L,R,SL,SR,SM,pt_x,UxxL,UxxR);
+            cons_stt FRx = interflux(FR,SR,UxR,R);
+            cons_stt Fxx = interflux(FRx,SRx,UxxR,R);
+            fx.F = flux(Fxx,sg,dim);
+        }
+    }
+    // safety checks in case NaN/infinities/other errors slip through
+    if(!std::isfinite(fx.F.D) || !std::isfinite(fx.F.tau) || !std::isfinite(fx.F.S[dim%3]) || !std::isfinite(fx.F.S[(dim+1)%3]) || !std::isfinite(fx.F.S[(dim+2)%3]) || !std::isfinite(fx.F.B[dim%3]) || !std::isfinite(fx.F.B[(dim+1)%3]) || !std::isfinite(fx.F.B[(dim+2)%3])) {
+        fx.F = flux(hll_flux(L,R,FL,FR,SL,SR),sg,dim);
+    }
+    if(fx.ctspeed>1.0) {
+        fx.ctspeed = 1.0;
+    }
+
+    return fx;
 }
