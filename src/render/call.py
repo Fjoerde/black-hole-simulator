@@ -43,17 +43,15 @@ sphere = [Hittable(tag=HITTABLE_CHECKERBOARD,
 disk = [Hittable(tag=HITTABLE_BLACKBODY,
                  shape=Shape(pos=Vec(0,0,0), rot=(np.pi/2,-np.pi/20,0), tag=SHAPE_ANNULUS, r_in=2.5, r_out=5, height=0.25), temp=4000)]
 ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
-settings = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), scene=sphere)
-# settings1 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), gas=gas)
-# settings2 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), scene=disk, grav_field=ss)
+settings1 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), gas=gas)
+settings2 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), scene=disk, grav_field=ss)
 
 t3 = time.perf_counter()
 print(f"Initialization finished in {t3-t2:.4f} s\n")
 
 print("Rendering (ignore NumbaPerformanceWarning's)...")
-render_img, ang_dev_img = render_seq(settings)
-# img = render_seq(settings1) # <-- Un-comment the next line and comment this line for run 2
-# img = render_seq(settings2) # <-- Un-comment the previous line and comment this line for run 1
+render_img, ang_dev_img = render_seq(settings1) # <-- Un-comment the next line and comment this line for run 2
+# render_img, ang_dev_img = render_seq(settings2) # <-- Un-comment the previous line and comment this line for run 1
 render_filename = "test21.png" # <-- test21.png for run 1, test22.png for run 2
 ang_dev_filename = "ang_dev1.png" # <-- ang_dev1.png for run 1, ang_dev2.png for run 2
 render_img.save(f"Images/{render_filename}") 
