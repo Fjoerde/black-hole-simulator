@@ -1,7 +1,9 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from PIL import Image
 from numba import njit, prange
 from numba_progress import ProgressBar
+import io
 
 from Classes.math import *
 from Classes.tags import *
@@ -23,11 +25,12 @@ def trace_geodesic(integrator:Integrator, y0:np.ndarray, bg_rad:float) -> Functi
     
     if integrator.tag != INTEGRATOR_GEODESICEQ: raise ValueError("Invalid tag for integrator.")
     geodesic, gas_param = integrator.solve(0, y0, bg_rad/50, bg_rad*3)
-    gdsic_vals = np.empty((len(geodesic.grid.pts), 8), dtype=np.float64)
+    gdsic_vals = np.empty((len(geodesic.grid.pts), 9), dtype=np.float64)
     for i in range(len(geodesic.grid.pts)):
         x0 = geodesic.vals[i,:4]
         gdsic_vals[i,:4] = integrator.grav_field.mink_pos(x0)
-        gdsic_vals[i,4:] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:], x0)
+        gdsic_vals[i,4:8] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:8], x0)
+        gdsic_vals[i,8] = geodesic.vals[i,8]
     gdsic_vals = np.ascontiguousarray(np.flipud(gdsic_vals))
     gas_vals = np.ascontiguousarray(np.flipud(gas_param.vals))
     new_vals = np.hstack((gdsic_vals, gas_vals))
@@ -47,7 +50,7 @@ def get_geodesics(integrator:Integrator, geodesics:list[Function], settings:Rend
         y, x = i//settings.w, i%settings.w
         ray_dir = settings.ray_dir_px(x, y)
         V0 = settings.grav_field.null_cond(ray_dir, x0)
-        y0 = np.concatenate((X0, V0))
+        y0 = np.concatenate((X0, V0, np.array([0], dtype=np.float64)))
         geodesics[i] = trace_geodesic(integrator, y0, settings.bg_rad)
         pbar.update(1)
     return geodesics
@@ -82,7 +85,31 @@ def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar)
     return cols
 
 
-# Function to actually call
+# Functions outside of nopython mode
+def plot_deviation(geodesics:list[Function], settings:RenderSettings) -> Image:
+    """Plots the angular deviation of the light rays across the image."""
+
+    n_px = settings.w * settings.h
+    if len(geodesics) != n_px: raise ValueError("Number of geodesics not equal to the number of pixels in the image.")
+    deviations = np.empty(n_px, dtype=np.float64)
+    for i in range(n_px): deviations[i] = geodesics[i].vals[-1,-1]
+    deviations = deviations.reshape(settings.h, settings.w)
+
+    fig, ax = plt.subplots()
+    X = np.arange(settings.w); Y = np.flip(settings.h-1 - np.arange(settings.h))
+    xx, yy = np.meshgrid(X, Y)
+    contourf = ax.contourf(xx, yy, deviations, levels=20, cmap='viridis')
+    fig.colorbar(contourf, ax=ax, label="Deviations")
+    ax.set_title("Angular Deviation")
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=200, bbox_inches="tight")
+    buf.seek(0)
+    img = Image.open(buf)
+    plt.close(fig)
+    img.show()
+    return img
+
 def render_seq(settings:RenderSettings) -> Image:
     """Call to perform the rendering sequence."""
 
@@ -92,6 +119,10 @@ def render_seq(settings:RenderSettings) -> Image:
     geodesics = [Function() for _ in range(settings.w * settings.h)]
     with ProgressBar(total=settings.w*settings.h) as pbar:
         geodesics = get_geodesics(integrator, geodesics, settings, pbar)
+
+    print("Plotting angular deviations...")
+    ang_dev_img = plot_deviation(geodesics, settings)
+
     print("Calculating colors...")
     x0 = np.array([0, settings.cam_pos.x, settings.cam_pos.y, settings.cam_pos.z])
     integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=settings.col_converter.grid,
@@ -99,6 +130,6 @@ def render_seq(settings:RenderSettings) -> Image:
                             obs_vel=settings.grav_field.timelike_cond(settings.cam_vel, x0))
     with ProgressBar(total=settings.w*settings.h) as pbar:
         cols = get_colors(integrator, settings, pbar)
-    img = Image.fromarray(cols.reshape(settings.h, settings.w, 3).astype(np.uint8))
-    img.show()
-    return img
+    render_img = Image.fromarray(cols.reshape(settings.h, settings.w, 3).astype(np.uint8))
+    render_img.show(); ang_dev_img.show()
+    return render_img, ang_dev_img

@@ -150,6 +150,18 @@ def display_specint(spec_int:Function):
     plt.show()
 
 
+def bb_specint(temp:float, grid=Grid(Patch([np.linspace(380, 780, 41)]))) -> Function:
+    """Returns the spectral intensity of a blackbody at a given temperature."""
+
+    wvls = grid.pts.reshape(len(grid.pts)) * 1e-9
+    h = 6.62607015e-34
+    c = 2.99792458e8
+    k = 1.380649e-23
+    spec_vals = 2*h*c**2/wvls**5 * 1/(np.exp((h*c)/(wvls*k*temp)) - 1) * 1e-9
+    spec_int = Function(grid, spec_vals.reshape(len(spec_vals), 1))
+    return spec_int
+
+
 def ray_col(geodesic:Function, vel:Vec, settings:RenderSettings) -> tuple[Function, np.ndarray]:
     """Returns the spectral intensity and corresponding RGB color as seen by an observer receiving a
     light ray following a geodesic.

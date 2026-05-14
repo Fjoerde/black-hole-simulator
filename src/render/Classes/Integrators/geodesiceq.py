@@ -15,11 +15,16 @@ def init(self, grav_field, scene, cam_pos, bg_rad, gas):
 @njit
 def derivative(self, _, y:np.ndarray) -> np.ndarray:
     y = np.ascontiguousarray(y)
-    x, v = y[:4], y[4:]
+    x, v = y[:4], y[4:8]
     chr_syms = self.grav_field.sample_Gamma(x)
     A = np.zeros(4, dtype=np.float64)
     for c in range(4): A[c] -= (chr_syms[c] @ v) @ v # Geodesic equation
-    y_new = np.concatenate((v, A))
+
+    v3 = v[1:]; a3 = A[1:]
+    dT = a3 / np.linalg.norm(v3) - v3 * (v3 @ a3) / np.linalg.norm(v3)**3 # Infinitesimal angular deviation
+    dTheta = np.linalg.norm(dT)
+
+    y_new = np.concatenate((v, A, np.array([dTheta], dtype=np.float64)))
     return np.ascontiguousarray(y_new)
 
 @njit
