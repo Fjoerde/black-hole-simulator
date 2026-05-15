@@ -30,9 +30,9 @@ struct patch {
     std::vector<double> zedge;
     std::vector<cell> cells; // cells indexed within patch
     // fluxes in each direction
-    std::vector<double> Fx;
-    std::vector<double> Fy;
-    std::vector<double> Fz;
+    std::vector<cons> Fx;
+    std::vector<cons> Fy;
+    std::vector<cons> Fz;
 
     // patch constructor
     patch(int lvl, std::array<int,3> ijk, std::array<double,3> cor1, std::array<double,3> cor2, patch* parent = nullptr);
@@ -53,6 +53,32 @@ struct patch {
     struct facedir {
         enum {X=0, Y=1, Z=2};
     };
+
+    // face-centred magnetic field and edge-centred EMF
+    std::vector<double> Bfx; std::vector<double> Bfy; std::vector<double> Bfz;
+    std::vector<double> EMFx; std::vector<double> EMFy; std::vector<double> EMFz;
+    int Bfx_idx(int i, int j, int k) const;
+    int Bfy_idx(int i, int j, int k) const;
+    int Bfz_idx(int i, int j, int k) const;
+    int EMFx_idx(int i, int j, int k) const;
+    int EMFy_idx(int i, int j, int k) const;
+    int EMFz_idx(int i, int j, int k) const;
+    void B_init(); // magnetic initialisation
+
+    // face indexing
+    int xfc_idx(int i, int j, int k) const;
+    int yfc_idx(int i, int j, int k) const;
+    int zfc_idx(int i, int j, int k) const;
+    // flux accessors
+    double get_Fx_B(int d, int i, int j, int k) const;
+    double get_Fy_B(int d, int i, int j, int k) const;
+    double get_Fz_B(int d, int i, int j, int k) const;
+    const cons& get_Fx(int i, int j, int k) const;
+    const cons& get_Fy(int i, int j, int k) const;
+    const cons& get_Fz(int i, int j, int k) const;
+    cons& get_Fx(int i, int j, int k);
+    cons& get_Fy(int i, int j, int k);
+    cons& get_Fz(int i, int j, int k);
 };
 // amr (adaptive mesh refinement) tree struct
 class amrtree {
