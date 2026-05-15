@@ -27,6 +27,15 @@ patch::patch(int lvl, std::array<int,3> ijk, std::array<double,3> cor1, std::arr
     Fx.resize((cpn+1)*cpn*cpn);
     Fy.resize(cpn*(cpn+1)*cpn);
     Fz.resize(cpn*cpn*(cpn+1));
+    
+    // magnetic field and emf
+    int g = ghost;
+    Bfx.resize((block+2*g+1)*(block+2*g)*(block+2*g),0.0);
+    Bfy.resize((block+2*g)*(block+2*g+1)*(block+2*g),0.0);
+    Bfz.resize((block+2*g)*(block+2*g)*(block+2*g+1),0.0);
+    EMFx.resize((block+2*g)*(block+2*g+1)*(block+2*g+1),0.0);
+    EMFy.resize((block+2*g+1)*(block+2*g)*(block+2*g+1),0.0);
+    EMFz.resize((block+2*g+1)*(block+2*g+1)*(block+2*g),0.0);
 
     cell_init();
 }
@@ -40,6 +49,65 @@ cell& patch::cell_(int i, int j, int k) {
 }
 const cell& patch::cell_(int i, int j, int k) const {
     return cells[lindx(i,j,k)];
+}
+// face indexing
+int patch::xfc_idx(int i, int j, int k) const {
+    return (i+ghost)*(block+2*ghost)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+}
+int patch::yfc_idx(int i, int j, int k) const {
+    return (i+ghost)*(block+2*ghost+1)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+}
+int patch::zfc_idx(int i, int j, int k) const {
+    return (i+ghost)*(block+2*ghost)*(block+2*ghost+1)+(j+ghost)*(block+2*ghost+1)+(k+ghost);
+}
+
+// electromagnetic indexing
+int patch::Bfx_idx(int i, int j, int k) const {
+    return (i+ghost)*(block+2*ghost)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+}
+int patch::Bfy_idx(int i, int j, int k) const {
+    return (i+ghost)*(block+2*ghost+1)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+}
+int patch::Bfz_idx(int i, int j, int k) const {
+    return (i+ghost)*(block+2*ghost)*(block+2*ghost+1)+(j+ghost)*(block+2*ghost+1)+(k+ghost);
+}
+int patch::EMFx_idx(int i, int j, int k) const {
+    return (i+ghost)*(block+2*ghost+1)*(block+2*ghost+1)+(j+ghost)*(block+2*ghost+1)+(k+ghost);
+}
+int patch::EMFy_idx(int i, int j, int k) const {
+    return (i+ghost)*(block+2*ghost)*(block+2*ghost+1)+(j+ghost)*(block+2*ghost+1)+(k+ghost);
+}
+int patch::EMFz_idx(int i, int j, int k) const {
+    return (i+ghost)*(block+2*ghost+1)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+}
+// magnetic flux accessors
+double patch::get_Fx_B(int d, int i, int j, int k) const {
+    return Fx[xfc_idx(i,j,k)].B[d];
+}
+double patch::get_Fy_B(int d, int i, int j, int k) const {
+    return Fy[yfc_idx(i,j,k)].B[d];
+}
+double patch::get_Fz_B(int d, int i, int j, int k) const {
+    return Fz[zfc_idx(i,j,k)].B[d];
+}
+// total flux accessors
+const cons& patch::get_Fx(int i, int j, int k) const {
+    return Fx[xfc_idx(i,j,k)];
+}
+const cons& patch::get_Fy(int i, int j, int k) const {
+    return Fy[yfc_idx(i,j,k)];
+}
+const cons& patch::get_Fz(int i, int j, int k) const {
+    return Fz[zfc_idx(i,j,k)];
+}
+cons& patch::get_Fx(int i, int j, int k) {
+    return Fx[xfc_idx(i,j,k)];
+}
+cons& patch::get_Fy(int i, int j, int k) {
+    return Fy[yfc_idx(i,j,k)];
+}
+cons& patch::get_Fz(int i, int j, int k) {
+    return Fz[zfc_idx(i,j,k)];
 }
 
 // geometry
@@ -103,6 +171,51 @@ amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nql
                 std::array<double,3> c1 = {dom_l[0]+i*px, dom_l[1]+j*py, dom_l[2]+k*pz};
                 std::array<double,3> c2 = {c1[0]+px, c1[1]+py, c1[2]+pz};
                 quilt.push_back(std::make_unique<patch>(0, std::array<int,3>{i,j,k}, c1, c2, nullptr));
+            }
+        }
+    }
+}
+// magnetic initialisation
+void patch::B_init() {
+    // initialise Bfx
+    for(int i=-ghost; i<block+ghost+1; i++) {
+        for(int j=-ghost; i<block+ghost; i++) {
+            for(int k=-ghost; i<block+ghost; i++) {
+                if(i>-ghost && i<block+ghost) {
+                    Bfx[Bfx_idx(i,j,k)] = (cell_(i-1,j,k).W.B[0]+cell_(i,j,k).W.B[0])/2;
+                } else if(i==-ghost) {
+                    Bfx[Bfx_idx(i,j,k)] = cell_(i,j,k).W.B[0];
+                } else {
+                    Bfx[Bfx_idx(i,j,k)] = cell_(i-1,j,k).W.B[0];
+                }
+            }
+        }
+    }
+    // initialise Bfy
+    for(int i=-ghost; i<block+ghost; i++) {
+        for(int j=-ghost; i<block+ghost+1; i++) {
+            for(int k=-ghost; i<block+ghost; i++) {
+                if(i>-ghost && i<block+ghost) {
+                    Bfx[Bfx_idx(i,j,k)] = (cell_(i-1,j,k).W.B[0]+cell_(i,j,k).W.B[0])/2;
+                } else if(i==-ghost) {
+                    Bfx[Bfx_idx(i,j,k)] = cell_(i,j,k).W.B[0];
+                } else {
+                    Bfx[Bfx_idx(i,j,k)] = cell_(i-1,j,k).W.B[0];
+                }
+            }
+        }
+    }
+    // initialise Bfz
+    for(int i=-ghost; i<block+ghost; i++) {
+        for(int j=-ghost; i<block+ghost; i++) {
+            for(int k=-ghost; i<block+ghost+1; i++) {
+                if(i>-ghost && i<block+ghost) {
+                    Bfx[Bfx_idx(i,j,k)] = (cell_(i-1,j,k).W.B[0]+cell_(i,j,k).W.B[0])/2;
+                } else if(i==-ghost) {
+                    Bfx[Bfx_idx(i,j,k)] = cell_(i,j,k).W.B[0];
+                } else {
+                    Bfx[Bfx_idx(i,j,k)] = cell_(i-1,j,k).W.B[0];
+                }
             }
         }
     }
