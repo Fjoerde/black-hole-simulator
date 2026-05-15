@@ -5,6 +5,7 @@
 #include "grid.hpp"
 #include "cell.hpp"
 #include "metric.hpp"
+#include "initial.hpp"
 
 // this document contains the methods for dealing with the grid and
 // adaptive mesh refinement (amr). the grid is split up into a quilt
@@ -173,6 +174,19 @@ amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nql
                 quilt.push_back(std::make_unique<patch>(0, std::array<int,3>{i,j,k}, c1, c2, nullptr));
             }
         }
+    }
+    // set global maximum density for initialisation
+    double glmx_rho = 0.0;
+    for(auto& p : quilt) {
+        for(int i=0; i<block; i++) {
+            for(int j=0; j<block; j++) {
+                for(int k=0; k<block; k++) {
+                    glmx_rho = std::max(glmx_rho, p->cell_(i,j,k).W.rho);
+                }
+            }
+        }
+        // initialise magnetic potential
+        init::B_pot_init(*p,mtr,glmx_rho);
     }
 }
 // magnetic initialisation
