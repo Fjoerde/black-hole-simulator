@@ -25,7 +25,8 @@ def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
     geodesic = self.geodesics[self.solve_idx]
     vals_interp = geodesic.interp(t_arr)[0]
     x = vals_interp[:4]; k = vals_interp[4:8]
-    vel = vals_interp[8:12]; temp = vals_interp[12]; ext_coeff = vals_interp[13]
+    vel = vals_interp[9:13]; temp = max(vals_interp[13], 0); ext_coeff = max(vals_interp[14], 0)
+    print(t, x, temp, ext_coeff)
 
     J = self.grav_field.jacobian(x); g = self.grav_field.sample_g(self.grav_field.coord_pos(x))
     g = (g @ J) @ J # Coordinate transformation to Minkowski

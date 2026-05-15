@@ -22,7 +22,7 @@ def get_gas(pts):
     x, y, z = pts[:,1], pts[:,2], pts[:,3]
     r = np.sqrt(x**2 + y**2 + z**2)
     temp = 1e4 * np.exp(-r**2)
-    ext_coeff = 10 * np.exp(-r**2)
+    ext_coeff = 3 * np.exp(-r**2)
     gas_params = np.zeros((len(pts), 6), dtype=np.float64); gas_params[:,0] += 1
     gas_params[:,4] = temp; gas_params[:,5] = ext_coeff
     return gas_params

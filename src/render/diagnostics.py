@@ -15,7 +15,7 @@ def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     x0 = np.ascontiguousarray(np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
     X0 = settings.grav_field.coord_pos(x0)
     V0 = settings.grav_field.null_cond(ray_dir, x0)
-    y0 = np.concatenate((X0, V0))
+    y0 = np.concatenate((X0, V0, np.array([0], dtype=np.float64)))
     integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene,
                             cam_pos=settings.cam_pos, bg_rad=settings.bg_rad, gas=settings.gas)
     geodesic, gas_param = integrator.solve(0, y0, settings.bg_rad/50, settings.bg_rad*5)
@@ -37,11 +37,12 @@ def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     plt.show()
 
     # Flip geodesic, change to Minkowski coordinates, and return
-    gdsic_vals = np.empty((len(geodesic.grid.pts), 8), dtype=np.float64)
+    gdsic_vals = np.empty((len(geodesic.grid.pts), 9), dtype=np.float64)
     for i in range(len(geodesic.grid.pts)):
         x0 = geodesic.vals[i,:4]
         gdsic_vals[i,:4] = integrator.grav_field.mink_pos(x0)
-        gdsic_vals[i,4:] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:], x0)
+        gdsic_vals[i,4:8] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:8], x0)
+        gdsic_vals[i,8] = geodesic.vals[i,8]
     gdsic_vals = np.ascontiguousarray(np.flipud(gdsic_vals))
     gas_vals = np.ascontiguousarray(np.flipud(gas_param.vals))
     new_vals = np.hstack((gdsic_vals, gas_vals))
@@ -183,7 +184,7 @@ def ray_col(geodesic:Function, vel:Vec, settings:RenderSettings) -> tuple[Functi
             spec_int0 = spec_int0.reshape(len(spec_int0))
             break
     max_t = np.max(geodesic.grid.pts)
-    spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4)[0].vals[-1]
+    spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4, 0.01, 100, 0.5)[0].vals[-1]
     spec_int = Function(grid, spec_int.reshape(len(spec_int), 1))
     rgb = settings.col_converter.get_rgb(spec_int)
     return spec_int, rgb

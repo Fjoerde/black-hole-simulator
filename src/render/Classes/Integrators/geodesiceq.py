@@ -21,7 +21,7 @@ def derivative(self, _, y:np.ndarray) -> np.ndarray:
     for c in range(4): A[c] -= (chr_syms[c] @ v) @ v # Geodesic equation
 
     v3 = v[1:]; a3 = A[1:]
-    dT = a3 / np.linalg.norm(v3) - v3 * (v3 @ a3) / np.linalg.norm(v3)**3 # Infinitesimal angular deviation
+    dT = a3 - v3 * (v3 @ a3) / np.linalg.norm(v3)**2 # Infinitesimal angular deviation
     dTheta = np.linalg.norm(dT)
 
     y_new = np.concatenate((v, A, np.array([dTheta], dtype=np.float64)))

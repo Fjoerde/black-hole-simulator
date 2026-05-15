@@ -105,7 +105,7 @@ class Integrator:
         return g_mid_est
 
     def adapt_stepsize(self, h:float, ode_error:float, g_error:float,
-                       ode_tol:float=1e-8, g_tol:float=1e-3, safety:float=0.9) -> float:
+                       ode_tol:float=1e-8, g_tol:float=1e-2, safety:float=0.9) -> float:
         """Returns the adapted step size based on error and inputted tolerance."""
 
         if (ode_error <= ode_tol) and (g_error <= g_tol):
@@ -124,7 +124,7 @@ class Integrator:
             return h * safety * max(0.1, factor)
 
     def solve(self, t0:float, y0:np.ndarray,
-              h_init:float=0.1, max_t:float=1e3, ode_tol:float=1e-8, g_tol:float=1e-3,
+              h_init:float=0.1, max_t:float=1e3, ode_tol:float=1e-8, g_tol:float=1e-2,
               max_iter:int=100, safety:float=0.9) -> tuple[Function, Function]:
         """Solves the differential equation and returns the function representing it.
         Allows sampling of a function f(x,y) along the solution g(t) = f(x, y(x))."""
@@ -135,6 +135,7 @@ class Integrator:
         while (t < max_t and iter < max_iter):
 
             # Set integration step
+            print(t, y)
             if np.isnan(ys).any() or np.isnan(gs).any(): raise ValueError("Encountered NaN values.")
             if self.term_cond(t, y, h): break
             h = min(h, self.max_step(t, y, h))
@@ -152,7 +153,7 @@ class Integrator:
             
             # Error estimate
             ode_error = np.max(np.abs(y_coarse - y_fine)) / 15
-            g_error = np.max(np.abs(g_mid_est - g_mid))
+            g_error = np.max(np.abs(g_mid_est - g_mid)) / 15
             if (ode_error <= ode_tol) and (g_error <= g_tol): # Accept solution
                 t += h; y = y_fine
                 ts = np.append(ts, t)
