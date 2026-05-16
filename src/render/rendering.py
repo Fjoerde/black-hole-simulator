@@ -77,7 +77,7 @@ def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar)
                 spec_int0 = spec_int0.reshape(len(spec_int0))
                 break
         integrator.solve_idx = i; max_t = np.max(geodesic.grid.pts)
-        spec_int, _ = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4, 0.01, 100, 0.5)
+        spec_int, _ = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4)
         spec_int = spec_int.vals[-1]; spec_int = spec_int.reshape(len(spec_int), 1)
         spec_int = Function(integrator.specint_grid, spec_int)
         cols[i] = settings.col_converter.get_rgb(spec_int) * 255.
@@ -91,15 +91,16 @@ def plot_deviation(geodesics:list[Function], settings:RenderSettings) -> Image:
 
     n_px = settings.w * settings.h
     if len(geodesics) != n_px: raise ValueError("Number of geodesics not equal to the number of pixels in the image.")
+    if len(geodesics) < 4: return Image.fromarray(np.zeros((1,1,3), dtype=np.uint8))
     deviations = np.empty(n_px, dtype=np.float64)
-    for i in range(n_px): deviations[i] = geodesics[i].vals[8,-1]
+    for i in range(n_px): deviations[i] = geodesics[i].vals[0,8]
     deviations = deviations.reshape(settings.h, settings.w)
 
     fig, ax = plt.subplots()
     X = np.arange(settings.w); Y = np.flip(settings.h-1 - np.arange(settings.h))
     xx, yy = np.meshgrid(X, Y)
     contourf = ax.contourf(xx, yy, deviations, levels=20, cmap="viridis")
-    fig.colorbar(contourf, ax=ax, label="Deviations")
+    fig.colorbar(contourf, ax=ax, label=r"$\theta_{d}~/~\mathrm{rad}$")
     ax.set_title("Angular Deviation")
 
     buf = io.BytesIO()
@@ -107,7 +108,6 @@ def plot_deviation(geodesics:list[Function], settings:RenderSettings) -> Image:
     buf.seek(0)
     img = Image.open(buf)
     plt.close(fig)
-    img.show()
     return img
 
 def render_seq(settings:RenderSettings) -> Image:

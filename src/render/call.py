@@ -1,5 +1,4 @@
 #### READ INSTRUCTIONS IN COMMENTS. THERE ARE A TOTAL OF TWO RUNS TO BE DONE. ####
-
 import numpy as np
 import time
 
@@ -21,8 +20,8 @@ print("Initializing...")
 def get_gas(pts):
     x, y, z = pts[:,1], pts[:,2], pts[:,3]
     r = np.sqrt(x**2 + y**2 + z**2)
-    temp = 1e4 * np.exp(-r**2)
-    ext_coeff = 3 * np.exp(-r**2)
+    temp = 1e5 * np.exp(-r**2/20)
+    ext_coeff = 1 * np.exp(-r**2/20)
     gas_params = np.zeros((len(pts), 6), dtype=np.float64); gas_params[:,0] += 1
     gas_params[:,4] = temp; gas_params[:,5] = ext_coeff
     return gas_params
@@ -37,13 +36,10 @@ grid = grid.add_patch(Patch([np.array([0], dtype=np.float64),
 gas_vals = get_gas(grid.pts)
 gas = Function(grid, gas_vals)
 
-sphere = [Hittable(tag=HITTABLE_CHECKERBOARD,
-                 shape=Shape(pos=Vec(0,0,0), rot=(0,0,0), tag=SHAPE_SPHERE, radius=3),
-                 col1=np.array([0,0,1]), col2=np.array([0,1,0]))]
 disk = [Hittable(tag=HITTABLE_BLACKBODY,
-                 shape=Shape(pos=Vec(0,0,0), rot=(np.pi/2,-np.pi/20,0), tag=SHAPE_ANNULUS, r_in=2.5, r_out=5, height=0.25), temp=4000)]
+                 shape=Shape(pos=Vec(0,0,0), rot=(np.pi/2,-np.pi/20,0), tag=SHAPE_ANNULUS, r_in=2.5, r_out=5, height=0.25), temp=4500)]
 ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
-settings1 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), gas=gas)
+settings1 = RenderSettings(w=64, h=64, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), gas=gas)
 settings2 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), scene=disk, grav_field=ss)
 
 t3 = time.perf_counter()

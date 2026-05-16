@@ -184,7 +184,7 @@ def ray_col(geodesic:Function, vel:Vec, settings:RenderSettings) -> tuple[Functi
             spec_int0 = spec_int0.reshape(len(spec_int0))
             break
     max_t = np.max(geodesic.grid.pts)
-    spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4, 0.01, 100, 0.5)[0].vals[-1]
+    spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4)[0].vals[-1]
     spec_int = Function(grid, spec_int.reshape(len(spec_int), 1))
     rgb = settings.col_converter.get_rgb(spec_int)
     return spec_int, rgb

@@ -105,7 +105,7 @@ class Integrator:
         return g_mid_est
 
     def adapt_stepsize(self, h:float, ode_error:float, g_error:float,
-                       ode_tol:float=1e-8, g_tol:float=1e-2, safety:float=0.9) -> float:
+                       ode_tol:float, g_tol:float) -> float:
         """Returns the adapted step size based on error and inputted tolerance."""
 
         if (ode_error <= ode_tol) and (g_error <= g_tol):
@@ -114,28 +114,27 @@ class Integrator:
             if g_error > 0: g_factor = (g_tol / g_error) ** (1/4)
             else: g_factor = 5.
             factor = min(ode_factor, g_factor)
-            return h * safety * factor
+            return h * factor
         else:
             if ode_error > 0: ode_factor = (ode_tol / ode_error) ** (1/5)
             else: ode_factor = 0.1
             if g_error > 0: g_factor = (g_tol / g_error) ** (1/4)
             else: g_factor = 0.1
             factor = min(ode_factor, g_factor)
-            return h * safety * max(0.1, factor)
+            return h * max(0.1, factor)
 
     def solve(self, t0:float, y0:np.ndarray,
               h_init:float=0.1, max_t:float=1e3, ode_tol:float=1e-8, g_tol:float=1e-2,
-              max_iter:int=100, safety:float=0.9) -> tuple[Function, Function]:
+              safety:float=0.5) -> tuple[Function, Function]:
         """Solves the differential equation and returns the function representing it.
         Allows sampling of a function f(x,y) along the solution g(t) = f(x, y(x))."""
 
         t, y, h, iter = t0, y0, h_init, 0
         ts, ys = np.array([t0], dtype=np.float64), y0.reshape(1, y0.shape[0])
         gs = self.sample_func(y0); gs = gs.reshape(1, gs.shape[0])
-        while (t < max_t and iter < max_iter):
+        while t < max_t:
 
             # Set integration step
-            print(t, y)
             if np.isnan(ys).any() or np.isnan(gs).any(): raise ValueError("Encountered NaN values.")
             if self.term_cond(t, y, h): break
             h = min(h, self.max_step(t, y, h))
@@ -153,16 +152,15 @@ class Integrator:
             
             # Error estimate
             ode_error = np.max(np.abs(y_coarse - y_fine)) / 15
-            g_error = np.max(np.abs(g_mid_est - g_mid)) / 15
+            g_error = np.max(np.where(g_mid != 0, np.abs(1 - g_mid_est / g_mid), 0)) / 15 # Percentage error
             if (ode_error <= ode_tol) and (g_error <= g_tol): # Accept solution
                 t += h; y = y_fine
                 ts = np.append(ts, t)
                 ys = np.vstack((ys, y.reshape(1, len(y))))
                 gs = np.vstack((gs, g_fine.reshape(1, len(g_fine))))
-            h = self.adapt_stepsize(h, ode_error, g_error, ode_tol, g_tol, safety)
+            h = safety * self.adapt_stepsize(h, ode_error, g_error, ode_tol, g_tol)
 
-        sol = Function(Grid(Patch([ts])), ys)
-        func = Function(Grid(Patch([ts])), gs)
+        sol = Function(Grid(Patch([ts])), ys); func = Function(Grid(Patch([ts])), gs)
         return sol, func
 
 
@@ -175,15 +173,11 @@ spec_settings = [("w", int64), ("h", int64), ("aspect", float64),
                  ("gas", Function.class_type.instance_type), ("grav_field", GravField.class_type.instance_type)]
 @jitclass(spec_settings)
 class RenderSettings:
-    """The settings of the rendered scene. Includes parameters like camera position and angle, scene, background image, etc.
+    """Wrapper class for the settings of the rendered scene. Includes parameters like camera position, angle, and scene, etc.
     
     For a scene with no object, simply omit the scene argument, or pass a list of a Hittable with a null Shape.
     
-    bg_rad: Radius of the background box.
-    
-    bg_cols, bg_specints: The unqiue colors and spectral intensities of the background image.
-    Must be consistent with the color converter grid and the image. No check is done to ensure that colors are truly
-    unique, no colors are missed, and that every color has occurred in the image."""
+    bg_rad: Radius of the background box."""
 
     def __init__(self, w:int=800, h:int=600, # Width, height of image
                  cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), cam_vel:Vec=Vec(0,0,0), # Position, direction, and velocity of camera
