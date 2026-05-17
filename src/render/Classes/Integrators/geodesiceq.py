@@ -5,12 +5,11 @@ from numba.typed import List
 from Classes.math import Vec
 
 @njit
-def init(self, grav_field, scene, cam_pos, bg_rad, gas):
+def init(self, grav_field, scene, cam_pos, bg_rad):
     self.grav_field = grav_field
     self.scene = List(scene)
     self.cam_pos = cam_pos
     self.bg_rad = bg_rad
-    self.gas = gas
 
 @njit
 def derivative(self, _, y:np.ndarray) -> np.ndarray:
@@ -44,16 +43,10 @@ def term_cond(self, _, y:np.ndarray, h:float) -> bool:
     return False
 
 @njit
-def sample_func(self, y:np.ndarray) -> np.ndarray:
-    x = y[:4]; x_arr = x.reshape(1, 4)
-    gas_params = self.gas.interp(x_arr)[0]
-    return gas_params
-
-@njit
 def max_step(self, t:float, y:np.ndarray, _) -> float:
     speed = np.linalg.norm(self.derivative(t, y))
     dists = np.empty(len(self.scene), dtype=np.float64)
     for i in range(len(self.scene)):
         obj = self.scene[i]
         dists[i] = obj.shape.in_shape_int(self.grav_field.mink_pos(y[:4]))
-    return 1.25 * min(dists) / speed
+    return 1.25 * min(dists) / (speed + 1e-10)

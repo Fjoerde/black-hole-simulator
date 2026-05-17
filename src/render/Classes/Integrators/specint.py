@@ -3,11 +3,12 @@ from numba import njit
 from numba.typed import List
 
 @njit
-def init(self, specint_grid, geodesics, grav_field, obs_vel):
+def init(self, specint_grid, geodesics, gas_vals, grav_field, obs_vel):
     if obs_vel.shape != (4,): raise ValueError("Invalid shape for obs_vel.")
 
     self.specint_grid = specint_grid
     self.geodesics = List(geodesics)
+    self.gas_vals = List(gas_vals)
     self.grav_field = grav_field
     self.solve_idx = 0
     self.doppler_obs = np.empty(len(geodesics), dtype=np.float64)
@@ -22,15 +23,16 @@ def init(self, specint_grid, geodesics, grav_field, obs_vel):
 @njit
 def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
     t_arr = np.array([[t]], dtype=np.float64)
-    geodesic = self.geodesics[self.solve_idx]
-    vals_interp = geodesic.interp(t_arr)[0]
-    x = vals_interp[:4]; k = vals_interp[4:8]
-    vel = vals_interp[9:13]; temp = max(vals_interp[13], 0); ext_coeff = max(vals_interp[14], 0)
+
+    geodesic_val = self.geodesics[self.solve_idx].interp(t_arr)[0]
+    x = geodesic_val[:4]; k = geodesic_val[4:8]
+    gas_val = self.gas_vals[self.solve_idx].interp(t_arr)[0]
+    vel = gas_val[:4]; temp = max(gas_val[4], 0); ext_coeff = max(gas_val[5], 0)
 
     J = self.grav_field.jacobian(x); g = self.grav_field.sample_g(self.grav_field.coord_pos(x))
     g = (g @ J) @ J # Coordinate transformation to Minkowski
     D_src = (g @ k) @ vel; D_obs = self.doppler_obs[self.solve_idx]
-    if np.abs(D_obs) < 1e-16 and np.abs(D_src) < 1e-16: D = 1
+    if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
     else: D = D_src / D_obs
 
     h = 6.62607015e-34; c = 2.99792458e8; kB = 1.380649e-23
@@ -45,10 +47,6 @@ def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
 @njit
 def term_cond(self, t:float, y:np.ndarray, h:float) -> bool:
     return False
-
-@njit
-def sample_func(self, y:np.ndarray) -> np.ndarray:
-    return np.ascontiguousarray(np.zeros(1, dtype=np.float64))
 
 @njit
 def max_step(self, t:float, y:np.ndarray, h:float) -> float:

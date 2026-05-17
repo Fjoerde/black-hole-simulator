@@ -7,50 +7,7 @@ from Classes.math import *
 from Classes.tags import *
 from Classes.physics import GravField
 from Classes.int_and_settings import Integrator, RenderSettings
-
-def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
-    """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
-
-    ray_dir.is_normal()
-    x0 = np.ascontiguousarray(np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
-    X0 = settings.grav_field.coord_pos(x0)
-    V0 = settings.grav_field.null_cond(ray_dir, x0)
-    y0 = np.concatenate((X0, V0, np.array([0], dtype=np.float64)))
-    integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene,
-                            cam_pos=settings.cam_pos, bg_rad=settings.bg_rad, gas=settings.gas)
-    geodesic, gas_param = integrator.solve(0, y0, settings.bg_rad/50, settings.bg_rad*5)
-
-    # Plot
-    x_plot, y_plot, z_plot = [], [], []
-    for i in range(len(geodesic.grid.pts)):
-        mink_x = settings.grav_field.mink_pos(geodesic.vals[i,:4])
-        x_plot.append(mink_x[1]); y_plot.append(mink_x[2]); z_plot.append(mink_x[3])
-    fig = plt.figure()
-    ax = plt.axes(projection="3d")
-    ax.plot3D(x_plot, y_plot, z_plot, color="tab:olive")
-    ax.plot3D(x_plot[0], y_plot[0], z_plot[0], "x", color="tab:blue")
-    ax.plot3D(x_plot[-1], y_plot[-1], z_plot[-1], "x", color="tab:orange")
-    ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
-    ax.grid(False)
-    ax.set_title("Light Ray")
-    plt.tight_layout()
-    plt.show()
-
-    # Flip geodesic, change to Minkowski coordinates, and return
-    gdsic_vals = np.empty((len(geodesic.grid.pts), 9), dtype=np.float64)
-    for i in range(len(geodesic.grid.pts)):
-        x0 = geodesic.vals[i,:4]
-        gdsic_vals[i,:4] = integrator.grav_field.mink_pos(x0)
-        gdsic_vals[i,4:8] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:8], x0)
-        gdsic_vals[i,8] = geodesic.vals[i,8]
-    gdsic_vals = np.ascontiguousarray(np.flipud(gdsic_vals))
-    gas_vals = np.ascontiguousarray(np.flipud(gas_param.vals))
-    new_vals = np.hstack((gdsic_vals, gas_vals))
-
-    grid_pts = geodesic.grid.pts.reshape(len(geodesic.grid.pts))
-    grid_pts = np.ascontiguousarray(np.flip(np.max(grid_pts) - grid_pts))
-    geodesic = Function(Grid(Patch([grid_pts])), new_vals)
-    return geodesic
+from rendering import *
 
 
 def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray:
@@ -74,7 +31,7 @@ def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray
     return diff
 
 
-def plot_func(func, min:np.ndarray, max:np.ndarray):
+def plot_func(func, min:np.ndarray, max:np.ndarray, label:str="Function"):
     """Plot a function."""
 
     if func.dim not in [1,2]: raise ValueError("Function must only depend on 1 or 2 variables.")
@@ -83,7 +40,7 @@ def plot_func(func, min:np.ndarray, max:np.ndarray):
 
     if func.dim == 1:
         xx = np.linspace(min[0], max[0], 1000)
-        plt.plot(xx, func.interp(xx.reshape(xx.shape[0], 1)), label="Function")
+        plt.plot(xx, func.interp(xx.reshape(xx.shape[0], 1)), label=label)
         plt.xlabel("x"); plt.ylabel("y")
         plt.legend()
         plt.show()
@@ -92,7 +49,7 @@ def plot_func(func, min:np.ndarray, max:np.ndarray):
         xx, yy = np.meshgrid(X, Y); zz = func.interp(Patch([X,Y]).pts).reshape(250, 250)
         fig = plt.figure()
         ax = plt.axes(projection="3d")
-        ax.plot_surface(xx, yy, zz, cmap="YlOrRd", label="Function")
+        ax.plot_surface(xx, yy, zz, cmap="YlOrRd", label=label)
         ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
         plt.legend()
         plt.tight_layout()
@@ -163,7 +120,52 @@ def bb_specint(temp:float, grid=Grid(Patch([np.linspace(380, 780, 41)]))) -> Fun
     return spec_int
 
 
-def ray_col(geodesic:Function, vel:Vec, settings:RenderSettings) -> tuple[Function, np.ndarray]:
+def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
+    """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
+
+    ray_dir.is_normal()
+    x0 = np.ascontiguousarray(np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
+    X0 = settings.grav_field.coord_pos(x0)
+    V0 = settings.grav_field.null_cond(ray_dir, x0)
+    y0 = np.concatenate((X0, V0, np.array([0], dtype=np.float64)))
+    integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene,
+                            cam_pos=settings.cam_pos, bg_rad=settings.bg_rad)
+    geodesic = trace_geodesic(integrator, y0, settings.bg_rad)
+
+    # Plot
+    x_plot, y_plot, z_plot = [], [], []
+    for i in range(len(geodesic.grid.pts)):
+        mink_x = settings.grav_field.mink_pos(geodesic.vals[i,:4])
+        x_plot.append(mink_x[1]); y_plot.append(mink_x[2]); z_plot.append(mink_x[3])
+    fig = plt.figure()
+    ax = plt.axes(projection="3d")
+    ax.plot3D(x_plot, y_plot, z_plot, color="tab:olive")
+    ax.plot3D(x_plot[0], y_plot[0], z_plot[0], "x", color="tab:blue")
+    ax.plot3D(x_plot[-1], y_plot[-1], z_plot[-1], "x", color="tab:orange")
+    ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
+    ax.grid(False)
+    ax.set_title("Light Ray")
+    plt.tight_layout()
+    plt.show()
+
+    return geodesic
+
+
+def display_gas_vals(geodesic:Function, gas:Function, n:int) -> Function:
+    """Plot the gas values along the given geodesic."""
+
+    max_t = np.max(geodesic.grid.pts)
+    grid = Grid(Patch([np.linspace(0, max_t, n, dtype=np.float64)]))
+    xs = geodesic.interp(grid.pts)[:,:4]; gas_vals = gas.interp(xs)
+    temp = gas_vals[:,4].reshape(len(gas_vals), 1); temp_func = Function(grid, np.ascontiguousarray(temp))
+    ext_coeff = gas_vals[:,5].reshape(len(gas_vals), 1); ext_coeff_func = Function(grid, np.ascontiguousarray(ext_coeff))
+    plot_func(temp_func, np.array([0.]), np.array([max_t]), label="Temperature")
+    plot_func(ext_coeff_func, np.array([0.]), np.array([max_t]), label="Extinction Coefficient")
+    gas_val_func = Function(grid, gas_vals)
+    return gas_val_func
+
+
+def ray_col(geodesic:Function, gas_val:Function, vel:Vec, settings:RenderSettings) -> tuple[Function, np.ndarray]:
     """Returns the spectral intensity and corresponding RGB color as seen by an observer receiving a
     light ray following a geodesic.
     
@@ -173,18 +175,27 @@ def ray_col(geodesic:Function, vel:Vec, settings:RenderSettings) -> tuple[Functi
 
     grid = settings.col_converter.grid
     cam_pos = geodesic.vals[-1,:4]
-    obs_vel = settings.grav_field.timelike_cond(vel, cam_pos)
-    integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=grid, geodesics=[geodesic],
-                            grav_field=settings.grav_field, obs_vel=obs_vel)
-    spec_int0 = np.zeros(len(grid.pts), dtype=np.float64) # Find initial spectral intensity
+    integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=grid,
+                            geodesics=[geodesic], gas_vals=[gas_val], grav_field=settings.grav_field,
+                            obs_vel=settings.grav_field.timelike_cond(vel, cam_pos))
+    # Find initial spectral intensity
+    spec_int0 = np.zeros(len(grid.pts), dtype=np.float64)
     x0 = geodesic.vals[0,:4]; pos = Vec(x0[1], x0[2], x0[3])
-    for obj in settings.scene:
-        if obj.shape.on_surface(pos):
-            spec_int0 = obj.spec_int(pos).vals
-            spec_int0 = spec_int0.reshape(len(spec_int0))
-            break
+    k0 = geodesic.vals[0,4:8]; k1 = geodesic.vals[-1,4:8]
+    if (pos - settings.cam_pos).length() >= settings.bg_rad: # If light ray hits the background
+        theta = np.acos(pos.z / pos.length()); phi = np.atan2(pos.y, pos.x)
+        spec_int0 = settings.sample_bg(theta, phi)
+        spec_int0 = settings.doppler_spec(spec_int0, x0, k0, k1).vals
+        spec_int0 = spec_int0.reshape(len(spec_int0))
+    else: # Find which object the light ray hits
+        for obj in settings.scene:
+            if obj.shape.on_surface(pos):
+                spec_int0 = obj.spec_int(pos)
+                spec_int0 = settings.doppler_spec(spec_int0, x0, k0, k1).vals
+                spec_int0 = spec_int0.reshape(len(spec_int0))
+                break
     max_t = np.max(geodesic.grid.pts)
-    spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4)[0].vals[-1]
+    spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4).vals[-1]
     spec_int = Function(grid, spec_int.reshape(len(spec_int), 1))
     rgb = settings.col_converter.get_rgb(spec_int)
     return spec_int, rgb

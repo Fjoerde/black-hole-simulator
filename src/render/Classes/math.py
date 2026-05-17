@@ -343,12 +343,6 @@ class Function:
                 dval[:, corner, :(1<<i)] = h00 + u*(h01 + u*(h10 + u*h11)) # Horner's method
         return np.ascontiguousarray(dval[:,0,0])
 
-    def resample(self, grid:Grid):
-        """Resample the function over a given grid."""
-        
-        if grid.dim != self.dim: raise ValueError("Resampling grid must have the same dimension.")
-        return Function(grid, self.interp(grid.pts))
-
     def integrate_cell(self, corners:np.ndarray, min_corners:np.ndarray, max_corners:np.ndarray,
                        norm_mins:np.ndarray, norm_maxs:np.ndarray) -> np.ndarray[float]:
         """Returns the integral of the function over different cells, uniquely specified by its minimum corner.
