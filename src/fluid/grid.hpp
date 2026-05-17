@@ -6,6 +6,8 @@
 #include <functional>
 #include <memory>
 #include "cell.hpp"
+#include "recon.hpp"
+#include "hlld.hpp"
 
 // this document contains the structures for dealing with the grid,
 // grid patches, and adaptive mesh refinement.
@@ -33,7 +35,11 @@ struct patch {
     std::vector<cons> Fx;
     std::vector<cons> Fy;
     std::vector<cons> Fz;
-
+    // sound speeds
+    std::vector<double> cs_x;
+    std::vector<double> cs_y;
+    std::vector<double> cs_z;
+    
     // patch constructor
     patch(int lvl, std::array<int,3> ijk, std::array<double,3> cor1, std::array<double,3> cor2, patch* parent = nullptr);
     // cell indexing and constructors
@@ -79,6 +85,17 @@ struct patch {
     cons& get_Fx(int i, int j, int k);
     cons& get_Fy(int i, int j, int k);
     cons& get_Fz(int i, int j, int k);
+
+    void fluxcomp(const metric& mtr, const state& stt);
+
+    // runge-kutta integrator support
+    double dt_loc;
+    double maxct;
+    int rk_stage;
+    cons divF(int i, int j, int k) const;
+    cons source(int i, int j, int k) const;
+    double dtcomp(double cfl) const;
+    void floors(amrtree& tree, patch& p, const state& stt, const metric& mtr);
 };
 // amr (adaptive mesh refinement) tree struct
 class amrtree {
@@ -99,7 +116,6 @@ public:
     void step(double dt);
     void refine();
     void flatten();
-private:
     // ghosts
     void ghosts(patch* p);
     void gh_copy(patch* p, patch* nb, int dim, int side);

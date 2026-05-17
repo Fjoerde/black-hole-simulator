@@ -6,6 +6,7 @@
 #include "cell.hpp"
 #include "metric.hpp"
 #include "initial.hpp"
+#include "hlld.hpp"
 
 // this document contains the methods for dealing with the grid and
 // adaptive mesh refinement (amr). the grid is split up into a quilt
@@ -28,6 +29,9 @@ patch::patch(int lvl, std::array<int,3> ijk, std::array<double,3> cor1, std::arr
     Fx.resize((cpn+1)*cpn*cpn);
     Fy.resize(cpn*(cpn+1)*cpn);
     Fz.resize(cpn*cpn*(cpn+1));
+    cs_x.resize((cpn+1)*cpn*cpn);
+    cs_y.resize(cpn*(cpn+1)*cpn);
+    cs_z.resize(cpn*cpn*(cpn+1));
     
     // magnetic field and emf
     int g = ghost;
@@ -162,7 +166,7 @@ void patch::cell_init() {
     }
 }
 // amr tree initialisation
-amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nqlt, double M, double a, double Q, double gm) : mtr(M,a,Q), stt(gm), prmv(mtr,stt), cnsv(mtr,stt,prmv) {
+amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nqlt, double M, double a, double Q, double gm) : mtr(M,a,Q), stt(gm), prmv(mtr,stt), cnsv(mtr,stt) {
     // coordinate sizes of each initial patch
     double px = (dom_h[0]-dom_l[0])/nqlt; double py = (dom_h[1]-dom_l[1])/nqlt; double pz = (dom_h[2]-dom_l[2])/nqlt;
     // divide quilt into nqlt x nqlt x nqlt patches + index in quilt
@@ -229,6 +233,112 @@ void patch::B_init() {
                     Bfx[Bfx_idx(i,j,k)] = cell_(i,j,k).W.B[0];
                 } else {
                     Bfx[Bfx_idx(i,j,k)] = cell_(i-1,j,k).W.B[0];
+                }
+            }
+        }
+    }
+}
+
+// flux computation
+void patch::fluxcomp(const metric& mtr, const state& stt) {
+    conserved cv(mtr,stt);
+    // x-direction fluxes
+    for(int i=-1; i<block; i++) {
+        for(int j=0; j<block; j++) {
+            for(int k=0; k<block; k++) {
+                facestate fs = reconfp(*this,i,j,k,0);
+                // overwrite magnetic fluxes for transport constraint
+                fs.L.B[0] = Bfx[Bfx_idx(i+1,j,k)];
+                fs.R.B[0] = Bfx[Bfx_idx(i+1,j,k)];
+                // face metric
+                const cell& cL = cell_(i,j,k);
+                const cell& cR = cell_(i+1,j,k);
+                double rf = (cL.r+cR.r)/2;
+                double thf = (cL.th+cR.th)/2;
+                // conserved fluxes
+                cons UL = cv.ptoc(fs.L,rf,thf);
+                cons UR = cv.ptoc(fs.R,rf,thf);
+                // hlld call
+                hlldflux flux = hlld(fs.L,fs.R,UL,UR,mtr,rf,thf,stt,0);
+                // flux storage
+                get_Fx(i,j,k) = flux.F;
+                cs_x[xfc_idx(i,j,k)] = flux.ctspeed;
+            }
+        }
+    }
+    // y-direction fluxes
+    for(int i=0; i<block; i++) {
+        for(int j=-1; j<block; j++) {
+            for(int k=0; k<block; k++) {
+                facestate fs = reconfp(*this,i,j,k,0);
+                // overwrite magnetic fluxes for transport constraint
+                fs.L.B[0] = Bfy[Bfy_idx(i,j+1,k)];
+                fs.R.B[0] = Bfy[Bfy_idx(i,j+1,k)];
+                // face metric
+                const cell& cL = cell_(i,j,k);
+                const cell& cR = cell_(i,j+1,k);
+                double rf = (cL.r+cR.r)/2;
+                double thf = (cL.th+cR.th)/2;
+                // conserved fluxes
+                cons UL = cv.ptoc(fs.L,rf,thf);
+                cons UR = cv.ptoc(fs.R,rf,thf);
+                // hlld call
+                hlldflux flux = hlld(fs.L,fs.R,UL,UR,mtr,rf,thf,stt,0);
+                // flux storage
+                get_Fy(i,j,k) = flux.F;
+                cs_y[yfc_idx(i,j,k)] = flux.ctspeed;
+            }
+        }
+    }
+    // z-direction fluxes
+    for(int i=0; i<block; i++) {
+        for(int j=0; j<block; j++) {
+            for(int k=-1; k<block; k++) {
+                facestate fs = reconfp(*this,i,j,k,0);
+                // overwrite magnetic fluxes for transport constraint
+                fs.L.B[0] = Bfz[Bfz_idx(i,j,k+1)];
+                fs.R.B[0] = Bfz[Bfz_idx(i,j,k+1)];
+                // face metric
+                const cell& cL = cell_(i,j,k);
+                const cell& cR = cell_(i,j,k+1);
+                double rf = (cL.r+cR.r)/2;
+                double thf = (cL.th+cR.th)/2;
+                // conserved fluxes
+                cons UL = cv.ptoc(fs.L,rf,thf);
+                cons UR = cv.ptoc(fs.R,rf,thf);
+                // hlld call
+                hlldflux flux = hlld(fs.L,fs.R,UL,UR,mtr,rf,thf,stt,0);
+                // flux storage
+                get_Fz(i,j,k) = flux.F;
+                cs_z[zfc_idx(i,j,k)] = flux.ctspeed;
+            }
+        }
+    }
+}
+// enforcement of floor values
+void patch::floors(amrtree& tree, patch& p, const state& stt, const metric& mtr) {
+    for(int i=0; i<block; i++) {
+        for(int j=0; j<block; j++) {
+            for(int k=0; k<block; k++) {
+                cell& c = p.cell_(i,j,k);
+                // check for unphysical conserved variables
+                bool bhl = !std::isfinite(c.U.D) || !std::isfinite(c.U.tau) || c.U.D<=0.0 || c.U.tau<=0.0;
+                if(!bhl) {
+                    // if physical, attempt reconstruction
+                    prim pv;
+                    bhl = !tree.cnsv.ctop(c.U,c.r,c.th,pv);
+                    if(!bhl) {
+                        // check physicality of primitives
+                        bhl = (pv.rho<=0.0 || pv.eps<=0.0);
+                        if (!bhl) c.W = pv;
+                    }
+                }
+                // if unphysical, apply floors
+                if(bhl || c.W.rho<tree.rho_floor_r0) {
+                    prim fl = tree.pvfs(c.r,c.th);
+                    fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
+                    c.W = fl;
+                    c.U = tree.cnsv.ptoc(c.W,c.r,c.th);
                 }
             }
         }

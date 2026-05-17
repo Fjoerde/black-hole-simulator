@@ -16,16 +16,56 @@ struct cons {
     double S[3]; // conserved momentum
     double tau; // conserved energy
     double B[3]; // conserved magnetic flux
+    // constructor
+    cons() : D(0.0), tau(0.0) {
+        S[0] = S[1] = S[2] = 0.0;
+        B[0] = B[1] = B[2] = 0.0;
+    }
+
+    // operators
+    cons operator+(const cons& k) const {
+        cons r;
+        r.D = D + k.D; r.tau = tau + k.tau;
+        for(int i=0; i<3; i++) {
+            r.S[i] = S[i] + k.S[i];
+            r.B[i] = B[i] + k.B[i];
+        }
+        return r;
+    }
+    cons operator-(const cons& k) const {
+        cons r;
+        r.D = D - k.D; r.tau = tau - k.tau;
+        for(int i=0; i<3; i++) {
+            r.S[i] = S[i] - k.S[i];
+            r.B[i] = B[i] - k.B[i];
+        }
+        return r;
+    }
+    cons operator*(double s) const {
+        cons r;
+        r.D = D*s; r.tau = tau*s;
+        for(int i=0; i<3; i++) {
+            r.S[i] = S[i]*s; r.B[i] = B[i]*s;
+        }
+        return r;
+    }
+    cons& operator+=(const cons& k) {
+        D += k.D; tau += k.tau;
+        for(int i=0; i<3; i++) {
+            S[i] += k.S[i]; B[i] += k.B[i];
+        }
+        return *this;
+    }
 };
+inline cons operator*(double s, const cons& k) {return k*s;}
 
 class conserved {
 public:
     // required parameters
     const metric& mtr;
     const state& stt;
-    const primitive& prm;
     
-    conserved(const metric& m, const state& s, const primitive& p) : mtr(m), stt(s), prm(p) {}
+    conserved(const metric& m, const state& s) : mtr(m), stt(s) {}
 
     // primitive to conserved construction
     cons ptoc(prim& pv, double r, double th) const;
