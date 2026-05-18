@@ -88,13 +88,13 @@ struct patch {
 
     void fluxcomp(const metric& mtr, const state& stt);
 
+    // refinement states
+    bool refine;
+    bool erase;
     // runge-kutta integrator support
     double dt_loc;
     double maxct;
     int rk_stage;
-    cons divF(int i, int j, int k) const;
-    cons source(int i, int j, int k) const;
-    double dtcomp(double cfl) const;
     void floors(amrtree& tree, patch& p, const state& stt, const metric& mtr);
 };
 // amr (adaptive mesh refinement) tree struct
@@ -110,17 +110,22 @@ public:
     std::vector<std::unique_ptr<patch>> quilt; // quilt = collection of patches
     amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nqlt, double M, double a, double Q, double gm);
     patch* nbhd(patch* p, int dim, int side) const;
+
+    // integrator
+    rk2integrator rk;
     
     // refinement functions
     void regrid();
     void step(double dt);
-    void refine();
-    void flatten();
+    void refine(patch* p);
+    void ccrstr(patch* p);
+    void flatten(patch* p);
     // ghosts
     void ghosts(patch* p);
     void gh_copy(patch* p, patch* nb, int dim, int side);
     void gh_prolong(patch* p, patch* nb, int dim, int side);
     void gh_bndy(patch* p, int dim, int side);
+
     // floor states for when reconstruction of primitives fails
     prim pvfs(double r, double th) const;
     static constexpr double rho_floor_r0 = 1; // REDEFINE LATER

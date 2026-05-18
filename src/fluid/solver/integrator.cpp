@@ -42,8 +42,8 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
     // christoffel symbols
     double Gam[4][4][4];
     for(int i=0; i<4; i++) {
-        for(int i=0; i<4; i++) {
-            for(int i=0; i<4; i++) {
+        for(int j=0; j<4; j++) {
+            for(int k=0; k<4; k++) {
                 Gam[i][j][k] = mc.Gamma[i][j][k];
             }
         }
@@ -132,7 +132,7 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
     for(int m=0; m<4; m++) {
         for(int n=0; n<4; n++) {
             for(int l=0; l<4; l++) {
-                src[m] = T44[n][l]*Gam_[m][n][l];
+                src[m] += T44[n][l]*Gam_[m][n][l];
             }
         }
         src[m] *= mc.sqrtdetg;
@@ -176,9 +176,10 @@ double rk2integrator::dtcomp(const amrtree& tree, double cfl) {
     return dt_min;
 }
 // runge-kutta stages
-void rkstg(amrtree& tree, double dt, int stage) {
+void rk2integrator::rkstg(amrtree& tree, double dt, int stage) {
     // fill ghosts
     for(auto& p : tree.quilt) {
+        if(!p->leaf) continue;
         tree.ghosts(p.get());
     }
     // reconstruct primitives everywhere
@@ -223,6 +224,10 @@ void rkstg(amrtree& tree, double dt, int stage) {
                     } else {
                         c.U = (c.dU+c.U+dt*dU)*0.5;
                     }
+                    metriccomp mc = c.mtr.comp(c.r,c.th);
+                    c.U.B[0] = mc.sqrtdetg*c.W.B[0];
+                    c.U.B[1] = mc.sqrtdetg*c.W.B[1];
+                    c.U.B[2] = mc.sqrtdetg*c.W.B[2];
                 }
             }
         }
@@ -238,4 +243,5 @@ double rk2integrator::step(amrtree& tree) {
     for(auto& p : tree.quilt) {
         p->floors(tree,*p,tree.stt,tree.mtr);
     }
+    return dt;
 }
