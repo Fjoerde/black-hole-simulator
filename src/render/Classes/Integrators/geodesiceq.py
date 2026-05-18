@@ -2,35 +2,33 @@ import numpy as np
 from numba import njit
 from numba.typed import List
 
-from render.Classes.base import Vec
+from Classes.math import Vec
 
 @njit
-def init(self, grav_field, scene, cam_pos, gas):
+def init(self, grav_field, scene, cam_pos, bg_rad):
     self.grav_field = grav_field
     self.scene = List(scene)
     self.cam_pos = cam_pos
-    self.gas = gas
+    self.bg_rad = bg_rad
 
 @njit
 def derivative(self, _, y:np.ndarray) -> np.ndarray:
+    y = np.ascontiguousarray(y)
     x, v = y[:4], y[4:8]
-    chr_syms = self.sample_Gamma(x)
-    A = np.zeros(4)
-    """
-    for c in range(4):
-        for a in range(4):
-            for b in range(4):
-                A[c] -= chr_syms[c,a,b] * v[a] * v[b]
-    """
-    for c in range(4): A[c] -= (chr_syms[c] @ v) @ v
-    tau = np.linalg.norm(v[1:]) * self.gas.ext_coeff.interp(x) # Optical depth
-    return np.concatenate((v, A, [tau]))
+    chr_syms = self.grav_field.sample_Gamma(x)
+    A = np.zeros(4, dtype=np.float64)
+    for c in range(4): A[c] -= (chr_syms[c] @ v) @ v # Geodesic equation
+
+    v3 = v[1:]; a3 = A[1:]
+    dT = a3 - v3 * (v3 @ a3) / np.linalg.norm(v3)**2 # Infinitesimal angular deviation
+    dTheta = np.linalg.norm(dT)
+
+    y_new = np.concatenate((v, A, np.array([dTheta], dtype=np.float64)))
+    return np.ascontiguousarray(y_new)
 
 @njit
 def term_cond(self, _, y:np.ndarray, h:float) -> bool:
-    # If reached maximum optical depth (tau >= 3 means intensity drops to <5%)
-    if y[-1] >= 3: return True
-    # Check if it is approaching a black hole
+    # Check if approaching a black hole
     if h < 1e-4:
         if np.max(self.grav_field.sample_g(y[:4])) > 200: return True
     # Check if escaped the background box
@@ -51,4 +49,4 @@ def max_step(self, t:float, y:np.ndarray, _) -> float:
     for i in range(len(self.scene)):
         obj = self.scene[i]
         dists[i] = obj.shape.in_shape_int(self.grav_field.mink_pos(y[:4]))
-    return 1.25 * min(dists) / speed
+    return 1.25 * min(dists) / (speed + 1e-10)

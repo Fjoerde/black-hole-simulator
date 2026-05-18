@@ -1,39 +1,49 @@
 # A place for testing out functions/methods that would not otherwise be directly called.
 import numpy as np
-from render.Classes.base import *
-from render.Classes.classes import *
-from render.Classes.tags import *
-from render.diagnostics import *
+from PIL import Image
+from itertools import product
+
+from Classes.math import *
+from Classes.physics import *
+from Classes.int_and_settings import *
+from Classes.tags import *
+from diagnostics import *
+
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-# look_specint(np.array([0.3, 0.5, 0.1]))
-ray_dir = Vec(1,0,0); ray_pos = Vec(0,0,0)
 print("hi")
-settings = RenderSettings()
+"""
+def get_gas(pts):
+    x, y, z = pts[:,1], pts[:,2], pts[:,3]
+    r = np.sqrt(x**2 + y**2 + z**2)
+    temp = 5e4 * np.exp(-r**2/10)
+    ext_coeff = 1 * np.exp(-r**2/10)
+    gas_params = np.zeros((len(pts), 6), dtype=np.float64); gas_params[:,0] += 1
+    gas_params[:,4] = temp; gas_params[:,5] = ext_coeff
+    return gas_params
+grid = Grid(Patch([np.array([0], dtype=np.float64),
+                   np.linspace(-30, 10, 11, dtype=np.float64),
+                   np.linspace(-30, 10, 11, dtype=np.float64),
+                   np.linspace(-30, 10, 11, dtype=np.float64)]))
 print("hi2")
-
-print("hi")
-ray_dir.is_normal()
-X0 = settings.grav_field.coord_pos(np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
-V0 = settings.grav_field.null_cond(ray_dir, np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
-y0 = np.concatenate((X0, V0, [0]))
-integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene, cam_pos=settings.cam_pos, gas=settings.gas)
-print("hi2")
-geodesic = integrator.solve(0, y0, h_init=settings.bg_rad/50, max_t=settings.bg_rad*5)
+grid = grid.add_patch(Patch([np.array([0], dtype=np.float64),
+                             np.linspace(-6, 6, 13, dtype=np.float64),
+                             np.linspace(-6, 6, 13, dtype=np.float64),
+                             np.linspace(-6, 6, 13, dtype=np.float64)]))
+gas_vals = get_gas(grid.pts)
+gas = Function(grid, gas_vals)
 print("hi3")
-# Plot
-x_plot, y_plot, z_plot = [], [], []
-for i in range(len(geodesic.grid.pts)):
-    mink_x = settings.grav_field.mink_pos(geodesic.grid.vals[i][:4])
-x_plot.append(mink_x[1]); y_plot.append(mink_x[2]); z_plot.append(mink_x[3])
-fig = plt.figure()
-ax = plt.axes(projection="3d")
-ax.plot3D(x_plot, y_plot, z_plot, color="tab:olive")
-ax.plot3D(x_plot[0], y_plot[0], z_plot[0], "x", color="tab:blue")
-ax.plot3D(x_plot[-1], y_plot[-1], z_plot[-1], "x", color="tab:orange")
-ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
-ax.grid(False)
-ax.set_title("Light Ray")
-plt.tight_layout()
-plt.show()
+print(gas.interp(np.array([[0.,-10.,0.,0.]])))
+"""
+
+# ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
+
+bg = np.array(Image.open("Images/background1.jpg")).astype(np.float64) / 255.
+settings = RenderSettings(w=800, h=600, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0.1,0,0), background=bg)
+geodesic = look_ray(Vec(-10,0,0), Vec(1,0,0), settings)
+gas_vals = display_gas_vals(geodesic, settings.gas, 100)
+spec_int, col = ray_col(geodesic, gas_vals, Vec(0,0,0), settings)
+display_col(col)
+print(col)
+display_specint(spec_int)
