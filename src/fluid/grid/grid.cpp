@@ -197,8 +197,8 @@ amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nql
 void patch::B_init() {
     // initialise Bfx
     for(int i=-ghost; i<block+ghost+1; i++) {
-        for(int j=-ghost; i<block+ghost; i++) {
-            for(int k=-ghost; i<block+ghost; i++) {
+        for(int j=-ghost; j<block+ghost; j++) {
+            for(int k=-ghost; k<block+ghost; k++) {
                 if(i>-ghost && i<block+ghost) {
                     Bfx[Bfx_idx(i,j,k)] = (cell_(i-1,j,k).W.B[0]+cell_(i,j,k).W.B[0])/2;
                 } else if(i==-ghost) {
@@ -211,28 +211,28 @@ void patch::B_init() {
     }
     // initialise Bfy
     for(int i=-ghost; i<block+ghost; i++) {
-        for(int j=-ghost; i<block+ghost+1; i++) {
-            for(int k=-ghost; i<block+ghost; i++) {
-                if(i>-ghost && i<block+ghost) {
-                    Bfx[Bfx_idx(i,j,k)] = (cell_(i-1,j,k).W.B[0]+cell_(i,j,k).W.B[0])/2;
-                } else if(i==-ghost) {
-                    Bfx[Bfx_idx(i,j,k)] = cell_(i,j,k).W.B[0];
+        for(int j=-ghost; j<block+ghost+1; j++) {
+            for(int k=-ghost; k<block+ghost; k++) {
+                if(j>-ghost && j<block+ghost) {
+                    Bfy[Bfy_idx(i,j,k)] = (cell_(i,j-1,k).W.B[0]+cell_(i,j,k).W.B[0])/2;
+                } else if(j==-ghost) {
+                    Bfy[Bfy_idx(i,j,k)] = cell_(i,j,k).W.B[0];
                 } else {
-                    Bfx[Bfx_idx(i,j,k)] = cell_(i-1,j,k).W.B[0];
+                    Bfy[Bfy_idx(i,j,k)] = cell_(i,j-1,k).W.B[0];
                 }
             }
         }
     }
     // initialise Bfz
     for(int i=-ghost; i<block+ghost; i++) {
-        for(int j=-ghost; i<block+ghost; i++) {
-            for(int k=-ghost; i<block+ghost+1; i++) {
-                if(i>-ghost && i<block+ghost) {
-                    Bfx[Bfx_idx(i,j,k)] = (cell_(i-1,j,k).W.B[0]+cell_(i,j,k).W.B[0])/2;
+        for(int j=-ghost; j<block+ghost; j++) {
+            for(int k=-ghost; k<block+ghost+1; k++) {
+                if(k>-ghost && k<block+ghost) {
+                    Bfz[Bfz_idx(i,j,k)] = (cell_(i,j,k-1).W.B[0]+cell_(i,j,k).W.B[0])/2;
                 } else if(i==-ghost) {
-                    Bfx[Bfx_idx(i,j,k)] = cell_(i,j,k).W.B[0];
+                    Bfz[Bfz_idx(i,j,k)] = cell_(i,j,k).W.B[0];
                 } else {
-                    Bfx[Bfx_idx(i,j,k)] = cell_(i-1,j,k).W.B[0];
+                    Bfz[Bfz_idx(i,j,k)] = cell_(i,j,k-1).W.B[0];
                 }
             }
         }
@@ -272,8 +272,8 @@ void patch::fluxcomp(const metric& mtr, const state& stt) {
             for(int k=0; k<block; k++) {
                 facestate fs = reconfp(*this,i,j,k,0);
                 // overwrite magnetic fluxes for transport constraint
-                fs.L.B[0] = Bfy[Bfy_idx(i,j+1,k)];
-                fs.R.B[0] = Bfy[Bfy_idx(i,j+1,k)];
+                fs.L.B[1] = Bfy[Bfy_idx(i,j+1,k)];
+                fs.R.B[1] = Bfy[Bfy_idx(i,j+1,k)];
                 // face metric
                 const cell& cL = cell_(i,j,k);
                 const cell& cR = cell_(i,j+1,k);
@@ -296,8 +296,8 @@ void patch::fluxcomp(const metric& mtr, const state& stt) {
             for(int k=-1; k<block; k++) {
                 facestate fs = reconfp(*this,i,j,k,0);
                 // overwrite magnetic fluxes for transport constraint
-                fs.L.B[0] = Bfz[Bfz_idx(i,j,k+1)];
-                fs.R.B[0] = Bfz[Bfz_idx(i,j,k+1)];
+                fs.L.B[2] = Bfz[Bfz_idx(i,j,k+1)];
+                fs.R.B[2] = Bfz[Bfz_idx(i,j,k+1)];
                 // face metric
                 const cell& cL = cell_(i,j,k);
                 const cell& cR = cell_(i,j,k+1);
@@ -496,7 +496,7 @@ void amrtree::gh_bndy(patch* p, int dim, int side) {
                     ai = t1; aj = (side==1)? block-1-g : g; ak = t2;
                 } else {
                     gi = t1; gj = t2; gk = pstart+g;
-                    ai = t1; aj = t2; ak = (side==2)? block-1-g : g;
+                    ai = t1; aj = t2; ak = (side==1)? block-1-g : g;
                 }
                 // assignments
                 cell& gc = p->cell_(gi,gj,gk);
@@ -540,4 +540,273 @@ void amrtree::ghosts(patch* p) {
             }
         }
     }
+}
+
+// refinement
+void amrtree::refine(patch* p) {
+    // exclude non-leaf patches
+    if(!p->leaf) return;
+    // divorce parent into eight octant children at edge midpoints
+    double xm = (p->xedge[0]+p->xedge[block])/2;
+    double ym = (p->yedge[0]+p->yedge[block])/2;
+    double zm = (p->zedge[0]+p->zedge[block])/2;
+    double xl = p->xedge[0]; double xh = p->xedge[block];
+    double yl = p->yedge[0]; double yh = p->yedge[block];
+    double zl = p->zedge[0]; double zh = p->zedge[block];
+    // birth children
+    std::array<double,3> cc1[8], cc2[8];
+    cc1[0] = {xl,yl,zl}; cc2[0] = {xm,ym,zm};
+    cc1[1] = {xl,yl,zm}; cc2[1] = {xm,ym,zh};
+    cc1[2] = {xl,ym,zl}; cc2[2] = {xm,yh,zm};
+    cc1[3] = {xl,ym,zm}; cc2[3] = {xm,yh,zh};
+    cc1[4] = {xm,yl,zl}; cc2[4] = {xh,ym,zm};
+    cc1[5] = {xm,yl,zm}; cc2[5] = {xh,ym,zh};
+    cc1[6] = {xm,ym,zl}; cc2[6] = {xh,yh,zm};
+    cc1[7] = {xm,ym,zm}; cc2[7] = {xh,yh,zh};
+    // indexing children offset by octant
+    for(int i=0; i<8; i++) {
+        int ix = (i>>2)&1, iy = (i>>1)&1, iz = i&1;
+        std::array<int,3> cijk = {2*p->ijk[0]+ix,2*p->ijk[1]+iy,2*p->ijk[2]+iz};
+        quilt.push_back(std::make_unique<patch>(p->lvl+1,cijk,cc1[i],cc2[i],p));
+        p->children[i] = quilt.back().get();
+    }
+
+    // prolongate data from parent into children
+    for(int h=0; h<8; h++) {
+        patch* child = p->children[h];
+        int ix = (h>>2)&1, iy = (h>>1)&1, iz = h&1;
+        // map child index to parent index
+        for(int i=0; i<block; i++) {
+            for(int j=0; j<block; j++) {
+                for(int k=0; k<block; k++) {
+                    cell& cc = child->cell_(i,j,k);
+                    int pi = (i+ix*block)/2, pj = (j+iy*block)/2, pk = (k+iz*block)/2;
+                    // offset within coarse cell
+                    double ox = (i%2==0)? -0.25 : 0.25;
+                    double oy = (j%2==0)? -0.25 : 0.25;
+                    double oz = (k%2==0)? -0.25 : 0.25;
+                    // cell linear indexing
+                    cell& pc = p->cell_(pi,pj,pk);
+                    cell& ppx = p->cell_(pi+1,pj,pk);
+                    cell& pmx = p->cell_(pi-1,pj,pk);
+                    cell& ppy = p->cell_(pi,pj+1,pk);
+                    cell& pmy = p->cell_(pi,pj-1,pk);
+                    cell& ppz = p->cell_(pi,pj,pk+1);
+                    cell& pmz = p->cell_(pi,pj,pk-1);
+
+                    // prolong variables under slope limits
+                    auto prolong = [&](double vc, double vmx, double vpx, double vmy, double vpy, double vmz, double vpz) {
+                        double sx = minmod(vc-vmx,vpx-vc);
+                        double sy = minmod(vc-vmy,vpy-vc);
+                        double sz = minmod(vc-vmz,vpz-vc);
+                        return vc = sx*ox+sy*oy+sz*oz; 
+                    };
+                    // interpolate conserved variables
+                    cc.U.D = prolong(pc.U.D,ppx.U.D,pmx.U.D,ppy.U.D,pmy.U.D,ppz.U.D,pmz.U.D);
+                    cc.U.tau = prolong(pc.U.tau,ppx.U.tau,pmx.U.tau,ppy.U.tau,pmy.U.tau,ppz.U.tau,pmz.U.tau);
+                    for(int l=0; l<3; l++) {
+                        cc.U.S[l] = prolong(pc.U.S[l],ppx.U.S[l],pmx.U.S[l],ppy.U.S[l],pmy.U.S[l],ppz.U.S[l],pmz.U.S[l]);
+                        cc.U.B[l] = prolong(pc.U.B[l],ppx.U.B[l],pmx.U.B[l],ppy.U.B[l],pmy.U.B[l],ppz.U.B[l],pmz.U.B[l]);
+                    }
+                    // recover primitive variables
+                    prim pv;
+                    bool ok = cnsv.ctop(cc.U,cc.r,cc.th,pv);
+                    if(ok) cc.W = pv;
+                    else {
+                        prim fl = pvfs(cc.r,cc.th);
+                        fl.B[0] = cc.W.B[0]; fl.B[1] = cc.W.B[1]; fl.B[2] = cc.W.B[2];
+                        cc.W = fl;
+                        cc.U = cnsv.ptoc(cc.W,cc.r,cc.th);
+                    }
+                }
+            }
+        }
+        child->B_init();
+    }
+    p->leaf = false;
+}
+// reconstruction of coarse cell by conservative restriction
+void amrtree::ccrstr(patch* p) {
+    // average values of conserved variables over children for parent
+    for(int pi=0; pi<block; pi++) {
+        for(int pj=0; pj<block; pj++) {
+            for(int pk=0; pk<block; pk++) {
+                // initialise parent
+                cell& pc = p->cell_(pi,pj,pk);
+                pc.U = cons();
+                double volt = 0.0;
+                // iterate over children
+                for(int h=0; h<8; h++) {
+                    patch* child = p->children[h];
+                    if(!child) continue;
+                    int ix = (h>>2)&1, iy = (h>>1)&1, iz = h&1;
+                    for(int di=0; di<2; di++) {
+                        for(int dj=0; dj<2; dj++) {
+                            for(int dk=0; dk<2; dk++) {
+                                // map parent to children
+                                int fi = 2*(pi-ix*(block/2))+di;
+                                int fj = 2*(pj-iy*(block/2))+dj;
+                                int fk = 2*(pk-iz*(block/2))+dk;
+                                // limit to fine cells in octant only
+                                if(fi<0 || fi>=block || fj<0 || fj>=block || fk<0 || fk>=block) continue;
+                                // volume and conserved variables
+                                cell& fc = child->cell_(fi,fj,fk);
+                                double vol = fc.vol;
+                                volt += vol;
+                                pc.U.D += vol*fc.U.D;
+                                pc.U.tau += vol*fc.U.tau;
+                                for(int a=0; a<3; a++) {
+                                    pc.U.S[a] += vol*fc.U.S[a];
+                                    pc.U.B[a] += vol*fc.U.B[a];
+                                }
+                            }
+                        }
+                    }
+                }
+                // volume normalisation
+                if(volt>0.0) {
+                    double inv = 1.0/volt;
+                    pc.U.D *= inv; pc.U.tau *= inv;
+                    for(int b=0; b<3; b++) {
+                        pc.U.S[b] *= inv;
+                        pc.U.S[b] *= inv;
+                    }
+                }
+                // recover primitives
+                prim pv;
+                bool ok = cnsv.ctop(pc.U,pc.r,pc.th,pv);
+                if(ok) pc.W = pv;
+                else {
+                    prim fl = pvfs(pc.r,pc.th);
+                    fl.B[0] = pc.W.B[0]; fl.B[1] = pc.W.B[1]; fl.B[2] = pc.W.B[2];
+                    pc.W = fl;
+                    pc.U = cnsv.ptoc(pc.W,pc.r,pc.th);
+                }
+            }
+        }
+    }
+    // initialise magnetic field
+    p->B_init();
+}
+// flattening
+void amrtree::flatten(patch* p) {
+    if(p->leaf) return;
+    // ensure children are leaves and construct data
+    for(int h=0; h<8; h++) {
+        if(p->children[h] && !p->children[h]->leaf) return;
+    }
+    ccrstr(p);
+    // kill children to save memory
+    for(int h=0; h<8; h++) {
+        if(!p->children[h]) continue;
+        // remove from quilt
+        quilt.erase(std::remove_if(quilt.begin(),quilt.end(),[&](const std::unique_ptr<patch>& q){return q.get()==p->children[h];}),quilt.end());
+        p->children[h] = nullptr;
+    }
+    // new leaf
+    p->leaf = true;
+}
+
+// regrid based on refinement and flattening thresholds
+void amrtree::regrid() {
+    // thresholds and things
+    static constexpr double lim_refine = 0.5; // relative gradient lower threshold for refinement
+    static constexpr double lim_flatten = 0.1; // relative gradient upper threshold for flattening
+    static constexpr int max_amr_lvl = 4; // maximum AMR refinement level
+    static constexpr double horizon_refine_r0 = 3.0; // always refine at points less than ISCO
+    // flag cells for refinement
+    for(auto& p : quilt) {
+        if(!p->leaf) continue;
+        // useful state variables
+        bool anyref = false;
+        bool allflt = true;
+        // iterate
+        for(int i=0; i<block; i++) {
+            for(int j=0; j<block; j++) {
+                for(int k=0; k<block; k++) {
+                    cell& c = p->cell_(i,j,k);
+                    c.refine = false;
+                    c.erase = false;
+                    // mandate refinement near horizon
+                    if(c.r<horizon_refine_r0 && p->lvl<max_amr_lvl) {
+                        c.refine = true;
+                        anyref = true;
+                        allflt = false;
+                        continue;
+                    }
+                    // density gradient
+                    double dx = p->dx(), dy = p->dy(), dz = p->dz();
+                    double chro = c.W.rho;
+                    if(chro>0.0) {
+                        // central difference for gradient
+                        double drho_dx = std::abs(p->cell_(i+1,j,k).W.rho-p->cell_(i-1,j,k).W.rho)/(2*dx);
+                        double drho_dy = std::abs(p->cell_(i,j+1,k).W.rho-p->cell_(i,j-1,k).W.rho)/(2*dy);
+                        double drho_dz = std::abs(p->cell_(i,j,k+1).W.rho-p->cell_(i,j,k-1).W.rho)/(2*dz);
+                        double drho = std::sqrt(drho_dx*drho_dx+drho_dy*drho_dy+drho_dz*drho_dz);
+                        double rgrh = drho*dx/chro;
+                        // threshold checks
+                        if(rgrh>lim_refine && p->lvl<max_amr_lvl) {
+                            c.refine = true;
+                            anyref = true;
+                            allflt = false;
+                        }
+                        if(rgrh>lim_flatten) {
+                            allflt = false;
+                        }
+                    }
+                    // magnetic gradient
+                    double Bmag = std::sqrt(c.W.B[0]*c.W.B[0]+c.W.B[1]*c.W.B[1]+c.W.B[2]*c.W.B[2]);
+                    if(Bmag>1e-14) {
+                        double dB_dx = std::abs(p->cell_(i+1,j,k).W.B[0]-p->cell_(i-1,j,k).W.B[0])/(2*dx);
+                        double dB_dy = std::abs(p->cell_(i,j+1,k).W.B[1]-p->cell_(i,j-1,k).W.B[1])/(2*dy);
+                        double dB_dz = std::abs(p->cell_(i,j,k+1).W.B[2]-p->cell_(i,j,k-1).W.B[2])/(2*dz);
+                        double rdB = (dB_dx*dx+dB_dy*dy+dB_dz*dz)/Bmag;
+                        if(rdB>lim_refine && p->lvl<max_amr_lvl) {
+                            c.refine = true;
+                            anyref = true;
+                            allflt = false;
+                        }
+                    }
+                    // flag for possible flattening
+                    if(!c.refine) c.erase = allflt;
+                }
+            }
+        }
+        if(anyref && p->lvl<max_amr_lvl) {
+            p->refine = true;
+        }
+        if(allflt && p->lvl>0) {
+            p->erase = true;
+        }
+    }
+    // pass again and refine patches, collecting patches to refine
+    std::vector<patch*> rfnQ, fltQ;
+    for(auto& p : quilt) {
+        if(p->leaf && p->refine) rfnQ.push_back(p.get());
+        if(p->leaf && p->erase) fltQ.push_back(p.get());
+    }
+    // execute refinement and flattening
+    for(patch* p : rfnQ) {
+        refine(p);
+        p->refine = false;
+    }
+    // flatten iff parent exists and no sibling needs to be refined
+    for(patch* p : fltQ) {
+        if(p->parent && p->parent->leaf==false) {
+            bool dhl = true;
+            for(int h=0; h<8; h++) {
+                patch* sib = p->parent->children[h];
+                if(sib && (!sib->leaf || sib->refine)) {
+                    dhl = false; break;
+                }
+            }
+            if(dhl) flatten(p->parent);
+        }
+        p->erase = false;
+    }
+}
+// runge-kutta timestep to advance the grid
+void amrtree::step(double dt) {
+    rk.step(*this); // call integrator
+    regrid(); // regrid after each step
 }
