@@ -196,6 +196,6 @@ def ray_col(geodesic:Function, gas_val:Function, vel:Vec, settings:RenderSetting
                 break
     max_t = np.max(geodesic.grid.pts)
     spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4).vals[-1]
-    spec_int = Function(grid, spec_int.reshape(len(spec_int), 1))
+    spec_int = settings.rel_aberr(Function(grid, spec_int.reshape(len(spec_int), 1)), k1)
     rgb = settings.col_converter.get_rgb(spec_int)
     return spec_int, rgb

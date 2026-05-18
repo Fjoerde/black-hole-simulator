@@ -99,7 +99,7 @@ def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar)
         integrator.solve_idx = i; max_t = np.max(geodesic.grid.pts)
         spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4)
         spec_int = spec_int.vals[-1]; spec_int = spec_int.reshape(len(spec_int), 1)
-        spec_int = Function(integrator.specint_grid, spec_int)
+        spec_int = settings.rel_aberr(Function(integrator.specint_grid, spec_int), k1)
         cols[i] = settings.col_converter.get_rgb(spec_int) * 255.
         pbar.update(1)
     return cols

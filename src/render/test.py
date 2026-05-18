@@ -40,7 +40,7 @@ print(gas.interp(np.array([[0.,-10.,0.,0.]])))
 # ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
 
 bg = np.array(Image.open("Images/background1.jpg")).astype(np.float64) / 255.
-settings = RenderSettings(w=800, h=600, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0.8,0,0), background=bg)
+settings = RenderSettings(w=800, h=600, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0.1,0,0), background=bg)
 geodesic = look_ray(Vec(-10,0,0), Vec(1,0,0), settings)
 gas_vals = display_gas_vals(geodesic, settings.gas, 100)
 spec_int, col = ray_col(geodesic, gas_vals, Vec(0,0,0), settings)

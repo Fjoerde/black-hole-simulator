@@ -191,6 +191,14 @@ class RenderSettings:
         return spec_int
     
     def doppler_spec(self, spec_int:Function, x_src:np.ndarray, k_src:np.ndarray, k_obs:np.ndarray) -> Function:
+        """Returns the Doppler-shifted spectrum emitted by a stationary object received by an observer.
+        
+        spec_int: The emitted spectral intensity.
+        
+        x_src: The four-position of the source in Minkowski coordinates.
+        
+        k_src, k_obs: The four-velocities of the geodesic at the source and observer."""
+
         J = self.grav_field.jacobian(x_src); g = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
         g = (g @ J) @ J
         D_src = (g @ k_src) @ np.array([1,0,0,0], dtype=np.float64)
@@ -202,6 +210,23 @@ class RenderSettings:
         spectrum = self.col_converter.grid.pts
         spec_min = np.min(spectrum); spec_max = np.max(spectrum)
         shift_spec = np.where((spectrum / D >= spec_min) & (spectrum / D <= spec_max), spec_int.interp(spectrum / D), 0)
-        shift_spec = np.ascontiguousarray(shift_spec / D**5)
-        new_specint = Function(self.col_converter.grid, shift_spec)
+        shift_spec /= D**5
+        new_specint = Function(self.col_converter.grid, np.ascontiguousarray(shift_spec))
         return new_specint
+    
+    def rel_aberr(self, spec_int:Function, k_obs:np.ndarray):
+        """Returns the spectral radiance received by an observer due to Doppler beaming along a geodesic.
+        
+        spec_int: The spectral radiance of the light ray at the end of the geodesic.
+        
+        k_obs: The four-velocity of the geodesic at the position of the observer."""
+
+        if self.cam_vel.length() > 1e-16:
+            ray_dir = -Vec(k_obs[1], k_obs[2], k_obs[3]).normal()
+            theta = np.arccos(ray_dir.dot(self.cam_vel.normal()))
+            beta = self.cam_vel.length(); gamma = 1 / np.sqrt(1-beta**2)
+            aberr = (gamma * (1+beta*np.cos(theta))) / (np.sin(theta)**2 + gamma**2*(np.cos(theta)+beta)**2)**1.5
+            spec_vals = spec_int.vals / aberr
+            new_specint = Function(spec_int.grid, np.ascontiguousarray(spec_vals))
+            return new_specint
+        else: return spec_int
