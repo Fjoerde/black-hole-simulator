@@ -80,12 +80,3 @@ private:
     double f_df(double xi, double Ssq, double Bsq, double SB, double Dn, double taun, double& df) const;
     double fres(double xi, double Ssq, double Bsq, double SB, double Dn, double taun) const;
 };
-// minmod limiting
-inline double minmod(double a, double b) {
-    if(a*b<=0) {return 0.0;}
-    if(std::abs(a)<std::abs(b)) return a;
-    return b;
-}
-inline double min3mod(double a, double b, double c) {
-    return minmod(a,minmod(b,c));
-}

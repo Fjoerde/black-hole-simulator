@@ -8,9 +8,11 @@
 
 // magnetic field initialised from curl of vector potential
 std::array<double,3> init::A_vpot(double x, double y, double z, double rho, double rho_max) {
-    // torus initialisation, so only A_z component nonzero
-    double Az = std::max(rho/rho_max-0.2,0.0);
-    return {0.0,0.0,Az};
+    // torus initialisation, so only A_phi component nonzero
+    double Ap = std::max(rho/rho_max-0.2,0.0);
+    double phi = (x/std::sqrt(x*x+y*y+z*z));
+    double theta = std::acos(z/std::sqrt(x*x+y*y+z*z));
+    return {-Ap*std::sin(phi)*std::sin(theta),Ap*std::cos(phi)*std::sin(theta),0.0};
 }
 // edge densities
 static double edge_rhox(const patch& p, int i, int j, int k) {
@@ -31,6 +33,147 @@ static std::array<double,3> yedge_pos(const patch& p, int i, int j, int k) {
 }
 static std::array<double,3> zedge_pos(const patch& p, int i, int j, int k) {
     return {p.xedge[i+1]/2,p.yedge[j+1],p.zedge[k]+p.dz()};
+}
+
+namespace torus {
+    // time component of 4-velocity for given angular momentum
+    static double comp_utsq (const metriccomp& mc, double l) {
+        // metric components
+        double gtt = mc.g[0][0];
+        double gtph = mc.g[0][3];
+        double gphph = mc.g[3][3];
+
+        double num = gtph*gtph-gtt*gphph;
+        double den = gphph+2.0*l*gtph+l*l*gtt;
+        // degeneracy check
+        if(std::abs(den)<1e-14) return -1.0;
+
+        return num/den;
+    }
+    // torus effective potential
+    static double torus_pot (const metriccomp& mc, double l, double W_in) {
+        double utsq = comp_utsq(mc,l);
+        if(utsq<=0.0) return -1e30; // degeneracy if outside region 
+        return 0.5*std::log(std::abs(utsq))-W_in;
+    }
+
+    // torus initialisation
+    void fm_init(amrtree& tree) {
+        // metric parameters
+        double M = tree.mtr.M;
+        double a = tree.mtr.a;
+        double Gamma = tree.stt.gamma;
+        // rotation parameters for isco
+        double Z1 = 1+pow(1-(a/M)*(a/M),1/3)*(pow(1+a/M,1/3)+pow(1-a/M,1/3));
+        double Z2 = std::sqrt(3*(a/M)*(a/M)-Z1*Z1);
+        // inner and outer torus limits
+        double r_in = 1.5*M*(3+Z2-std::sqrt((3-Z1)*(3+Z1+2*Z2)));
+        double r_max = 2.25*r_in;
+        // density scale so that \rho_{max}=1 in code units
+        double K = 0.01*pow(M,Gamma-1.0);
+        double rho_tgt = 1.0;
+
+        // angular momentum at pressure maximum
+        metriccomp mc = tree.mtr.comp(r_max,M_PI/2.0);
+        // metric components
+        double gtt = mc.g[0][0];
+        double gtph = mc.g[0][3];
+        double gphph = mc.g[3][3];
+        // finite central difference for metric derivatives
+        double dr = 0.005*M;
+        metriccomp mc_p = tree.mtr.comp(r_max+dr,M_PI/2.0);
+        metriccomp mc_m = tree.mtr.comp(r_max-dr,M_PI/2.0);
+        double dgtt = (mc_p.g[0][0]-mc_m.g[0][0])/(2*dr);
+        double dgtph = (mc_p.g[0][3]-mc_m.g[0][3])/(2*dr);
+        double dgphph = (mc_p.g[3][3]-mc_m.g[3][3])/(2*dr);
+        // angular velocity
+        double Omega_K = (-dgtph+std::sqrt(dgtph*dgtph-dgtt*dgphph))/dgphph;
+        // angular momentum
+        double l0 = -(gtph+Omega_K*gphph)/(gtt+Omega_K*gtph);
+
+        // inner radius potential
+        metriccomp mc_in = tree.mtr.comp(r_in,M_PI/2);
+        double utsq_in = comp_utsq(mc_in,l0);
+        if(utsq_in<=0.0) {
+            std::cerr << "Fishbone-Moncrief torus initialisation threw back an error at inner edge: u_t^2 is nonpositive! Check inner radius.\n";
+            return;
+        }
+        double W_in = 0.5*std::log(std::abs(utsq_in));
+
+        // find maximum density for normalisation
+        double rho_max = 0.0;
+        for(const auto& p : tree.quilt) {
+            for(int i=0; i<block; i++) {
+                for(int j=0; j<block; j++) {
+                    for(int k=0; k<block; k++) {
+                        cell& c = p->cell_(i,j,k);
+                        double r = c.r; double th = c.th;
+                        // skip cells too near axis or horizon
+                        if(r<1.05*tree.mtr.M || std::abs(std::sin(th))<0.01) continue;
+                        metriccomp mc = tree.mtr.comp(r,th);
+                        double W = torus_pot(mc,l0,W_in);
+                        if(W>0.0) {
+                            double rho = pow((Gamma-1.0)*W/(Gamma*K),1.0/(Gamma-1.0));
+                            rho_max = std::max(rho_max,rho);
+
+                        }
+                    }
+                }
+            }
+        }
+        if(rho_max<1e-14) {
+            std::cerr << "Fishbone-Moncrief torus initialisation threw back an error: No torus cells found! Check initialisation parameters.\n";
+            return;
+        }
+        double rho_scal = rho_tgt/rho_max;
+
+        // set primitives
+        for(const auto& p : tree.quilt) {
+            for(int i=0; i<block; i++) {
+                for(int j=0; j<block; j++) {
+                    for(int k=0; k<block; k++) {
+                        cell& c = p->cell_(i,j,k);
+                        double r = c.r; double th = c.th;
+                        // default values are floors
+                        prim W_p = tree.pvfs(r,th);
+                        // horizon protections
+                        double r_H = tree.mtr.M*(1.0+std::sqrt(1.0-(tree.mtr.a/tree.mtr.M)*(tree.mtr.a/tree.mtr.M)));
+                        if(r<1.05*r_H || std::abs(std::sin(th))<0.01) {
+                            c.W = W_p; continue;
+                        }
+                        metriccomp mc = tree.mtr.comp(r,th);
+                        double W_pot = torus_pot(mc,l0,W_in);
+                        // values inside torus
+                        if(W_pot>0.0) {
+                            // density and energy
+                            double rho = rho_scal*pow((Gamma-1.0)*W_pot/(Gamma*K),1.0/(Gamma-1.0));
+                            double prs = K*pow(rho,Gamma);
+                            double eps = prs/((Gamma-1.0)*rho);
+                            W_p.rho = rho; W_p.eps = eps;
+                            // velocity
+                            double utsq = comp_utsq(mc,l0);
+                            double ut = std::sqrt(std::abs(utsq));
+                            double Omega = -(mc.g[0][3]+l0*mc.g[0][0])/(mc.g[3][3]+l0*mc.g[0][3]);
+                            double uphys = Omega*ut;
+                            // coordinate velocity with kerr-schild lapse and shift
+                            W_p.v[0] = 0.0; W_p.v[1] = 0.0; W_p.v[2] = 0.0;
+                            // convert to cartesian
+                            double vphc = (uphys/ut-mc.beta[2]/mc.alpha); // d\phi/dt
+                            double x = c.xc; double y = c.yc;
+                            double rcyl = std::sqrt(x*x+y*y); // cylindrical coordinate radius
+                            if(rcyl>1e-10) {
+                                W_p.v[0] = -vphc*y;
+                                W_p.v[1] = vphc*x;
+                            }
+                            W_p.v[2] = 0.0;
+                        }
+                        c.W = W_p;
+                    }
+                }
+            }
+        }
+        std::cout << "Fishbone-Moncrief torus initialisation: L_0 = " << l0 << "    r_in = " << r_in << "    r_max = " << r_max << "    rho_max = " << rho_tgt << "\n";
+    }
 }
 
 // magnetic field main initialisation function

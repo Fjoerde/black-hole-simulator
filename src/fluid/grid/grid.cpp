@@ -189,8 +189,6 @@ amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nql
                 }
             }
         }
-        // initialise magnetic potential
-        init::B_pot_init(*p,mtr,glmx_rho);
     }
 }
 // magnetic initialisation
@@ -214,11 +212,11 @@ void patch::B_init() {
         for(int j=-ghost; j<block+ghost+1; j++) {
             for(int k=-ghost; k<block+ghost; k++) {
                 if(j>-ghost && j<block+ghost) {
-                    Bfy[Bfy_idx(i,j,k)] = (cell_(i,j-1,k).W.B[0]+cell_(i,j,k).W.B[0])/2;
+                    Bfy[Bfy_idx(i,j,k)] = (cell_(i,j-1,k).W.B[1]+cell_(i,j,k).W.B[1])/2;
                 } else if(j==-ghost) {
-                    Bfy[Bfy_idx(i,j,k)] = cell_(i,j,k).W.B[0];
+                    Bfy[Bfy_idx(i,j,k)] = cell_(i,j,k).W.B[1];
                 } else {
-                    Bfy[Bfy_idx(i,j,k)] = cell_(i,j-1,k).W.B[0];
+                    Bfy[Bfy_idx(i,j,k)] = cell_(i,j-1,k).W.B[1];
                 }
             }
         }
@@ -228,11 +226,11 @@ void patch::B_init() {
         for(int j=-ghost; j<block+ghost; j++) {
             for(int k=-ghost; k<block+ghost+1; k++) {
                 if(k>-ghost && k<block+ghost) {
-                    Bfz[Bfz_idx(i,j,k)] = (cell_(i,j,k-1).W.B[0]+cell_(i,j,k).W.B[0])/2;
+                    Bfz[Bfz_idx(i,j,k)] = (cell_(i,j,k-1).W.B[2]+cell_(i,j,k).W.B[2])/2;
                 } else if(i==-ghost) {
-                    Bfz[Bfz_idx(i,j,k)] = cell_(i,j,k).W.B[0];
+                    Bfz[Bfz_idx(i,j,k)] = cell_(i,j,k).W.B[2];
                 } else {
-                    Bfz[Bfz_idx(i,j,k)] = cell_(i,j,k-1).W.B[0];
+                    Bfz[Bfz_idx(i,j,k)] = cell_(i,j,k-1).W.B[2];
                 }
             }
         }
@@ -270,7 +268,7 @@ void patch::fluxcomp(const metric& mtr, const state& stt) {
     for(int i=0; i<block; i++) {
         for(int j=-1; j<block; j++) {
             for(int k=0; k<block; k++) {
-                facestate fs = reconfp(*this,i,j,k,0);
+                facestate fs = reconfp(*this,i,j,k,1);
                 // overwrite magnetic fluxes for transport constraint
                 fs.L.B[1] = Bfy[Bfy_idx(i,j+1,k)];
                 fs.R.B[1] = Bfy[Bfy_idx(i,j+1,k)];
@@ -294,7 +292,7 @@ void patch::fluxcomp(const metric& mtr, const state& stt) {
     for(int i=0; i<block; i++) {
         for(int j=0; j<block; j++) {
             for(int k=-1; k<block; k++) {
-                facestate fs = reconfp(*this,i,j,k,0);
+                facestate fs = reconfp(*this,i,j,k,2);
                 // overwrite magnetic fluxes for transport constraint
                 fs.L.B[2] = Bfz[Bfz_idx(i,j,k+1)];
                 fs.R.B[2] = Bfz[Bfz_idx(i,j,k+1)];
@@ -479,7 +477,7 @@ void amrtree::gh_prolong(patch* p, patch* nb_crs, int dim, int side) {
 }
 // ghost boundaries for when nbhd returns nullptr
 void amrtree::gh_bndy(patch* p, int dim, int side) {
-    int pstart = (side==1)? block : ghost;
+    int pstart = (side==1)? block : -ghost;
     // iterate over cells
     for(int g=0; g<ghost; g++) {
         for(int t1=0; t1<block; t1++) {
@@ -599,7 +597,7 @@ void amrtree::refine(patch* p) {
                         double sx = minmod(vc-vmx,vpx-vc);
                         double sy = minmod(vc-vmy,vpy-vc);
                         double sz = minmod(vc-vmz,vpz-vc);
-                        return vc = sx*ox+sy*oy+sz*oz; 
+                        return vc+sx*ox+sy*oy+sz*oz; 
                     };
                     // interpolate conserved variables
                     cc.U.D = prolong(pc.U.D,ppx.U.D,pmx.U.D,ppy.U.D,pmy.U.D,ppz.U.D,pmz.U.D);
@@ -669,7 +667,7 @@ void amrtree::ccrstr(patch* p) {
                     pc.U.D *= inv; pc.U.tau *= inv;
                     for(int b=0; b<3; b++) {
                         pc.U.S[b] *= inv;
-                        pc.U.S[b] *= inv;
+                        pc.U.B[b] *= inv;
                     }
                 }
                 // recover primitives

@@ -10,6 +10,13 @@
 // this document contains the structures and classes for variable
 // initialisation and the prescribing of initial conditions.
 
+// fishbone-moncrief torus initialisation
+namespace torus {
+    static double comp_utsq(const metriccomp& mc, double l);
+    static double torus_pot(const metriccomp& mc, double l, double W_in);
+    void fm_init(amrtree& tree);
+}
+// magnetic initialisation
 class init {
 public:
     static void B_pot_init(patch& p, const metric& mtr, double glmx_rho);
