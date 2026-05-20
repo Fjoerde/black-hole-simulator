@@ -127,7 +127,7 @@ class Integrator:
 
 
 # Render Settings
-spec_settings = [("w", int64), ("h", int64), ("aspect", float64),
+spec_settings = [("w", int64), ("h", int64), ("f", float64), ("aspect", float64),
                  ("cam_pos", Vec.class_type.instance_type), ("cam_dir", Vec.class_type.instance_type), ("cam_vel", Vec.class_type.instance_type),
                  ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type),
                  ("scene", types.ListType(Hittable.class_type.instance_type)),
@@ -141,11 +141,12 @@ class RenderSettings:
     
     bg_rad: Radius of the background box."""
 
-    def __init__(self, w:int=800, h:int=600, # Width, height of image
+    def __init__(self, w:int=800, h:int=600, f:float=1, # Width, height of image
                  cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), cam_vel:Vec=Vec(0,0,0), # Position, direction, and velocity of camera
                  scene:list[Hittable]=def_scene, background:np.ndarray=np.zeros((1,1,3), dtype=np.float64), bg_rad:float=20, 
                  col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
        
+        if gas.entries != 6: raise ValueError("Invalid number of entries for the gas.")
         if (background > 1).any(): raise ValueError("Encountered invalid background colors.")
         if cam_vel.length() >= 1: raise ValueError("Velocity of camera must be smaller than 1.")
         for obj in scene:
@@ -153,6 +154,7 @@ class RenderSettings:
 
         self.w = w
         self.h = h
+        self.f = f
         self.cam_pos = cam_pos
         self.cam_dir = cam_dir
         self.cam_vel = cam_vel
@@ -172,7 +174,7 @@ class RenderSettings:
 
         u = (2*(x+0.5)/self.w - 1) * self.aspect # Viewport coordinates, varies from -aspect to +aspect
         v = 1 - 2*(y+0.5)/self.h # varies from -1 to +1
-        ray_dir_p = (self.cam_dir + u*self.cam_u + v*self.cam_v).normal() # p stands for primed (in the moving camera's frame)
+        ray_dir_p = (self.f*self.cam_dir + u*self.cam_u + v*self.cam_v).normal() # p stands for primed (in the moving camera's frame)
         beta = self.cam_vel.length(); gamma = 1 / np.sqrt(1-beta**2)
         if np.abs(beta) < 1e-4: return ray_dir_p
 

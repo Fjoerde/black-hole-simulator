@@ -19,7 +19,7 @@ def derivative(self, _, y:np.ndarray) -> np.ndarray:
     A = np.zeros(4, dtype=np.float64)
     for c in range(4): A[c] -= (chr_syms[c] @ v) @ v # Geodesic equation
 
-    v3 = v[1:]; a3 = A[1:]
+    v3 = self.grav_field.mink_vel(v, x)[1:]; a3 = self.grav_field.mink_vel(A, x)[1:]
     dT = a3 - v3 * (v3 @ a3) / np.linalg.norm(v3)**2 # Infinitesimal angular deviation
     dTheta = np.linalg.norm(dT)
 

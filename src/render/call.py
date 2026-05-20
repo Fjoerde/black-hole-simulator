@@ -39,18 +39,18 @@ gas = Function(grid, gas_vals)
 
 bg = np.array(Image.open("Images/background1.jpg")).astype(np.float64) / 255.
 ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
-settings1 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), background=bg, gas=gas)
-settings2 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), background=bg, grav_field=ss)
+settings1 = RenderSettings(w=800, h=600, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), background=bg, gas=gas)
+settings2 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0.1,0,0), background=bg, grav_field=ss)
 
 t3 = time.perf_counter()
 print(f"Initialization finished in {t3-t2:.4f} s\n")
 
 print("Rendering (ignore NumbaPerformanceWarning's)...")
-render_img, ang_dev_img = render_seq(settings1)
-render_filename = "test21.png"
+render_img, ang_dev_img, avg_specint_img = render_seq(settings1)
+render_filename = "test21.png" # test21, test22
 ang_dev_filename = "ang_dev1.png"
 render_img.save(f"Images/{render_filename}") 
-ang_dev_img.save(f"Images/{ang_dev_filename}")
+# ang_dev_img.save(f"Images/{ang_dev_filename}") # Uncomment this for test 2
   
 t4 = time.perf_counter()
 print(f"Rendering finished in {(t4-t3)/60:.4f} min\n")

@@ -1,15 +1,13 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import PowerNorm
 from PIL import Image
 from numba import njit, prange
 from numba_progress import ProgressBar
-import io
 
 from Classes.math import *
 from Classes.tags import *
 from Classes.physics import *
 from Classes.int_and_settings import *
+from plots import *
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -54,10 +52,9 @@ def get_geodesics(integrator:Integrator, geodesics:list[Function], settings:Rend
     return geodesics
 
 @njit(parallel=True, fastmath=True)
-def get_gas_vals(geodesics:list[Function], gas:Function, n:int, pbar:ProgressBar) -> list[Function]:
+def get_gas_vals(geodesics:list[Function], gas:Function, gas_vals:list[Function], n:int, pbar:ProgressBar) -> list[Function]:
     """Returns the list of gas values along the geodesic."""
 
-    gas_vals = geodesics.copy()
     for i in prange(len(geodesics)):
         geodesic = geodesics[i]
         max_t = np.max(geodesic.grid.pts)
@@ -68,7 +65,7 @@ def get_gas_vals(geodesics:list[Function], gas:Function, n:int, pbar:ProgressBar
     return gas_vals
 
 @njit(parallel=True, fastmath=True)
-def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar) -> np.ndarray:
+def get_colors(integrator:Integrator, settings:RenderSettings, spec_ints:list[Function], pbar:ProgressBar) -> tuple[Function, np.ndarray]:
     """Returns the spectral intensity values over a given grid for every given geodesic.
     
     geodesics: A list of functions that give the four-positions, tangent vectors (in the future direction), and
@@ -100,40 +97,13 @@ def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar)
         spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4)
         spec_int = spec_int.vals[-1]; spec_int = spec_int.reshape(len(spec_int), 1)
         spec_int = settings.rel_aberr(Function(integrator.specint_grid, spec_int), k1)
-        cols[i] = settings.col_converter.get_rgb(spec_int) * 255.
+        spec_ints[i] = spec_int; cols[i] = settings.col_converter.get_rgb(spec_int) * 255.
         pbar.update(1)
-    return cols
+    return spec_ints, cols
 
 
 # Functions outside of nopython mode
-def plot_deviation(geodesics:list[Function], settings:RenderSettings) -> Image:
-    """Plots the angular deviation of the light rays across the image."""
-
-    n_px = settings.w * settings.h
-    if len(geodesics) != n_px: raise ValueError("Number of geodesics not equal to the number of pixels in the image.")
-    if len(geodesics) < 4: return Image.fromarray(np.zeros((1,1,3), dtype=np.uint8))
-    deviations = np.empty(n_px, dtype=np.float64)
-    for i in range(n_px): deviations[i] = geodesics[i].vals[0,8]
-    deviations = deviations.reshape(settings.h, settings.w)
-
-    fig, ax = plt.subplots()
-    X = np.arange(settings.w); Y = np.flip(settings.h-1 - np.arange(settings.h))
-    xx, yy = np.meshgrid(X, Y)
-    contourf = ax.contourf(xx, yy, deviations, levels=50, cmap="viridis",
-                           norm=PowerNorm(gamma=0.3, vmin=0, vmax=np.max(deviations)))
-    fig.colorbar(contourf, ax=ax, label=r"$\theta_{d}~/~\mathrm{rad}$")
-    ax.set_title("Angular Deviation")
-    ax.set_aspect(settings.h / settings.w)
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=200, bbox_inches="tight")
-    buf.seek(0)
-    img = Image.open(buf)
-    plt.close(fig)
-    img.show()
-    return img
-
-def render_seq(settings:RenderSettings) -> Image:
+def render_seq(settings:RenderSettings) -> tuple[Image.Image]:
     """Call to perform the rendering sequence."""
 
     print("Calculating geodesics...")
@@ -147,16 +117,23 @@ def render_seq(settings:RenderSettings) -> Image:
     ang_dev_img = plot_deviation(geodesics, settings)
 
     print("Finding gas values along geodesics...")
+    gas_vals = geodesics.copy()
     with ProgressBar(total=settings.w*settings.h) as pbar:
-        gas_vals = get_gas_vals(geodesics, settings.gas, 50, pbar)
+        gas_vals = get_gas_vals(geodesics, settings.gas, gas_vals, 50, pbar)
 
     print("Calculating colors...")
     x0 = np.array([0, settings.cam_pos.x, settings.cam_pos.y, settings.cam_pos.z])
     integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=settings.col_converter.grid,
                             geodesics=geodesics, gas_vals=gas_vals, grav_field=settings.grav_field,
                             obs_vel=settings.grav_field.timelike_cond(settings.cam_vel, x0))
+    spec_ints = geodesics.copy()
     with ProgressBar(total=settings.w*settings.h) as pbar:
-        cols = get_colors(integrator, settings, pbar)
+        spec_ints, cols = get_colors(integrator, settings, spec_ints, pbar)
     render_img = Image.fromarray(cols.reshape(settings.h, settings.w, 3).astype(np.uint8))
     render_img.show()
-    return render_img, ang_dev_img
+
+    print("Plotting the average spectral radiance...")
+    avg_specint_img = avg_specint(spec_ints, settings)
+    avg_specint_img.show()
+
+    return render_img, ang_dev_img, avg_specint_img
