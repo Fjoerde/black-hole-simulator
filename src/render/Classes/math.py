@@ -32,10 +32,11 @@ class Vec:
         return self / len_
     def dot(self, vec): return (self.x*vec.x + self.y*vec.y + self.z*vec.z)
     def cross(self, vec): return Vec(self.y*vec.z-vec.y*self.z, self.z*vec.x-self.x*vec.z, self.x*vec.y-self.y*vec.x)
-    def np_array(self): return np.array([self.x, self.y, self.z]) # Turn Vec into numpy array
+    def np_array(self): return np.array([self.x, self.y, self.z], dtype=np.float64) # Turn Vec into numpy array
 
     def is_normal(self):
-        if (self.length() - 1.0) > 1e-6: raise ValueError("Expected normalized vector.")
+        if np.abs(self.length() - 1.) > 1e-6: raise ValueError("Expected normalized vector.")
+    def four_vec(self, t): return np.ascontiguousarray(np.array([t, self.x, self.y, self.z], dtype=np.float64))
 
 @overload(operator.mul)
 def vec_mul(v1, v2):
@@ -383,6 +384,7 @@ class Function:
         
         vals: The value corresponding to every point within the grid."""
         
+        if vals.shape[0] != len(self.grid.pts): raise ValueError("Number of values not equal to the number of grid points.")
         if not (0 <= dim <= self.dim-1): raise ValueError("Invalid value for dim.")
 
         N = len(self.grid.pts)
@@ -498,19 +500,6 @@ class Function:
         result = np.empty(self.entries, dtype=np.float64)
         for i in range(self.entries): result[i] = np.sum(int_vals[:,i])
         return np.ascontiguousarray(result)
-    
-    def avg_cell(self, pts:np.ndarray) -> np.ndarray:
-        """Returns the average value over the corners of the cell each of the pts is in."""
-
-        n = 2 ** self.dim
-        corners, _, _ = self.grid.get_cell(self.grid.pts)
-        corner_idx = self.grid.get_idx(corners.reshape(len(pts)*n, self.dim)).reshape(len(pts), n)
-        corner_vals = np.empty((len(pts), n, self.entries), dtype=np.float64)
-        cell_avg = np.empty((len(pts), self.entries), dtype=np.float64)
-        for i in range(len(pts)):
-            for j in range(n): corner_vals[i,j] = self.vals[corner_idx[i,j]]
-            for k in range(self.entries): cell_avg[i,k] = np.mean(corner_vals[i,:,k])
-        return cell_avg
 
 
 # Color Converters

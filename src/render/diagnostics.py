@@ -102,7 +102,7 @@ def display_specint(spec_int:Function):
 
     min, max = np.min(spec_int.grid.pts), np.max(spec_int.grid.pts)
     xx = np.linspace(min, max, 1000)
-    plt.plot(xx, spec_int.interp(xx.reshape(xx.shape[0], 1)), label="Spectral Intensity")
+    plt.plot(xx, spec_int.interp(xx.reshape(xx.shape[0], 1))[:,0], label="Spectral Intensity")
     plt.xlabel(r"$\lambda~/~\mathrm{nm}$"); plt.ylabel(r"$I_{\lambda}~/~\mathrm{W~m^{-2}~nm^{-1}}$")
     plt.legend()
     plt.show()
@@ -124,7 +124,7 @@ def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
 
     ray_dir.is_normal()
-    x0 = np.ascontiguousarray(np.array([0, ray_pos.x, ray_pos.y, ray_pos.z]))
+    x0 = settings.cam_pos.four_vec(0)
     X0 = settings.grav_field.coord_pos(x0)
     V0 = settings.grav_field.null_cond(ray_dir, x0)
     y0 = np.concatenate((X0, V0, np.array([0], dtype=np.float64)))
@@ -176,7 +176,7 @@ def ray_col(geodesic:Function, gas_val:Function, vel:Vec, settings:RenderSetting
     grid = settings.col_converter.grid
     cam_pos = geodesic.vals[-1,:4]
     integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=grid,
-                            geodesics=[geodesic], gas_vals=[gas_val], grav_field=settings.grav_field,
+                            geodesic=geodesic, gas_val=gas_val, grav_field=settings.grav_field,
                             obs_vel=settings.grav_field.timelike_cond(vel, cam_pos))
     # Find initial spectral intensity
     spec_int0 = np.zeros(len(grid.pts), dtype=np.float64)
@@ -195,7 +195,7 @@ def ray_col(geodesic:Function, gas_val:Function, vel:Vec, settings:RenderSetting
                 spec_int0 = spec_int0.reshape(len(spec_int0))
                 break
     max_t = np.max(geodesic.grid.pts)
-    spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4).vals[-1]
+    spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 10).vals[-1]
     spec_int = settings.rel_aberr(Function(grid, spec_int.reshape(len(spec_int), 1)), k1)
     rgb = settings.col_converter.get_rgb(spec_int)
     return spec_int, rgb

@@ -20,8 +20,9 @@ def derivative(self, _, y:np.ndarray) -> np.ndarray:
     for c in range(4): A[c] -= (chr_syms[c] @ v) @ v # Geodesic equation
 
     v3 = self.grav_field.mink_vel(v, x)[1:]; a3 = self.grav_field.mink_vel(A, x)[1:]
-    dT = a3 - v3 * (v3 @ a3) / np.linalg.norm(v3)**2 # Infinitesimal angular deviation
-    dTheta = np.linalg.norm(dT)
+    v_norm = np.linalg.norm(v3)
+    K = a3 / v_norm**2 - v3 * (v3 @ a3) / v_norm**4 # Infinitesimal angular deviation
+    dTheta = v_norm * np.linalg.norm(K)
 
     y_new = np.concatenate((v, A, np.array([dTheta], dtype=np.float64)))
     return np.ascontiguousarray(y_new)
@@ -49,4 +50,4 @@ def max_step(self, t:float, y:np.ndarray, _) -> float:
     for i in range(len(self.scene)):
         obj = self.scene[i]
         dists[i] = obj.shape.in_shape_int(self.grav_field.mink_pos(y[:4]))
-    return 1.25 * min(dists) / (speed + 1e-10)
+    return 1.25 * min(dists) / speed

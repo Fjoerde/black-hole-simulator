@@ -3,35 +3,32 @@ from numba import njit
 from numba.typed import List
 
 @njit
-def init(self, specint_grid, geodesics, gas_vals, grav_field, obs_vel):
+def init(self, specint_grid, geodesic, gas_val, grav_field, obs_vel):
     if obs_vel.shape != (4,): raise ValueError("Invalid shape for obs_vel.")
 
     self.specint_grid = specint_grid
-    self.geodesics = List(geodesics)
-    self.gas_vals = List(gas_vals)
+    self.geodesic = geodesic
+    self.gas_val = gas_val
     self.grav_field = grav_field
-    self.solve_idx = 0
-    self.doppler_obs = np.empty(len(geodesics), dtype=np.float64)
 
-    for i in range(len(geodesics)):
-        x = self.geodesics[i].vals[-1,:4]
-        k = self.geodesics[i].vals[-1,4:8]
-        J = self.grav_field.jacobian(x); g = self.grav_field.sample_g(self.grav_field.coord_pos(x))
-        g = (g @ J) @ J # Transform coordinates back to Minkowski
-        self.doppler_obs[i] = (g @ k) @ obs_vel
+    x = self.geodesic.vals[-1,:4]
+    k = self.geodesic.vals[-1,4:8]
+    J = self.grav_field.jacobian(x); g = self.grav_field.sample_g(self.grav_field.coord_pos(x))
+    g = (g @ J) @ J # Transform coordinates back to Minkowski
+    self.doppler_obs = (g @ k) @ obs_vel
 
 @njit
 def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
     t_arr = np.array([[t]], dtype=np.float64)
 
-    geodesic_val = self.geodesics[self.solve_idx].interp(t_arr)[0]
+    geodesic_val = self.geodesic.interp(t_arr)[0]
     x = geodesic_val[:4]; k = geodesic_val[4:8]
-    gas_val = self.gas_vals[self.solve_idx].interp(t_arr)[0]
+    gas_val = self.gas_val.interp(t_arr)[0]
     vel = gas_val[:4]; temp = max(gas_val[4], 0); ext_coeff = max(gas_val[5], 0)
 
     J = self.grav_field.jacobian(x); g = self.grav_field.sample_g(self.grav_field.coord_pos(x))
     g = (g @ J) @ J # Coordinate transformation to Minkowski
-    D_src = (g @ k) @ vel; D_obs = self.doppler_obs[self.solve_idx]
+    D_src = (g @ k) @ vel; D_obs = self.doppler_obs
     if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
     else: D = D_src / D_obs
 

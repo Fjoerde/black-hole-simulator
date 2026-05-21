@@ -23,8 +23,8 @@ spec_integrator = [("tag", int64),
                    ("grav_field", GravField.class_type.instance_type), ("gas", Function.class_type.instance_type),
 
                    # For SpecInts
-                   ("specint_grid", Grid.class_type.instance_type), ("geodesics", types.ListType(Function.class_type.instance_type)),
-                   ("gas_vals", types.ListType(Function.class_type.instance_type)), ("doppler_obs", float64[::1]), ("solve_idx", int64)]
+                   ("specint_grid", Grid.class_type.instance_type), ("geodesic", Function.class_type.instance_type),
+                   ("gas_val", Function.class_type.instance_type), ("doppler_obs", float64)]
 @jitclass(spec_integrator)
 class Integrator:
     """Initiate an integrator that solves differential equations.
@@ -46,12 +46,12 @@ class Integrator:
     def __init__(self, tag:int,
                  grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI), scene:list[Hittable]=def_scene,
                  cam_pos:Vec=Vec(0,0,0), bg_rad:float=20, specint_grid:Grid=Grid(),
-                 geodesics:list[Function]=[Function()], gas_vals:list[Function]=[Function()],
+                 geodesic:Function=Function(), gas_val:Function=Function(),
                  obs_vel:np.ndarray=np.array([1,0,0,0], dtype=np.float64)):
     
         self.tag = tag
         if self.tag == INTEGRATOR_GEODESICEQ: GeodesicEq.init(self, grav_field, scene, cam_pos, bg_rad)
-        if self.tag == INTEGRATOR_SPECINT: SpecInt.init(self, specint_grid, geodesics, gas_vals, grav_field, obs_vel)
+        if self.tag == INTEGRATOR_SPECINT: SpecInt.init(self, specint_grid, geodesic, gas_val, grav_field, obs_vel)
 
     def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
         """Returns the derivative of the state vector y."""

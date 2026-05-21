@@ -6,7 +6,7 @@ import time
 print("Importing and lowering code...")
 t1 = time.perf_counter()
 from Classes.math import *
-from Classes.physics import Shape, Hittable, GravField
+from Classes.physics import GravField
 from Classes.int_and_settings import RenderSettings
 from Classes.tags import *
 from rendering import render_seq
@@ -39,8 +39,8 @@ gas = Function(grid, gas_vals)
 
 bg = np.array(Image.open("Images/background1.jpg")).astype(np.float64) / 255.
 ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
-settings1 = RenderSettings(w=800, h=600, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), background=bg, gas=gas)
-settings2 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0.1,0,0), background=bg, grav_field=ss)
+settings1 = RenderSettings(w=100, h=100, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), background=bg, gas=gas)
+# settings2 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0.1,0,0), background=bg, grav_field=ss)
 
 t3 = time.perf_counter()
 print(f"Initialization finished in {t3-t2:.4f} s\n")

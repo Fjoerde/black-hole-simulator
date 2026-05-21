@@ -23,7 +23,7 @@ def plot_deviation(geodesics:list[Function], settings:RenderSettings) -> Image.I
     X = np.arange(settings.w); Y = np.flip(settings.h-1 - np.arange(settings.h))
     xx, yy = np.meshgrid(X, Y)
     contourf = ax.contourf(xx, yy, deviations, levels=50, cmap="viridis",
-                           norm=PowerNorm(gamma=0.2, vmin=0, vmax=np.max(deviations)))
+                           norm=PowerNorm(gamma=0.4, vmin=0, vmax=np.max(deviations)))
     fig.colorbar(contourf, ax=ax, label=r"$\theta_{d}~/~\mathrm{rad}$")
     ax.set_title("Angular Deviation")
     ax.set_aspect("equal")
@@ -48,11 +48,13 @@ def avg_specint(spec_ints:list[Function], settings:RenderSettings) -> Image.Imag
         flux += spec_ints[i].vals.flatten() * (px_area * cos_theta / settings.f)**2
     sol_ang = 4 * np.arcsin(settings.aspect / np.sqrt((settings.aspect**2 + settings.f**2)*(1 + settings.f**2)))
     avg_specvals = flux / (4 * settings.aspect * sol_ang)
+    avg_specint = Function(settings.col_converter.grid, np.ascontiguousarray(avg_specvals.reshape(len(avg_specvals), 1)))
 
     xx = np.linspace(np.min(spectrum), np.max(spectrum), 1000)
+    yy = avg_specint.interp(xx.reshape(1000, 1))[:,0]
     fig, ax = plt.subplots()
-    ax.plot(xx, avg_specvals, label="Average Spectral Radiance")
-    ax.set_xlabel(r"\lambda~/~\mathrm{nm}"); ax.set_ylabel(r"\braket{I_{\lambda}}~/~\mathrm{W~m^{-2}~nm^{-1}}")
+    ax.plot(xx, yy, label="Average Spectral Radiance")
+    ax.set_xlabel(r"$\lambda~/~\mathrm{nm}$"); ax.set_ylabel(r"$\langle I_{\lambda}\rangle~/~\mathrm{W~m^{-2}~nm^{-1}}$")
     fig.legend()
 
     buf = io.BytesIO()
