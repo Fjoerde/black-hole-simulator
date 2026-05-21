@@ -7,6 +7,8 @@
 #include <string>
 #include <chrono>
 
+#include "rk2.hpp"
+#include "recon.hpp"
 #include "metric.hpp"
 #include "state.hpp"
 #include "prim.hpp"
@@ -14,10 +16,8 @@
 #include "cell.hpp"
 #include "grid.hpp"
 #include "hlld.hpp"
-#include "recon.hpp"
 #include "initial.hpp"
 #include "ct.hpp"
-#include "rk2.hpp"
 #include "data.hpp"
 
 // this is the main document for the fluid side of the project, and
@@ -27,6 +27,11 @@
 
 // this project was a long effort between Vincent Leung, Haris Forde,
 // Archimedes Lentzos, and Dhruv Mathur, in no particular order.
+
+// define types
+using namespace grid;
+using namespace torus;
+using namespace integ;
 
 // simulation parameters
 // note: units are a complete mess, ah well it's fine, geometrised
@@ -53,6 +58,7 @@ namespace params {
     constexpr double t_end = 10.0; // end time in geometrised units, NOT FRAMES!!
     constexpr double max_steps = 1000; // step count hard limit (this is now frames)
 }
+using namespace params;
 
 // main function
 int main() {
@@ -64,7 +70,7 @@ int main() {
     std::cout << params::nqlt*params::nqlt*params::nqlt << " patches have been instantiated.\n";
     // initalise torus
     std::cout << "Initialising torus...\n";
-    torus::fm_init(tree);
+    init::fm_init(tree);
     // global rho_max for initialisation of magnetic field
     double rho_max = 0.0;
     for(const auto& p : tree.quilt) {
@@ -95,10 +101,10 @@ int main() {
         }
     }
     // set up runge-kutta integrator and time loop
-    rk2integrator rk(params::cfl);
+    integ::rk2integrator rk(params::cfl);
     double t = 0.0;
     int step = 0;
-    bool ok = true;
+    // bool ok = true;
     // auto timer_start = std::chrono::steady_clock::now();
     // start integrator and god help your computer
     std::cout << "Starting integration...\n";

@@ -3,15 +3,19 @@
 #include <array>
 #include <algorithm>
 #include <limits>
-#include "rk2.hpp"
-#include "../fluid/solver/hlld.cpp"
+#include "hlld.hpp"
+#include "solver/hlld.cpp"
 #include "recon.hpp"
 #include "ct.hpp"
+#include "grid.hpp"
+#include "rk2.hpp"
 
 // this document contains the methods relating to integration.
+using namespace integ;
+using namespace grid;
 
 // flux divergence
-cons rk2integrator::div_flux(const patch& p, int i, int j, int k) {
+cons rk2integrator::div_flux(const grid::patch& p, int i, int j, int k) {
     double dx = p.dx(), dy = p.dy(), dz = p.dz();
     double sg = p.cell_(i,j,k).mtr.comp(p.cell_(i,j,k).r,p.cell_(i,j,k).th).sqrtdetg;
     // get face fluxes

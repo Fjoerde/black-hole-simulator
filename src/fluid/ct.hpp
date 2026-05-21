@@ -8,6 +8,8 @@
 // this document contains the structures pertaining to constrained
 // transport of the magnetic field maintaining \div B = 0.
 
+using namespace grid;
+
 class constrans {
 public:
     static void emfcomp(patch& p);

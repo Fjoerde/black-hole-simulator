@@ -2,11 +2,12 @@
 #include <vector>
 #include <array>
 #include <memory>
-#include "../recon.hpp"
-#include "../grid.hpp"
+#include "recon.hpp"
+#include "grid.hpp"
 
 // this document contains the methods for primitive left and right
 // state reconstruction at cell faces.
+using namespace grid;
 
 // get index offsets
 static const prim& getW(const patch& p, int i, int j, int k, int dim, int off) {
@@ -52,12 +53,12 @@ facestate reconfp(const patch& p, int i, int j, int k, int dim, limiter lim) {
     auto [sL, sR] = recon_scal(km,kc,kp,kpp,lim);
     fs.L.rho = std::exp(sL); fs.R.rho = std::exp(sR);
     // energy with the same logarithm-exponential positivity forcing
-    double km = std::log(Wm.eps);
-    double kc = std::log(Wc.eps);
-    double kp = std::log(Wp.eps);
-    double kpp = std::log(Wpp.eps);
-    auto [sL, sR] = recon_scal(km,kc,kp,kpp,lim);
-    fs.L.eps = std::exp(sL); fs.R.eps = std::exp(sR);
+    double Em = std::log(Wm.eps);
+    double Ec = std::log(Wc.eps);
+    double Ep = std::log(Wp.eps);
+    double Epp = std::log(Wpp.eps);
+    auto [JL, JR] = recon_scal(Em,Ec,Ep,Epp,lim);
+    fs.L.eps = std::exp(JL); fs.R.eps = std::exp(JR);
 
     // velocity, reconstructed directly
     for(int i=0; i<3; i++) {

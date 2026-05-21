@@ -20,6 +20,7 @@ struct prim {
 
     // derived quantities
     double p; // pressure
+    double T; // temperature
     double h; // enthalpy
     double lor; // Lorentz factor
     double b2; // double the magnetic field energy density b^{\mu}b_{\mu}

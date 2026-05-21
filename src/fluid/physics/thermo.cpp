@@ -1,6 +1,6 @@
 #include <cmath>
 #include <stdexcept>
-#include "src/fluid/state.hpp"
+#include "state.hpp"
 
 // this document contains the methods for calculating thermodynamic
 // properties of the gas. diagnostic tests throughout are included

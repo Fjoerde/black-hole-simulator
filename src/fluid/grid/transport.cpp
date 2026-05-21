@@ -1,14 +1,14 @@
 #include <cmath>
 #include <vector>
 #include <array>
-#include "../ct.hpp"
+#include "ct.hpp"
 
 // this document contains the methods to ensure the magnetic field is
 // transported with zero divergence.
+using namespace grid;
 
 // compute emfs at edges
 void constrans::emfcomp(patch& p) {
-    int g = ghost;
     for(int i=-ghost; i<block+ghost; i++) {
         for(int j=-ghost; j<block+ghost; j++) {
             for(int k=-ghost; k<block+ghost; k++) {

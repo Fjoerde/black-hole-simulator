@@ -6,9 +6,11 @@
 #include "prim.hpp"
 #include "cell.hpp"
 #include "grid.hpp"
+#include "hlld.hpp"
 
 // this document contains the declarations for the reconstruction of
 // left and right states at each face using data at cell centres.
+using namespace grid;
 
 // slope limiting functions
 // minimum modulus for two and three variables

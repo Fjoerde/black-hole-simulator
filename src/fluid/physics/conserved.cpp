@@ -4,9 +4,9 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "src/fluid/cons.hpp"
-#include "src/fluid/metric.hpp"
-#include "src/fluid/prim.hpp"
+#include "cons.hpp"
+#include "metric.hpp"
+#include "prim.hpp"
 
 // this document contains the methods for analytical conserved
 // variable construction and primitive variable reconstruction by
@@ -37,6 +37,13 @@ cons conserved::ptoc(prim& pv, double r, double th) const {
     for(int i=0; i<3; i++) {
         Bv += Blow[i]*pv.v[i];
     }
+    double Bsq = 0.0;
+    for(int i=0; i<3; i++) {
+        for(int j=0; j<3; j++) {
+            Bsq += Blow[i]*mc.gam[i][j]*pv.B[j];
+        }
+    }
+    pv.b2 = (Bv*Bv+Bsq)/pv.lor;
     
     double bt = pv.lor*Bv/mc.alpha; // magnetic 4-vector t component
     double pstar = pv.p+pv.b2/2; // magnetically adjusted pressure
@@ -114,7 +121,7 @@ double conserved::fres(double xi, double Ssq, double Bsq, double SB, double Dn, 
 // switch to a more robust solver.
 
 // conserved to primitive variable reconstruction
-bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxiter=50, double tol=1e-8) const {
+bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxiter, double tol) const {
     // set up variables
     metriccomp mc = mtr.comp(r, th);
     double sg = mc.sqrtdetgam;
@@ -149,7 +156,7 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
     }
     
     // try newton-raphson first
-    double xi = (xi_l+xi_h)/2.0;
+    xi = (xi_l+xi_h)/2.0;
     bool nr_ok_la = true;
     // iterate
     for(int i=0; i<maxiter; i++) {
@@ -169,12 +176,47 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
     // use brent if newton-raphson fails
     if(!nr_ok_la) {
         double xib;
-
+        if(!cp_bd(xi_l,xi_h,Ssq,Bsq,SB,D,tau,xib,tol)) return false;
+    }
+    // reconstruct primitives
+    double xpQ = xi+Bsq;
+    double sdb2 = SB*SB;
+    double vsq = (Ssq*xpQ*xpQ+sdb2*(2.0*xi+Bsq))/(xpQ*xpQ*xi*xi);
+    vsq = std::min(vsq,1e-10);
+    double ltz2 = 1.0/(1.0-vsq);
+    double ltz = std::sqrt(ltz2);
+    pv_out.lor = ltz;
+    pv_out.rho = D/ltz;
+    double h = xi/(pv_out.rho*ltz2);
+    pv_out.eps = (h-1.0)/(stt.gamma);
+    pv_out.p = stt.press(pv_out.rho,pv_out.eps);
+    pv_out.h = stt.enth(pv_out.rho,pv_out.eps);
+    pv_out.T = stt.temp(pv_out.rho,pv_out.p);
+    for(int i=0; i<3; i++) {
+        pv_out.v[i] = (Su[i]+(SB/xi)*Bu[i])/xpQ;
+        pv_out.B[i] = B[i];
+    }
+    double Blow[3] = {};
+    for(int i=0; i<3; i++) {
+        for(int j=0; j<3; j++) {
+            Blow[i] += mc.gam[i][j]*B[j];
+        }
+    }
+    double Bv = 0.0;
+    for(int i=0; i<3; i++) {
+        for(int j=0; j<3; j++) {
+            Bv += Blow[i]*mc.gam[i][j]*pv_out.v[j];
+        }
+    }
+    pv_out.b2 = (Bv*Bv+Bsq)/ltz;
+    // sanity check for density
+    if(pv_out.rho<=0.0 || pv_out.eps<=0.0 || pv_out.p <=0.0) {
+        return false;
     }
     return true;
 }
 // brent-dekker solver
-bool conserved::cp_bd(double xa, double xb, double Ssq, double Bsq, double SB, double D, double tau, double& root, double tol=1e-12) const {
+bool conserved::cp_bd(double xa, double xb, double Ssq, double Bsq, double SB, double D, double tau, double& root, double tol) const {
     double fa = conserved::fres(xa, Ssq, Bsq, SB, D, tau);
     double fb = conserved::fres(xb, Ssq, Bsq, SB, D, tau);
     // impose dekker conditions
