@@ -3,10 +3,10 @@
 #include <algorithm>
 #include <vector>
 #include <array>
-#include "src/fluid/prim.hpp"
-#include "src/fluid/cell.hpp"
-#include "src/fluid/grid.hpp"
-#include "src/fluid/hlld.hpp"
+#include "prim.hpp"
+#include "cell.hpp"
+#include "grid.hpp"
+#include "hlld.hpp"
 
 // this document contains the declarations for the reconstruction of
 // left and right states at each face using data at cell centres.

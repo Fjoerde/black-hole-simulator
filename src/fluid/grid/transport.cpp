@@ -1,7 +1,7 @@
 #include <cmath>
 #include <vector>
 #include <array>
-#include "../ct.hpp"
+#include "ct.hpp"
 
 // this document contains the methods to ensure the magnetic field is
 // transported with zero divergence.

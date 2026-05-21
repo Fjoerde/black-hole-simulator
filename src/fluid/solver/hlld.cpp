@@ -2,8 +2,8 @@
 #include <vector>
 #include <array>
 
-#include "src/fluid/hlld.hpp"
-#include "src/fluid/grid.hpp"
+#include "hlld.hpp"
+#include "grid.hpp"
 
 // this document contains the methods for the HLLD solver.
 using namespace grid;
@@ -85,7 +85,7 @@ static side side_(const prim& W, const cons& U, const metriccomp& mc, const stat
     s.cf = fastspeed(s.rho,s.h,s.b2,cs2);
     // conserved stripping
     s.D = U.D/sqrtg; s.tau = U.tau/sqrtg;
-    s.Sn = U.S[dim]/sqrtg; s.St1 = U.S[t1]/sqrtg;
+    s.Sn = U.S[dim]/sqrtg; s.St1 = U.S[t1]/sqrtg; s.St2 = U.S[t2]/sqrtg;
     s.Bc = U.B[dim]/sqrtg;
     s.E = s.tau+s.D;
 

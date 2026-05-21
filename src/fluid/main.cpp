@@ -7,18 +7,18 @@
 #include <string>
 #include <chrono>
 
-#include "src/fluid/metric.hpp"
-#include "src/fluid/state.hpp"
-#include "src/fluid/prim.hpp"
-#include "src/fluid/cons.hpp"
-#include "src/fluid/cell.hpp"
-#include "src/fluid/grid.hpp"
-#include "src/fluid/hlld.hpp"
-#include "src/fluid/recon.hpp"
-#include "src/fluid/initial.hpp"
-#include "src/fluid/ct.hpp"
-#include "src/fluid/rk2.hpp"
-#include "src/fluid/data.hpp"
+#include "rk2.hpp"
+#include "recon.hpp"
+#include "metric.hpp"
+#include "state.hpp"
+#include "prim.hpp"
+#include "cons.hpp"
+#include "cell.hpp"
+#include "grid.hpp"
+#include "hlld.hpp"
+#include "initial.hpp"
+#include "ct.hpp"
+#include "data.hpp"
 
 // this is the main document for the fluid side of the project, and
 // contains the iteration loop. this document is most heavily

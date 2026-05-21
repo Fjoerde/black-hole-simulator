@@ -1,7 +1,8 @@
 #include <cmath>
 #include <vector>
 #include <array>
-#include "src/fluid/initial.hpp"
+#include "grid.hpp"
+#include "initial.hpp"
 
 // this document contains the methods for initialising variables
 // subject to the appropriate constraints.

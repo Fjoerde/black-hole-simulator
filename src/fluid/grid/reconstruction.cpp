@@ -2,8 +2,8 @@
 #include <vector>
 #include <array>
 #include <memory>
-#include "src/fluid/recon.hpp"
-#include "src/fluid/grid.hpp"
+#include "recon.hpp"
+#include "grid.hpp"
 
 // this document contains the methods for primitive left and right
 // state reconstruction at cell faces.

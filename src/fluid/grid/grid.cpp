@@ -2,11 +2,11 @@
 #include <vector>
 #include <array>
 #include <memory>
-#include "src/fluid/grid.hpp"
-#include "src/fluid/cell.hpp"
-#include "src/fluid/metric.hpp"
-#include "src/fluid/initial.hpp"
-#include "src/fluid/hlld.hpp"
+#include "grid.hpp"
+#include "cell.hpp"
+#include "metric.hpp"
+#include "initial.hpp"
+#include "hlld.hpp"
 
 // this document contains the methods for dealing with the grid and
 // adaptive mesh refinement (amr). the grid is split up into a quilt

@@ -3,50 +3,50 @@
     "configurations": [
         {
             "name": "Debug GRMHD",
-            "type": "cppdbg",
+            "type": "lldb-dap",
             "request": "launch",
-            "program": "${workspaceFolder}/grmhd_debug",
+            "program": "${workspaceFolder}/src/fluid/grmhd_debug",
             "args": [],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": false,
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "lldb",
-            "miDebuggerPath": "/usr/bin/lldb-mi",
+            // "stopAtEntry": false,
+            // "environment": [],
+            // "externalConsole": false,
+            // "MIMode": "lldb",
+            // "miDebuggerPath": "/usr/bin/lldb-mi",
             "preLaunchTask": "build-debug",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty printing",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ]
+            // "setupCommands": [
+            //     {
+            //         "description": "Enable pretty printing",
+            //         "text": "-enable-pretty-printing",
+            //         "ignoreFailures": true
+            //     }
+            // ]
         },
         {
             "name": "Run GRMHD",
-            "type": "cppdbg",
+            "type": "lldb-dap",
             "request": "launch",
-            "program": "${workspaceFolder}/grmhd",
+            "program": "${workspaceFolder}/src/fluid/grmhd",
             "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "lldb",
-            "miDebuggerPath": "/usr/bin/lldb-mi",
+            // "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/src",
+            // "environment": [],
+            // "externalConsole": false,
+            // "MIMode": "lldb",
+            // "miDebuggerPath": "/usr/bin/lldb-mi",
             "preLaunchTask": "build"
         },
         {
             "name": "C/C++: g++-15 build and debug active file",
-            "type": "cppdbg",
+            "type": "lldb-dap",
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
             "args": [],
-            "stopAtEntry": false,
+            // "stopAtEntry": false,
             "cwd": "${fileDirname}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "lldb",
+            // "environment": [],
+            // "externalConsole": false,
+            // "MIMode": "lldb",
             "preLaunchTask": "C/C++: g++-15 build active file"
         }
     ]

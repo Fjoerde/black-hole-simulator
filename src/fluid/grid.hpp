@@ -5,10 +5,10 @@
 #include <cassert>
 #include <functional>
 #include <memory>
-#include "src/fluid/cell.hpp"
-#include "src/fluid/rk2.hpp"
-#include "src/fluid/recon.hpp"
-#include "src/fluid/hlld.hpp"
+#include "rk2.hpp"
+#include "cell.hpp"
+#include "recon.hpp"
+#include "hlld.hpp"
 
 // this document contains the structures for dealing with the grid,
 // grid patches, and adaptive mesh refinement.
@@ -142,4 +142,5 @@ public:
     static constexpr double r_floor_ref = 1.0; // REDEFINE LATER
     static constexpr double T_floor = 1.0; // REDEFINE LATER
 };
+typedef amrtree amrtree;
 }
