@@ -2,9 +2,11 @@
 #include <vector>
 #include <array>
 
-#include "hlld.hpp"
+#include "src/fluid/hlld.hpp"
+#include "src/fluid/grid.hpp"
 
 // this document contains the methods for the HLLD solver.
+using namespace grid;
 
 // internal structs
 // precompute values at the faces and cache

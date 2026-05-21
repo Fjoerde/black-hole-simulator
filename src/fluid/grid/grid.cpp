@@ -2,15 +2,17 @@
 #include <vector>
 #include <array>
 #include <memory>
-#include "grid.hpp"
-#include "cell.hpp"
-#include "metric.hpp"
-#include "initial.hpp"
-#include "hlld.hpp"
+#include "src/fluid/grid.hpp"
+#include "src/fluid/cell.hpp"
+#include "src/fluid/metric.hpp"
+#include "src/fluid/initial.hpp"
+#include "src/fluid/hlld.hpp"
 
 // this document contains the methods for dealing with the grid and
 // adaptive mesh refinement (amr). the grid is split up into a quilt
 // of patches, with each patch containing cells which hold data.
+
+using namespace grid;
 
 // patch setup
 patch::patch(int lvl, std::array<int,3> ijk, std::array<double,3> cor1, std::array<double,3> cor2, patch* parent) : lvl(lvl), ijk(ijk), parent(parent), children({nullptr}), leaf(true) {
@@ -135,6 +137,7 @@ prim amrtree::pvfs(double r, double th) const {
     W.eps = eps_floor_r0*rfscal;
     W.v[0] = W.v[1] = W.v[2] = 0.0;
     W.B[0] = W.B[1] = W.B[2] = 0.0;
+    W.T = T_floor;
     return W;
 }
 
@@ -805,6 +808,6 @@ void amrtree::regrid() {
 }
 // runge-kutta timestep to advance the grid
 void amrtree::step(double dt) {
-    rk.step(*this); // call integrator
+    dt = rk.step(*this); // call integrator
     regrid(); // regrid after each step
 }

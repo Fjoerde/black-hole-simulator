@@ -3,12 +3,16 @@
 #include <array>
 #include <algorithm>
 #include <limits>
-#include "rk2.hpp"
-#include "../fluid/solver/hlld.cpp"
-#include "recon.hpp"
-#include "ct.hpp"
+#include "src/fluid/hlld.hpp"
+#include "src/fluid/solver/hlld.cpp"
+#include "src/fluid/recon.hpp"
+#include "src/fluid/ct.hpp"
+#include "src/fluid/grid.hpp"
+#include "src/fluid/rk2.hpp"
 
 // this document contains the methods relating to integration.
+using namespace grid;
+using namespace integ;
 
 // flux divergence
 cons rk2integrator::div_flux(const patch& p, int i, int j, int k) {

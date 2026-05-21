@@ -5,18 +5,24 @@
 #include <cassert>
 #include <functional>
 #include <memory>
-#include "cell.hpp"
-#include "recon.hpp"
-#include "hlld.hpp"
-#include "rk2.hpp"
+#include "src/fluid/cell.hpp"
+#include "src/fluid/rk2.hpp"
+#include "src/fluid/recon.hpp"
+#include "src/fluid/hlld.hpp"
 
 // this document contains the structures for dealing with the grid,
 // grid patches, and adaptive mesh refinement.
 
+using namespace integ;
+
+namespace grid {
 // sizing constants
 static constexpr int block = 16; // active cells per patch per dimension
 static constexpr int ghost = 2; // ghost halo width (= RK order)
 static constexpr int cpn = block + 2*ghost;
+
+class amrtree; // forward declaration of amrtree class
+typedef amrtree amrtree;
 
 // patch struct
 struct patch {
@@ -26,7 +32,7 @@ struct patch {
     patch* parent;
     std::array<patch*,8> children;
     bool leaf;
-
+    
     // edges
     std::vector<double> xedge; 
     std::vector<double> yedge; 
@@ -98,6 +104,8 @@ struct patch {
     int rk_stage;
     void floors(amrtree& tree, patch& p, const state& stt, const metric& mtr);
 };
+typedef patch patch;
+
 // amr (adaptive mesh refinement) tree struct
 class amrtree {
 public:
@@ -129,7 +137,9 @@ public:
 
     // floor states for when reconstruction of primitives fails
     prim pvfs(double r, double th) const;
-    static constexpr double rho_floor_r0 = 1; // REDEFINE LATER
-    static constexpr double eps_floor_r0 = 1; // REDEFINE LATER
-    static constexpr double r_floor_ref = 1.0;
+    static constexpr double rho_floor_r0 = 1.0; // REDEFINE LATER
+    static constexpr double eps_floor_r0 = 1.0; // REDEFINE LATER
+    static constexpr double r_floor_ref = 1.0; // REDEFINE LATER
+    static constexpr double T_floor = 1.0; // REDEFINE LATER
 };
+}

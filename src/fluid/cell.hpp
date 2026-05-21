@@ -23,7 +23,7 @@ struct cell {
     bool refine;
     bool erase; 
     // spacetime
-    metric mtr; // metric
+    const metric mtr; // metric
     double r; double th; double phi; // kerr-schild coordinates of cell centre
     double xc; double yc; double zc; // cartesian coordinates of cell centre
     double dx; double dy; double dz; // cell side lengths in (x,y,z)
