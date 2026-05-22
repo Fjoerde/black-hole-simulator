@@ -18,25 +18,34 @@ std::array<double,3> init::A_vpot(double x, double y, double z, double rho, doub
     double theta = std::acos(z/std::sqrt(x*x+y*y+z*z));
     return {-Ap*std::sin(phi)*std::sin(theta),Ap*std::cos(phi)*std::sin(theta),0.0};
 }
-// edge densities
+// edge densities, averaged from 4 surrounding cells
 static double edge_rhox(const patch& p, int i, int j, int k) {
-    return (p.cell_(i,j,k).W.rho+p.cell_(i,j+1,k).W.rho+p.cell_(i,j,k+1).W.rho+p.cell_(i,j+1,k+1).W.rho)/4;
+    int j1 = std::min(j+1,block+ghost-1);
+    int k1 = std::min(k+1,block+ghost-1);
+    return (p.cell_(i,j,k).W.rho+p.cell_(i,j1,k).W.rho+p.cell_(i,j,k1).W.rho+p.cell_(i,j1,k1).W.rho)/4;
 }
 static double edge_rhoy(const patch& p, int i, int j, int k) {
-    return (p.cell_(i,j,k).W.rho+p.cell_(i+1,j,k).W.rho+p.cell_(i,j,k+1).W.rho+p.cell_(i+1,j,k+1).W.rho)/4;
+    int i1 = std::min(i+1,block+ghost-1);
+    int k1 = std::min(k+1,block+ghost-1);
+    return (p.cell_(i,j,k).W.rho+p.cell_(i1,j,k).W.rho+p.cell_(i,j,k1).W.rho+p.cell_(i1,j,k1).W.rho)/4;
 }
 static double edge_rhoz(const patch& p, int i, int j, int k) {
-    return (p.cell_(i,j,k).W.rho+p.cell_(i+1,j,k).W.rho+p.cell_(i,j+1,k).W.rho+p.cell_(i+1,j+1,k).W.rho)/4;
+    int i1 = std::min(i+1,block+ghost-1);
+    int j1 = std::min(j+1,block+ghost-1);
+    return (p.cell_(i,j,k).W.rho+p.cell_(i1,j,k).W.rho+p.cell_(i,j1,k).W.rho+p.cell_(i1,j1,k).W.rho)/4;
 }
 // physical coordinates of edges
 static std::array<double,3> xedge_pos(const patch& p, int i, int j, int k) {
-    return {p.xedge[i]+p.dx()/2,p.yedge[j+1],p.zedge[k+1]};
+    const cell& c = p.cell_(i,j,k);
+    return {c.xc,c.yc+p.dy()/2.0,c.zc+p.dz()/2.0};
 }
 static std::array<double,3> yedge_pos(const patch& p, int i, int j, int k) {
-    return {p.xedge[i+1]/2,p.yedge[j]+p.dy(),p.zedge[k+1]};
+    const cell& c = p.cell_(i,j,k);
+    return {c.xc+p.dx()/2.0,c.yc,c.zc+p.dz()/2.0};
 }
 static std::array<double,3> zedge_pos(const patch& p, int i, int j, int k) {
-    return {p.xedge[i+1]/2,p.yedge[j+1],p.zedge[k]+p.dz()};
+    const cell& c = p.cell_(i,j,k);
+    return {c.xc+p.dx()/2.0,c.yc+p.dy()/2.0,c.zc};
 }
 // time component of 4-velocity for given angular momentum
 static double comp_utsq (const metriccomp& mc, double l) {

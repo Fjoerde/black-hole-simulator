@@ -171,7 +171,6 @@ void patch::cell_init() {
 }
 // amr tree initialisation
 amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nqlt, double M, double a, double Q, double gm) : mtr(M,a,Q), stt(gm), prmv(mtr,stt), cnsv(mtr,stt) {
-    std::unique_ptr<integ::rk2integrator> rk;
     rk = std::make_unique<integ::rk2integrator>(0.4);
     // coordinate sizes of each initial patch
     double px = (dom_h[0]-dom_l[0])/nqlt; double py = (dom_h[1]-dom_l[1])/nqlt; double pz = (dom_h[2]-dom_l[2])/nqlt;
