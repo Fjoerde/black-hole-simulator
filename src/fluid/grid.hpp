@@ -4,8 +4,7 @@
 #include <array>
 #include <cassert>
 #include <functional>
-#include <memory>
-#include "rk2.hpp"
+#include <memory>   
 #include "cell.hpp"
 #include "recon.hpp"
 #include "hlld.hpp"
@@ -13,7 +12,7 @@
 // this document contains the structures for dealing with the grid,
 // grid patches, and adaptive mesh refinement.
 
-using namespace integ;
+namespace integ {class rk2integrator;}
 
 namespace grid {
 // sizing constants
@@ -114,14 +113,15 @@ public:
     state stt;
     primitive prmv;
     conserved cnsv;
+    std::unique_ptr<integ::rk2integrator> rk;
 
     // constructor
     std::vector<std::unique_ptr<patch>> quilt; // quilt = collection of patches
     amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nqlt, double M, double a, double Q, double gm);
     patch* nbhd(patch* p, int dim, int side) const;
 
-    // integrator
-    rk2integrator rk;
+    // destructor
+    ~amrtree();
     
     // refinement functions
     void regrid();

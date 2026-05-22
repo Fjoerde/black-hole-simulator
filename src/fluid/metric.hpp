@@ -27,6 +27,7 @@ public:
     const double a; // spin
     const double Q; // charge
 
+    metric() : M(1.0), a(0.0), Q(0.0) {}
     metric(double M, double a, double Q): M(M), a(a), Q(Q) {}
 
     metriccomp comp(double r, double th) const; // compute metric at given coordinates, only requiring r and \theta

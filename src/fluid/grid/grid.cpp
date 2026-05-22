@@ -7,6 +7,7 @@
 #include "metric.hpp"
 #include "initial.hpp"
 #include "hlld.hpp"
+#include "rk2.hpp"
 
 // this document contains the methods for dealing with the grid and
 // adaptive mesh refinement (amr). the grid is split up into a quilt
@@ -170,6 +171,8 @@ void patch::cell_init() {
 }
 // amr tree initialisation
 amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nqlt, double M, double a, double Q, double gm) : mtr(M,a,Q), stt(gm), prmv(mtr,stt), cnsv(mtr,stt) {
+    std::unique_ptr<integ::rk2integrator> rk;
+    rk = std::make_unique<integ::rk2integrator>(0.4);
     // coordinate sizes of each initial patch
     double px = (dom_h[0]-dom_l[0])/nqlt; double py = (dom_h[1]-dom_l[1])/nqlt; double pz = (dom_h[2]-dom_l[2])/nqlt;
     // divide quilt into nqlt x nqlt x nqlt patches + index in quilt
@@ -239,6 +242,7 @@ void patch::B_init() {
         }
     }
 }
+amrtree::~amrtree() = default;
 
 // flux computation
 void patch::fluxcomp(const metric& mtr, const state& stt) {
@@ -808,6 +812,6 @@ void amrtree::regrid() {
 }
 // runge-kutta timestep to advance the grid
 void amrtree::step(double dt) {
-    dt = rk.step(*this); // call integrator
+    dt = rk->step(*this); // call integrator
     regrid(); // regrid after each step
 }
