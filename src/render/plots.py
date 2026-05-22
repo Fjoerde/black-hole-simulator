@@ -23,7 +23,7 @@ def plot_deviation(geodesics:list[Function], settings:RenderSettings) -> Image.I
     X = np.arange(settings.w); Y = np.flip(settings.h-1 - np.arange(settings.h))
     xx, yy = np.meshgrid(X, Y)
     contourf = ax.contourf(xx, yy, deviations, levels=50, cmap="viridis",
-                           norm=PowerNorm(gamma=0.4, vmin=0, vmax=np.max(deviations)))
+                           norm=PowerNorm(gamma=0.3, vmin=0, vmax=np.max(deviations)))
     fig.colorbar(contourf, ax=ax, label=r"$\theta_{d}~/~\mathrm{rad}$")
     ax.set_title("Angular Deviation")
     ax.set_aspect("equal")
