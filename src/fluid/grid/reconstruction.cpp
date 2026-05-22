@@ -25,7 +25,7 @@ static double lim_(double dl, double dr, limiter lim) {
 }
 
 // scalar reconstruction
-static std::pair<double,double> recon_scal(double Wm, double Wc, double Wp, double Wpp, limiter lim) {
+static std::array<double,2> recon_scal(double Wm, double Wc, double Wp, double Wpp, limiter lim) {
     // left face
     double dLc = Wc-Wm; double dRc = Wp-Wc;
     double cslop = lim_(dLc,dRc,lim);
@@ -50,20 +50,20 @@ facestate reconfp(const patch& p, int i, int j, int k, int dim, limiter lim) {
     double kc = std::log(Wc.rho);
     double kp = std::log(Wp.rho);
     double kpp = std::log(Wpp.rho);
-    auto [sL, sR] = recon_scal(km,kc,kp,kpp,lim);
-    fs.L.rho = std::exp(sL); fs.R.rho = std::exp(sR);
+    std::array<double,2> sLR = recon_scal(km,kc,kp,kpp,lim);
+    fs.L.rho = std::exp(sLR[0]); fs.R.rho = std::exp(sLR[1]);
     // energy with the same logarithm-exponential positivity forcing
     double Em = std::log(Wm.eps);
     double Ec = std::log(Wc.eps);
     double Ep = std::log(Wp.eps);
     double Epp = std::log(Wpp.eps);
-    auto [JL, JR] = recon_scal(Em,Ec,Ep,Epp,lim);
-    fs.L.eps = std::exp(JL); fs.R.eps = std::exp(JR);
+    std::array<double,2> JLR = recon_scal(Em,Ec,Ep,Epp,lim);
+    fs.L.eps = std::exp(JLR[0]); fs.R.eps = std::exp(JLR[1]);
 
     // velocity, reconstructed directly
     for(int i=0; i<3; i++) {
-        auto [sL, sR] = recon_scal(Wm.v[i],Wc.v[i],Wp.v[i],Wpp.v[i],lim);
-        fs.L.v[i] = sL; fs.R.v[i] = sR;
+        std::array<double,2> JRW = recon_scal(Wm.v[i],Wc.v[i],Wp.v[i],Wpp.v[i],lim);
+        fs.L.v[i] = JRW[0]; fs.R.v[i] = JRW[1];
     }
     // causality check that v < c
     auto causalv = [](prim& W, const cell& c) {
@@ -88,8 +88,8 @@ facestate reconfp(const patch& p, int i, int j, int k, int dim, limiter lim) {
             // no normal component reconstruction; overwrite later
             fs.L.B[i] = Wc.B[i]; fs.R.B[i] = Wp.B[i];
         } else {
-            auto [sL, sR] = recon_scal(Wm.v[i],Wc.v[i],Wp.v[i],Wpp.v[i],lim);
-            fs.L.B[i] = sL; fs.R.B[i] = sR;
+            std::array<double,2> JRE = recon_scal(Wm.v[i],Wc.v[i],Wp.v[i],Wpp.v[i],lim);
+            fs.L.B[i] = JRE[0]; fs.R.B[i] = JRE[1];
         }
     }
 

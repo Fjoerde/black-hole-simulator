@@ -8,13 +8,13 @@
 #include <chrono>
 
 #include "rk2.hpp"
-#include "recon.hpp"
+#include "grid.hpp"
 #include "metric.hpp"
 #include "state.hpp"
 #include "prim.hpp"
 #include "cons.hpp"
 #include "cell.hpp"
-#include "grid.hpp"
+#include "recon.hpp"
 #include "hlld.hpp"
 #include "initial.hpp"
 #include "ct.hpp"
@@ -25,8 +25,8 @@
 // commented for user-friendliness. If there remain any points of
 // confusion, consult our extensive user manual/developer's guide.
 
-// this project was a long effort between Vincent Leung, Haris Forde,
-// Archimedes Lentzos, and Dhruv Mathur, in no particular order.
+// this project was a long effort between Haris Forde, Archimedes Lentzos, Vincent Leung, and
+// Dhruv Mathur, in no particular order.
 
 // define types
 using namespace grid;

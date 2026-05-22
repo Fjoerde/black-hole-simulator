@@ -1,11 +1,12 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Debug GRMHD",
-            "type": "lldb-dap",
+            "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/src/fluid/grmhd_debug",
+            "program": "${workspaceFolder}/grmhd_debug",
             "args": [],
             "cwd": "${workspaceFolder}",
             // "stopAtEntry": false,
@@ -24,12 +25,12 @@
         },
         {
             "name": "Run GRMHD",
-            "type": "lldb-dap",
+            "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/src/fluid/grmhd",
+            "program": "${workspaceFolder}/grmhd",
             "args": [],
             // "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/src",
+            "cwd": "${workspaceFolder}",
             // "environment": [],
             // "externalConsole": false,
             // "MIMode": "lldb",
@@ -38,9 +39,9 @@
         },
         {
             "name": "C/C++: g++-15 build and debug active file",
-            "type": "lldb-dap",
+            "type": "lldb",
             "request": "launch",
-            "program": "${fileDirname}/${fileBasenameNoExtension}",
+            "program": "${fileDirname}/grmhd",
             "args": [],
             // "stopAtEntry": false,
             "cwd": "${fileDirname}",

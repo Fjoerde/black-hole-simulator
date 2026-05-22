@@ -5,12 +5,11 @@
 #include <array>
 #include "prim.hpp"
 #include "cell.hpp"
-#include "grid.hpp"
 #include "hlld.hpp"
 
 // this document contains the declarations for the reconstruction of
 // left and right states at each face using data at cell centres.
-using namespace grid;
+namespace grid {struct patch;}
 
 // slope limiting functions
 // minimum modulus for two and three variables
@@ -39,4 +38,4 @@ struct facestate {
     prim L; prim R;
 };
 enum class limiter {minmod, vanleer, mclim};
-facestate reconfp(const patch& p, int i, int j, int k, int dim, limiter lim = limiter::vanleer);
+facestate reconfp(const grid::patch& p, int i, int j, int k, int dim, limiter lim = limiter::vanleer);
