@@ -96,7 +96,7 @@ def get_colors(geodesics:list[Function], gas_vals:list[Function], settings:Rende
                     spec_int0 = spec_int0.reshape(len(spec_int0))
                     break
         max_t = np.max(geodesic.grid.pts)
-        spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 5)
+        spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 10)
         spec_int = spec_int.vals[-1]; spec_int = spec_int.reshape(len(spec_int), 1)
         spec_int = settings.rel_aberr(Function(integrator.specint_grid, spec_int), k1)
         spec_ints[i] = spec_int; cols[i] = settings.col_converter.get_rgb(spec_int) * 255.
@@ -129,9 +129,9 @@ def render_seq(settings:RenderSettings) -> tuple[Image.Image]:
         spec_ints, cols = get_colors(geodesics, gas_vals, settings, spec_ints_, pbar)
     render_img = Image.fromarray(cols.reshape(settings.h, settings.w, 3).astype(np.uint8))
     render_img.show()
+    del geodesics, gas_vals
 
     print("Plotting the average spectral radiance...")
     avg_specint_img = avg_specint(spec_ints, settings)
-    avg_specint_img.show()
 
     return render_img, ang_dev_img, avg_specint_img

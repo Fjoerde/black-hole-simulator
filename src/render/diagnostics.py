@@ -124,7 +124,7 @@ def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
 
     ray_dir.is_normal()
-    x0 = settings.cam_pos.four_vec(0)
+    x0 = ray_pos.four_vec(0)
     X0 = settings.grav_field.coord_pos(x0)
     V0 = settings.grav_field.null_cond(ray_dir, x0)
     y0 = np.concatenate((X0, V0, np.array([0], dtype=np.float64)))
@@ -133,18 +133,16 @@ def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     geodesic = trace_geodesic(integrator, y0, settings.bg_rad)
 
     # Plot
-    x_plot, y_plot, z_plot = [], [], []
-    for i in range(len(geodesic.grid.pts)):
-        mink_x = settings.grav_field.mink_pos(geodesic.vals[i,:4])
-        x_plot.append(mink_x[1]); y_plot.append(mink_x[2]); z_plot.append(mink_x[3])
     fig = plt.figure()
     ax = plt.axes(projection="3d")
+    x_plot = geodesic.vals[:,1]; y_plot = geodesic.vals[:,2]; z_plot = geodesic.vals[:,3]
     ax.plot3D(x_plot, y_plot, z_plot, color="tab:olive")
-    ax.plot3D(x_plot[0], y_plot[0], z_plot[0], "x", color="tab:blue")
-    ax.plot3D(x_plot[-1], y_plot[-1], z_plot[-1], "x", color="tab:orange")
+    ax.plot3D(x_plot[0], y_plot[0], z_plot[0], "x", color="tab:blue", label="Start")
+    ax.plot3D(x_plot[-1], y_plot[-1], z_plot[-1], "x", color="tab:orange", label="End")
     ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
     ax.grid(False)
     ax.set_title("Light Ray")
+    plt.legend()
     plt.tight_layout()
     plt.show()
 

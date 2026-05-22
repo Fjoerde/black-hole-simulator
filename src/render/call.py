@@ -20,9 +20,10 @@ print("Initializing...")
 
 def get_gas(pts):
     x, y, z = pts[:,1], pts[:,2], pts[:,3]
-    r = np.sqrt(x**2 + y**2 + z**2)
-    temp = 5e4 * np.exp(-r**2/10)
-    ext_coeff = 0.5 * np.exp(-r**2/10)
+    s = np.sqrt(x**2 + y**2) - 5
+    d = np.sqrt(s**2 + z**2)
+    temp = 2.5e4 * np.exp(-d**2/5)
+    ext_coeff = 0.125 * np.exp(-d**2/5)
     gas_params = np.zeros((len(pts), 6), dtype=np.float64); gas_params[:,0] += 1
     gas_params[:,4] = temp; gas_params[:,5] = ext_coeff
     return gas_params
@@ -39,20 +40,17 @@ gas = Function(grid, gas_vals)
 
 bg = np.array(Image.open("Images/background1.jpg")).astype(np.float64) / 255.
 ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
-# settings1 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0), background=bg, gas=gas)
-settings2 = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0.1,0,0), background=bg, grav_field=ss)
+settings = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,5), cam_dir=Vec(10,0,-5).normal(), cam_vel=Vec(0,0,0), background=bg, bg_rad=30, gas=gas, grav_field=ss)
 
 t3 = time.perf_counter()
 print(f"Initialization finished in {t3-t2:.4f} s\n")
 
 print("Rendering (ignore NumbaPerformanceWarning's)...")
-render_img, ang_dev_img, avg_specint_img = render_seq(settings2)
-render_filename = "test21.png" # test21, test22
-ang_dev_filename = "ang_dev1.png"
+render_img, ang_dev_img, avg_specint_img = render_seq(settings)
+render_filename = "test22.png" # test21, test22
 render_img.save(f"Images/{render_filename}") 
-ang_dev_img.save(f"Images/{ang_dev_filename}") # Uncomment this for test 2
   
 t4= time.perf_counter()
 print(f"Rendering finished in {(t4-t3)/60:.4f} min\n")
-print(f"Saved '{render_filename}' and '{ang_dev_filename}'")
+print(f"Saved '{render_filename}")
 

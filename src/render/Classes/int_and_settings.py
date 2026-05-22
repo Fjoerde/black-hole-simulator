@@ -96,7 +96,7 @@ class Integrator:
             return h * max(0.1, factor)
 
     def solve(self, t0:float, y0:np.ndarray,
-              h_init:float=0.1, max_t:float=1e3, tol:float=1e-8, safety:float=0.5) -> Function:
+              h_init:float=0.1, max_t:float=1e3, tol:float=1e-6, safety:float=0.5) -> Function:
         """Solves the differential equation and returns the function representing it."""
 
         t, y, h = t0, y0, h_init

@@ -44,9 +44,9 @@ def mink_pos(self, x):
 
     out = np.zeros(4, dtype=np.float64)
     out[0] = T
-    out[1] = R * np.sin(THETA) * np.cos(PHI)
-    out[2] = R * np.sin(THETA) * np.sin(PHI)
-    out[3] = R * np.cos(THETA)
+    out[1] = R * np.sin(THETA) * np.cos(PHI) + self.pos.x
+    out[2] = R * np.sin(THETA) * np.sin(PHI) + self.pos.y
+    out[3] = R * np.cos(THETA) + self.pos.z
     return np.ascontiguousarray(out)
 
 @njit

@@ -20,9 +20,7 @@ def derivative(self, _, y:np.ndarray) -> np.ndarray:
     for c in range(4): A[c] -= (chr_syms[c] @ v) @ v # Geodesic equation
 
     v3 = self.grav_field.mink_vel(v, x)[1:]; a3 = self.grav_field.mink_vel(A, x)[1:]
-    v_norm = np.linalg.norm(v3)
-    K = a3 / v_norm**2 - v3 * (v3 @ a3) / v_norm**4 # Infinitesimal angular deviation
-    dTheta = np.linalg.norm(K)
+    dTheta = np.linalg.norm(np.cross(v3, a3)) / np.linalg.norm(v3)**2
 
     y_new = np.concatenate((v, A, np.array([dTheta], dtype=np.float64)))
     return np.ascontiguousarray(y_new)

@@ -153,7 +153,7 @@ class Patch:
         N = len(pts)
         multi_idx = np.zeros((N, self.dim), dtype=np.int64)
         for i in range(N):
-            for j in range(self.dim): multi_idx[i] = np.where(self.arr[j] == pts[i,j])[0][0]
+            for j in range(self.dim): multi_idx[i,j] = np.where(self.arr[j] == pts[i,j])[0][0]
         addend = np.zeros((N, self.dim), dtype=np.int64)
         addend[:, np.abs(dim)-1] = np.zeros(N, dtype=np.int64) + np.sign(dim)
         adj_multi_idx = np.clip(multi_idx + addend, 0, (self.arr_lens - 1).repeat(N).reshape(self.dim, N).T)
@@ -193,13 +193,6 @@ class Grid:
         self.del_idx:list[np.ndarray] = List([-np.ones(1, dtype=np.int64)])
         self.n_del_pts = np.zeros(1, dtype=np.int64)
         self.dim = patch.dim
-
-    def is_grid_pt(self, pt:np.ndarray) -> bool:
-        """Returns if a given pt is a grid point."""
-
-        for i in range(len(self.pts)):
-            if np.max(np.abs(self.pts[i] - pt)) <= 1e-16: return True
-        return False
 
     def finest_patch(self, pts:np.ndarray, min_corner:bool=False) -> np.ndarray[int]:
         """Returns the smallest child among the hierarchies of patches the pt is in. If a pt does not belong to any patch,
