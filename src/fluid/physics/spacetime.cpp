@@ -49,7 +49,7 @@ void metric::gcntr(double r, double th, double g_inv[4][4]) const {
 }
 
 // compute metric determinant
-void metric::gdet(double a, double r, double th, double sqrtdetg) const {
+void metric::gdet(double a, double r, double th, double& sqrtdetg) const {
     sqrtdetg = (r*r+a*a*pow(sin(th),2))*sin(th);
 }
 

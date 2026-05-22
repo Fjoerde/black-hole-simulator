@@ -36,7 +36,7 @@ public:
     void gcova(double r, double th, double g[4][4]) const;
     void gcntr(double r, double th, double g_inv[4][4]) const;
     void christ(double M, double a, double Q, double r, double th, double g_inv[4][4], double Gamma[4][4][4]) const;
-    void gdet(double a, double r, double th, double sqrtdetg) const;
+    void gdet(double a, double r, double th, double& sqrtdetg) const;
 
     // lapse and shift functions
     void lapse(double H, double r, double th, double alpha) const;
