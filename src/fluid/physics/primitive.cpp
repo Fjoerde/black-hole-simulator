@@ -19,15 +19,15 @@ double primitive::lorentz(double v[3], const metriccomp mc) const {
     // error in case velocity squared becomes greater than 1
     if(v2>=1.0) throw std::domain_error("Primitive variable calculations threw back an error: the velocity is superliminal!");
     
-    return pow(1.0-v2,-1/2);
+    return pow(1.0-v2,-1.0/2.0);
 }
 
 // compute magnetic quantities
 double primitive::bsq(double B[3], double v[3], const metriccomp mc) const {
     double Bsq = 0.0;
     double Bv = 0.0;
-    double B_i = 0.0;
     for(int i=0; i<3; i++) {
+        double B_i = 0.0;
         for(int j=0; j<3; j++) {
             B_i += mc.gam[i][j]*B[j];
         }

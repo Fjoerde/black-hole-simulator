@@ -698,7 +698,7 @@
 				E41E23E02FC0CEB800605CD2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		E41E23E12FC0CEB800605CD2 /* Build configuration list for PBXNativeTarget "bhsim" */ = {
 			isa = XCConfigurationList;
@@ -707,7 +707,7 @@
 				E41E23E32FC0CEB800605CD2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};

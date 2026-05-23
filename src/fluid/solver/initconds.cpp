@@ -14,7 +14,7 @@ using namespace torus;
 std::array<double,3> init::A_vpot(double x, double y, double z, double rho, double rho_max) {
     // torus initialisation, so only A_phi component nonzero
     double Ap = std::max(rho/rho_max-0.2,0.0);
-    double phi = (x/std::sqrt(x*x+y*y+z*z));
+    double phi = atan2(y,x);
     double theta = std::acos(z/std::sqrt(x*x+y*y+z*z));
     return {-Ap*std::sin(phi)*std::sin(theta),Ap*std::cos(phi)*std::sin(theta),0.0};
 }
@@ -75,7 +75,7 @@ void init::fm_init(amrtree& tree) {
     double a = tree.mtr.a;
     double Gamma = tree.stt.gamma;
     // rotation parameters for isco
-    double Z1 = 1+pow(1-(a/M)*(a/M),1/3)*(pow(1+a/M,1/3)+pow(1-a/M,1/3));
+    double Z1 = 1+pow(1-(a/M)*(a/M),1.0/3.0)*(pow(1+a/M,1.0/3.0)+pow(1-a/M,1.0/3.0));
     double Z2 = std::sqrt(3*(a/M)*(a/M)-Z1*Z1);
     // inner and outer torus limits
     double r_in = 1.5*M*(3+Z2-std::sqrt((3-Z1)*(3+Z1+2*Z2)));
@@ -103,7 +103,7 @@ void init::fm_init(amrtree& tree) {
     double l0 = -(gtph+Omega_K*gphph)/(gtt+Omega_K*gtph);
 
     // inner radius potential
-    metriccomp mc_in = tree.mtr.comp(r_in,M_PI/2);
+    metriccomp mc_in = tree.mtr.comp(r_in,M_PI/2.0);
     double utsq_in = comp_utsq(mc_in,l0);
     if(utsq_in<=0.0) {
         std::cerr << "Fishbone-Moncrief torus initialisation threw back an error at inner edge: u_t^2 is nonpositive! Check inner radius.\n";
@@ -144,6 +144,7 @@ void init::fm_init(amrtree& tree) {
             for(int j=0; j<block; j++) {
                 for(int k=0; k<block; k++) {
                     cell& c = p->cell_(i,j,k);
+                    c.W = tree.pvfs(c.r,c.th);
                     double r = c.r; double th = c.th;
                     // default values are floors
                     prim W_p = tree.pvfs(r,th);
@@ -190,7 +191,8 @@ void init::fm_init(amrtree& tree) {
 void init::B_pot_init(patch& p, const metric& mtr, double glmx_rho) {
     double dx = p.dx(), dy = p.dy(), dz = p.dz();
     // determine maximum density over patch
-    double rho_max = 0.0;
+    double rho_max = glmx_rho;
+    if(rho_max<=1e-14) return; // if patch not a toroidal patch, return without doing anything else
     for(int i=0; i<block; i++) {
         for(int j=0; j<block; j++) {
             for(int k=0; k<block; k++) {
@@ -199,9 +201,9 @@ void init::B_pot_init(patch& p, const metric& mtr, double glmx_rho) {
         }
     }
     // magnetic updates
-    for(int i=-ghost; i<block+ghost; i++) {
-        for(int j=-ghost; j<block+ghost; j++) {
-            for(int k=-ghost; k<block+ghost; k++) {
+    for(int i=-ghost+1; i<block+ghost; i++) {
+        for(int j=-ghost+1; j<block+ghost; j++) {
+            for(int k=-ghost+1; k<block+ghost; k++) {
                 // Bfx update
                 // y edge
                 auto [x_ykp,y_ykp,z_ykp] = yedge_pos(p,i,j,k);

@@ -120,7 +120,7 @@ cons& patch::get_Fz(int i, int j, int k) {
 
 // geometry
 std::array<double,3> patch::cellmid(int i, int j, int k) const {
-    return {(xedge[i]+xedge[i+1])/2, (yedge[j]+yedge[j+1])/2, (zedge[k]+zedge[k+1])/2};
+    return {(xedge[i]+xedge[i+1])/2.0, (yedge[j]+yedge[j+1])/2.0, (zedge[k]+zedge[k+1])/2.0};
 }
 std::array<double,3> patch::corner(int i, int j, int k) const {
     return {xedge[i], yedge[j], zedge[k]};

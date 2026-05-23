@@ -72,7 +72,7 @@ int main() {
     std::cout << "Initialising torus...\n";
     init::fm_init(tree);
     // global rho_max for initialisation of magnetic field
-    double rho_max = 0.0;
+    double rho_max = 0.01;
     for(const auto& p : tree.quilt) {
         for(int i=0; i<block; i++) {
             for(int j=0; j<block; j++) {
@@ -113,6 +113,6 @@ int main() {
         t += dt;
         step++;
     }
-    std::cout << "Integrator completed this many timesteps: ";
-    return step;
+    std::cout << "Integrator finished.";
+    return 0;
 }

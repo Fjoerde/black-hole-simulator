@@ -91,7 +91,7 @@ void metric::christ(double M, double a, double Q, double r, double th, double g_
 
 // compute 3+1 ADM lapse and shift
 void metric::lapse(double H, double r, double th, double& alpha) const {
-    alpha = pow(1+metric::H(r,th),-1/2);
+    alpha = pow(1+metric::H(r,th),-1.0/2.0);
 }
 void metric::shift(double g_inv[4][4], double r, double th, double beta[3]) const {
     for (int i=0; i<3; i++) {
