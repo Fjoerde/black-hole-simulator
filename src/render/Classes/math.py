@@ -194,12 +194,14 @@ class Grid:
         self.n_del_pts = np.zeros(1, dtype=np.int64)
         self.dim = patch.dim
 
-    def finest_patch(self, pts:np.ndarray, min_corner:bool=False) -> np.ndarray[int]:
+    def finest_patch(self, pts:np.ndarray, min_corner:bool=False, is_patch_pt:bool=False) -> np.ndarray[int]:
         """Returns the smallest child among the hierarchies of patches the pt is in. If a pt does not belong to any patch,
         return the root patch.
         
         min_corner: Consider also if there exists a cell within that child in which pt is a minimum
-        corner of."""
+        corner of.
+        
+        is_patch_pt: Consider also if the pt is a patch point of the probed patch."""
 
         if pts.shape[1] != self.dim: raise ValueError("pt must have the same dimensions as the grid.")
         patch_idxs = np.empty(len(pts), dtype=np.int64)
@@ -210,8 +212,10 @@ class Grid:
                 for j in patch.child_idx:
                     child = self.patches[j]
                     if child.in_patch(pt):
-                        if (not min_corner) or (min_corner and child.on_bdary(pt, pos=False)): 
-                            in_child = True; idx = j; break
+                        valid = True
+                        if min_corner and (not child.on_bdary(pt, pos=False)): valid = False
+                        if is_patch_pt and (not child.is_patch_pt(pt)): valid = False
+                        if valid: in_child = True; idx = j; break
                 if in_child: continue
                 else: patch_idxs[i] = idx; break
             patch_idxs[i] = idx
@@ -224,7 +228,7 @@ class Grid:
         for _ in range(len(self.patches)):
             patch_sort_lst.append(np.empty((1, self.dim), dtype=np.float64))
             idx_lst.append(np.empty(1, dtype=np.int64))
-        patch_idxs = self.finest_patch(pts)
+        patch_idxs = self.finest_patch(pts, is_patch_pt=True)
         for i in range(len(pts)):
             patch_idx = patch_idxs[i]
             patch_arr = patch_sort_lst[patch_idx]; idx_arr = idx_lst[patch_idx]

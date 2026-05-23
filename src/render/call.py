@@ -22,7 +22,7 @@ def get_gas(pts):
     x, y, z = pts[:,1], pts[:,2], pts[:,3]
     s = np.sqrt(x**2 + y**2) - 5
     d = np.sqrt(s**2 + z**2)
-    temp = 2.5e4 * np.exp(-d**2/5)
+    temp = 2e4 * np.exp(-d**2/5)
     ext_coeff = 0.125 * np.exp(-d**2/5)
     gas_params = np.zeros((len(pts), 6), dtype=np.float64); gas_params[:,0] += 1
     gas_params[:,4] = temp; gas_params[:,5] = ext_coeff
@@ -40,7 +40,8 @@ gas = Function(grid, gas_vals)
 
 bg = np.array(Image.open("Images/background1.jpg")).astype(np.float64) / 255.
 ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
-settings = RenderSettings(w=1280, h=720, cam_pos=Vec(-10,0,5), cam_dir=Vec(10,0,-5).normal(), cam_vel=Vec(0,0,0), background=bg, bg_rad=30, gas=gas, grav_field=ss)
+settings = RenderSettings(w=1280, h=720, cam_pos=Vec(-15,0,5), cam_dir=Vec(15,0,-5).normal(), cam_vel=Vec(0,0,0),
+                          background=bg, bg_rad=30, gas=gas, grav_field=ss)
 
 t3 = time.perf_counter()
 print(f"Initialization finished in {t3-t2:.4f} s\n")

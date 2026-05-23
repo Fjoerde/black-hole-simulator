@@ -9,7 +9,7 @@ from Classes.int_and_settings import *
 from plots import *
 
 
-def plot_deviation(geodesics:list[Function], settings:RenderSettings) -> Image.Image:
+def deviation(geodesics:list[Function], settings:RenderSettings) -> Image.Image:
     """Plots the angular deviation of the light rays across the image."""
 
     n_px = settings.w * settings.h

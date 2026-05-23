@@ -124,6 +124,7 @@ def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
 
     ray_dir.is_normal()
+    print(ray_dir.np_array())
     x0 = ray_pos.four_vec(0)
     X0 = settings.grav_field.coord_pos(x0)
     V0 = settings.grav_field.null_cond(ray_dir, x0)

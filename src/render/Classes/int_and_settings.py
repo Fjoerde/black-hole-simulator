@@ -141,7 +141,7 @@ class RenderSettings:
     
     bg_rad: Radius of the background box."""
 
-    def __init__(self, w:int=800, h:int=600, f:float=1, # Width, height of image
+    def __init__(self, w:int=800, h:int=600, f:float=1, # Width, height of image, focal length of camera
                  cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), cam_vel:Vec=Vec(0,0,0), # Position, direction, and velocity of camera
                  scene:list[Hittable]=def_scene, background:np.ndarray=np.zeros((1,1,3), dtype=np.float64), bg_rad:float=20, 
                  col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
@@ -204,8 +204,7 @@ class RenderSettings:
         J = self.grav_field.jacobian(x_src); g = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
         g = (g @ J) @ J
         D_src = (g @ k_src) @ np.array([1,0,0,0], dtype=np.float64)
-        cam_x = np.array([0, self.cam_pos.x, self.cam_pos.y, self.cam_pos.z], dtype=np.float64)
-        D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel, cam_x)
+        D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel, self.cam_pos.four_vec(0))
         if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
         else: D = D_src / D_obs
 

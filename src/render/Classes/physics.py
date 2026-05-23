@@ -245,7 +245,7 @@ class GravField:
         Returns the timelike vector (norm=-1) at x in metric coordinates whose spatial components are the transformed components of vec."""
 
         J = self.jacobian(x); g = self.sample_g(self.coord_pos(x))
-        k = (g @ J) @ J
+        k = J.T @ g @ J
         v = np.ascontiguousarray(np.array([0, V.x, V.y, V.z]))
         a = k[0,0]; b = 2 * (k[0,1:] @ v[1:]); c = (k[1:,1:] @ v[1:]) @ v[1:] + 1
         disc = b**2 - 4*a*c
@@ -260,12 +260,12 @@ class GravField:
         Returns the normed vector (norm=0) at x in metric coordinates whose spatial components are the transformed components of vec."""
 
         J = self.jacobian(x); g = self.sample_g(self.coord_pos(x))
-        k = (g @ J) @ J
+        k = J.T @ g @ J
         v = np.ascontiguousarray(np.array([0, V.x, V.y, V.z]))
         a = k[0,0]; b = 2 * (k[0,1:] @ v[1:]); c = (k[1:,1:] @ v[1:]) @ v[1:]
         disc = b**2 - 4*a*c
         v[0] = min((-b-np.sqrt(disc))/(2*a), (-b+np.sqrt(disc))/(2*a))
-        return self.coord_vel(v, x)    
+        return self.coord_vel(v, x)
 
 
 # Gases

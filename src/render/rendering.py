@@ -118,7 +118,7 @@ def render_seq(settings:RenderSettings) -> tuple[Image.Image]:
     del gdsic_int
 
     print("Plotting angular deviations...")
-    ang_dev_img = plot_deviation(geodesics, settings)
+    ang_dev_img = deviation(geodesics, settings)
 
     print("Finding gas values along geodesics...")
     with ProgressBar(total=settings.w*settings.h) as pbar:
