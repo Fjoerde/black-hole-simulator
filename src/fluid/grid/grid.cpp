@@ -135,7 +135,7 @@ prim amrtree::pvfs(double r, double th) {
     prim& WW = W;
     double rfscal = 1.0/pow(std::sqrt(std::max(r,1e-10)/r_floor_ref),3.0);
     WW.rho = rho_floor_r0*rfscal;
-    std::cout << "amrtree::pvfs diagnostic: " << WW.rho << "    " << rfscal << "\n";
+    // std::cout << "amrtree::pvfs diagnostic: " << WW.rho << "    " << rfscal << "\n";
     WW.eps = eps_floor_r0*rfscal;
     WW.p = this->stt.press(WW.rho,WW.eps);
     WW.h = this->stt.enth(WW.rho,WW.eps);
@@ -197,7 +197,7 @@ amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nql
                 for(int k=0; k<block; k++) {
                     cell& c = p->cell_(i,j,k);
                     c.W = this->pvfs(c.r,c.th);
-                    std::cout << "amrtree::amrtree diagnostic: " << c.W.rho << "    " << c.W.eps << "    " << c.W.p << "\n";
+                    // std::cout << "amrtree::amrtree diagnostic: " << c.W.rho << "    " << c.W.eps << "    " << c.W.p << "\n";
                     glmx_rho = std::max(glmx_rho,c.W.rho);
                 }
             }
@@ -551,20 +551,20 @@ void amrtree::ghosts(patch* p) {
                     c.W.B[0] = PV.B[0]; c.W.B[1] = PV.B[1]; c.W.B[2] = PV.B[2];
                     c.W.v[0] = PV.v[0]; c.W.v[1] = PV.v[1]; c.W.v[2] = PV.v[2];
                     c.W.p = stt.press(PV.rho,PV.eps);
-                    std::cout << "amrtree::ghosts pressure diagnostic: " << c.W.p << "\n";
+                    // std::cout << "amrtree::ghosts pressure diagnostic: " << c.W.p << "\n";
                     c.W.h = stt.enth(PV.rho,PV.eps);
-                    std::cout << "amrtree::ghosts enthalpy diagnostic: " << c.W.h << "\n";
+                    // std::cout << "amrtree::ghosts enthalpy diagnostic: " << c.W.h << "\n";
                     c.W.T = stt.temp(PV.rho,PV.eps);
-                    std::cout << "amrtree::ghosts temperature diagnostic: " << c.W.T << "\n";
+                    // std::cout << "amrtree::ghosts temperature diagnostic: " << c.W.T << "\n";
                 } else {
                     prim fl = pvfs(c.r,c.th);
                     fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
                     c.W.rho = fl.rho;
                     c.W.eps = fl.eps;
-                    std::cout << "amrtree::ghosts pvfs floor diagnostic: " << c.W.rho << "    " << c.W.eps << "    " << fl.rho << "    " << fl.eps << "\n";
+                    // std::cout << "amrtree::ghosts pvfs floor diagnostic: " << c.W.rho << "    " << c.W.eps << "    " << fl.rho << "    " << fl.eps << "\n";
                     c.U = cnsv.ptoc(c.W,c.r,c.th);
                 }
-                std::cout << "amrtree::ghosts diagnostic: " << c.W.rho << "\n";
+                // std::cout << "amrtree::ghosts diagnostic: " << c.W.rho << "\n";
             }
         }
     }
