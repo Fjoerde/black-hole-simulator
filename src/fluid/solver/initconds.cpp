@@ -65,7 +65,7 @@ static double comp_utsq (const metriccomp& mc, double l) {
 static double torus_pot (const metriccomp& mc, double l, double W_in) {
     double utsq = comp_utsq(mc,l);
     if(utsq<=0.0) return -1e30; // degeneracy if outside region 
-    return 0.5*std::log(std::abs(utsq))-W_in;
+    return -(0.5*std::log(std::abs(utsq))-W_in);
 }
 
 // torus initialisation
@@ -75,10 +75,10 @@ void init::fm_init(amrtree& tree) {
     double a = tree.mtr.a;
     double Gamma = tree.stt.gamma;
     // rotation parameters for isco
-    double Z1 = 1+pow(1-(a/M)*(a/M),1.0/3.0)*(pow(1+a/M,1.0/3.0)+pow(1-a/M,1.0/3.0));
+    double Z1 = 1.0+pow(1.0-(a/M)*(a/M),1.0/3.0)*(pow(1+a/M,1.0/3.0)+pow(1-a/M,1.0/3.0));
     double Z2 = std::sqrt(3*(a/M)*(a/M)+Z1*Z1);
     // inner and outer torus limits
-    double r_in = 1.5*M*(3+Z2-std::sqrt((3-Z1)*(3+Z1+2*Z2)));
+    double r_in = 1.5*M*(3.0+Z2-std::sqrt((3.0-Z1)*(3.0+Z1+2.0*Z2)));
     double r_max = 2.25*r_in;
     // density scale so that \rho_{max}=1 in code units
     double K = 0.01*pow(M,Gamma-1.0);
@@ -95,9 +95,9 @@ void init::fm_init(amrtree& tree) {
     double dr = 0.005*M;
     metriccomp mc_p = tree.mtr.comp(r_max+dr,M_PI/2.0);
     metriccomp mc_m = tree.mtr.comp(r_max-dr,M_PI/2.0);
-    double dgtt = (mc_p.g[0][0]-mc_m.g[0][0])/(2*dr);
-    double dgtph = (mc_p.g[0][3]-mc_m.g[0][3])/(2*dr);
-    double dgphph = (mc_p.g[3][3]-mc_m.g[3][3])/(2*dr);
+    double dgtt = (mc_p.g[0][0]-mc_m.g[0][0])/(2.0*dr);
+    double dgtph = (mc_p.g[0][3]-mc_m.g[0][3])/(2.0*dr);
+    double dgphph = (mc_p.g[3][3]-mc_m.g[3][3])/(2.0*dr);
     // angular velocity
     double Omega_K = (-dgtph+std::sqrt(dgtph*dgtph-dgtt*dgphph))/dgphph;
     // angular momentum
@@ -125,9 +125,11 @@ void init::fm_init(amrtree& tree) {
                     if(r<1.05*tree.mtr.M || std::abs(std::sin(th))<0.01) continue;
                     metriccomp mc = tree.mtr.comp(r,th);
                     double W = torus_pot(mc,l0,W_in);
+                    // std::cout << "init::fm_init diagnostic for torus potential: " << W << "\n";
                     if(W>0.0 && std::isfinite(W)) {
-                        double rho = rho_max*pow((Gamma-1.0)*W/(Gamma*K),1.0/(Gamma-1.0));
+                        double rho = pow((Gamma-1.0)*W/(Gamma*K),1.0/(Gamma-1.0));
                         if(std::isfinite(rho)) rho_max = std::max(rho_max,rho);
+                        // std::cout << "init::fm_init diagnostic for density: " << rho << "\n";
                     }
                 }
             }
@@ -137,6 +139,7 @@ void init::fm_init(amrtree& tree) {
         std::cerr << "Fishbone-Moncrief torus initialisation threw back an error: No torus cells found! Check initialisation parameters.\n";
         return;
     }
+    // std::cout << "init::fm_init diagnostic for density: " << rho_max << "\n";
     double rho_scal = rho_tgt/rho_max;
     // set primitives
     for(const auto& p : tree.quilt) {
@@ -159,7 +162,7 @@ void init::fm_init(amrtree& tree) {
                     // values inside torus
                     if(W_pot>0.0) {
                         // density and energy
-                        double rho = rho_scal*pow((Gamma-1.0)*W_pot/(Gamma*K),1.0/(Gamma-1.0));
+                        double rho = rho_scal*pow(((Gamma-1.0)*W_pot)/(Gamma*K),1.0/(Gamma-1.0));
                         double prs = K*pow(rho,Gamma);
                         double eps = prs/((Gamma-1.0)*rho);
                         W_p.rho = rho; W_p.eps = eps;
@@ -181,7 +184,7 @@ void init::fm_init(amrtree& tree) {
                         W_p.v[2] = 0.0;
                     }
                     c.W = W_p;
-                    std::cout << "init::fm_init diagnostic : " << c.W.rho << "    " << c.W.eps << "    " << c.W.p << "\n";
+                    // std::cout << "init::fm_init diagnostic : " << c.W.rho << "    " << c.W.eps << "    " << c.W.p << "\n";
                 }
             }
         }

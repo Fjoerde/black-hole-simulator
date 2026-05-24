@@ -9,9 +9,9 @@ using namespace grid;
 
 // compute emfs at edges
 void constrans::emfcomp(patch& p) {
-    for(int i=-ghost; i<block+ghost; i++) {
-        for(int j=-ghost; j<block+ghost; j++) {
-            for(int k=-ghost; k<block+ghost; k++) {
+    for(int i=-ghost; i<block+ghost-1; i++) {
+        for(int j=-ghost; j<block+ghost-1; j++) {
+            for(int k=-ghost; k<block+ghost-1; k++) {
                 // get x-component of emf
                 double Fy_Bz_k = p.get_Fy_B(2,i,j,k);
                 double Fy_Bz_kp = p.get_Fy_B(2,i,j,k+1);
@@ -37,9 +37,9 @@ void constrans::emfcomp(patch& p) {
 // update magnetic field at faces
 void constrans::Bfupdate(patch& p, double dt) {
     double dx = p.dx(), dy = p.dy(), dz = p.dz();
-    for(int i=-ghost; i<block+ghost; i++) {
-        for(int j=-ghost; j<block+ghost; j++) {
-            for(int k=-ghost; k<block+ghost; k++) {
+    for(int i=-ghost+1; i<block+ghost-1; i++) {
+        for(int j=-ghost+1; j<block+ghost-1; j++) {
+            for(int k=-ghost+1; k<block+ghost-1; k++) {
                 // update Bfx
                 double dEz_dy = (p.EMFz[p.EMFz_idx(i,j,k)]-p.EMFz[p.EMFz_idx(i,j-1,k)])/dy;
                 double dEy_dz = (p.EMFy[p.EMFy_idx(i,j,k)]-p.EMFy[p.EMFy_idx(i,j,k-1)])/dz;
@@ -77,9 +77,9 @@ void constrans::f2cB(patch& p) {
 double constrans::maxdivB(const patch& p) {
     double maxdiv = 0;
     double dx = p.dx(), dy = p.dy(), dz = p.dz();
-    for(int i=-ghost; i<block+ghost; i++) {
-        for(int j=-ghost; j<block+ghost; j++) {
-            for(int k=-ghost; k<block+ghost; k++) {
+    for(int i=-ghost+1; i<block+ghost-1; i++) {
+        for(int j=-ghost+1; j<block+ghost-1; j++) {
+            for(int k=-ghost+1; k<block+ghost-1; k++) {
                 double divB = (p.Bfx[p.Bfx_idx(i,j,k)]-p.Bfx[p.Bfx_idx(i-1,j,k)])/dx+(p.Bfy[p.Bfy_idx(i,j,k)]-p.Bfy[p.Bfy_idx(i,j-1,k)])/dy+(p.Bfz[p.Bfz_idx(i,j,k)]-p.Bfz[p.Bfz_idx(i,j,k-1)])/dz;
                 maxdiv = std::max(maxdiv,std::abs(divB));
             }

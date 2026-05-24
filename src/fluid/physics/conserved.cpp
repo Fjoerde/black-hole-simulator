@@ -52,7 +52,7 @@ cons conserved::ptoc(prim& pv, double r, double th) const {
             Bsq += Blow[i]*mc.gam[i][j]*pv.B[j];
         }
     }
-    pv.b2 = (Bv*Bv+Bsq)/pv.lor;
+    pv.b2 = (Bv*Bv+Bsq)/(pv.lor);
     
     double bt = pv.lor*Bv/mc.alpha; // magnetic 4-vector t component
     double pstar = pv.p+pv.b2/2; // magnetically adjusted pressure
@@ -68,7 +68,7 @@ cons conserved::ptoc(prim& pv, double r, double th) const {
         CV.S[i] = sg*(w*pv.lor*pv.lor*vlow[i]-mc.alpha*bt*bi); // conserved momentum
         CV.B[i] = sg*pv.B[i]; // conserved magnetic field components
     }
-    std::cout << "conserved::ptoc diagnostic: " << CV.D << "    " << CV.tau << "\n";
+    // std::cout << "conserved::ptoc diagnostic: " << CV.D << "    " << CV.tau << "\n";
     return CV;
 }
 
@@ -156,7 +156,7 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
 
     // bracket for lower and upper bounds on \xi
     double xi_l = D+0.01;
-    double xi_h = tau+D+Bsq/2.0+1.0e3;
+    double xi_h = tau+D+Bsq/2.0+1e3;
     // check that bracket is valid
     double fl = fres(xi_l, Ssq, Bsq, SB, D, tau);
     double fh = fres(xi_h, Ssq, Bsq, SB, D, tau);

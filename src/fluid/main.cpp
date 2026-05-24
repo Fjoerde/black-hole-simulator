@@ -55,7 +55,7 @@ namespace params {
     constexpr double r_floor_ref = 1.0; // reference radius for scaling
     // integration
     constexpr double cfl = 0.4; // courant-friedrichs-lewy number
-    constexpr double t_end = 10.0; // end time in geometrised units, NOT FRAMES!!
+    constexpr double t_end = 1000.0; // end time in geometrised units, NOT FRAMES!!
     constexpr double max_steps = 1000; // step count hard limit (this is now frames)
 }
 using namespace params;
@@ -79,7 +79,7 @@ int main() {
             for(int j=0; j<block; j++) {
                 for(int k=0; k<block; k++) {
                     rho_max = std::max(rho_max,p->cell_(i,j,k).W.rho);
-                    std::cout << "main diagnostic : " << p->cell_(i,j,k).W.rho << "    " << p->cell_(i,j,k).W.eps << "    " << p->cell_(i,j,k).W.p << "\n";
+                    // std::cout << "main diagnostic : " << p->cell_(i,j,k).W.rho << "    " << p->cell_(i,j,k).W.eps << "    " << p->cell_(i,j,k).W.p << "\n";
                 }
             }
         }
@@ -96,7 +96,7 @@ int main() {
             for(int j=0; j<block; j++) {
                 for(int k=0; k<block; k++) {
                     double rh = p->cell_(i,j,k).W.rho;
-                    if(rh > 2.0*tree.rho_floor_r0) {
+                    if(rh > tree.rho_floor_r0) {
                         torc++;
                         rhcheck = std::max(rhcheck,rh);
                     }
@@ -123,7 +123,7 @@ int main() {
                 for(int k=0; k<block; k++) {
                     cell& c = p->cell_(i,j,k);
                     c.U = tree.cnsv.ptoc(c.W,c.r,c.th);
-                    std::cout << "hi" << c.U.D << "\n";
+                    // std::cout << "hi" << c.U.D << "\n"; // credit to vincent for the absolutely goated "hi" method of debugging
                 }
             }
         }
@@ -140,7 +140,8 @@ int main() {
         double dt = rk.step(tree);
         t += dt;
         step++;
+        std::cout << "Integrating at time: t = " << t << ", with timestep: dt = " << dt << "\n";
     }
-    std::cout << "Integrator finished.";
+    std::cout << "Integrator finished with coordinate time " << t << " in " << step << " steps." << "\n";
     return 0;
 }
