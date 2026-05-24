@@ -71,18 +71,45 @@ int main() {
     // initalise torus
     std::cout << "Initialising torus...\n";
     init::fm_init(tree);
+    
     // global rho_max for initialisation of magnetic field
-    double rho_max = 0.01;
+    double rho_max = 0.0;
     for(const auto& p : tree.quilt) {
         for(int i=0; i<block; i++) {
             for(int j=0; j<block; j++) {
                 for(int k=0; k<block; k++) {
                     rho_max = std::max(rho_max,p->cell_(i,j,k).W.rho);
+                    std::cout << "main diagnostic : " << p->cell_(i,j,k).W.rho << "    " << p->cell_(i,j,k).W.eps << "    " << p->cell_(i,j,k).W.p << "\n";
                 }
             }
         }
     }
-    std::cout << "Maximum density across the entire grid:" << rho_max << "\n";
+    if(rho_max<1e-14) {
+        std::cerr << "Density initialisation threw back an error: rho_max is zero after Fishbone-Moncrief torus initialisation attempt!";
+        return 1;
+    }
+    // diagnostic to check torus was created properly
+    int torc = 0;
+    double rhcheck = 0.0;
+    for(const auto& p : tree.quilt) {
+        for(int i=0; i<block; i++) {
+            for(int j=0; j<block; j++) {
+                for(int k=0; k<block; k++) {
+                    double rh = p->cell_(i,j,k).W.rho;
+                    if(rh > 2.0*tree.rho_floor_r0) {
+                        torc++;
+                        rhcheck = std::max(rhcheck,rh);
+                    }
+                }
+            }
+        }
+        // std::cout << "Torus cells in patch " << p << ": " << torc << "\nMaximum density: " << rhcheck << "\n";
+        // if(torc==0) {
+        //    std::cerr << "Fishbone-Moncrief torus initialisation threw back an error: no torus cells initialised!\n";
+        //    return 1;
+        // }
+    }
+    std::cout << "Maximum density across the entire grid: " << rho_max << "\n";
     // initialise magnetic field
     std::cout << "Initialising magnetic field...\n";
     for(const auto& p : tree.quilt) {
@@ -96,6 +123,7 @@ int main() {
                 for(int k=0; k<block; k++) {
                     cell& c = p->cell_(i,j,k);
                     c.U = tree.cnsv.ptoc(c.W,c.r,c.th);
+                    std::cout << "hi" << c.U.D << "\n";
                 }
             }
         }

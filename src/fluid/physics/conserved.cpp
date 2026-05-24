@@ -19,12 +19,21 @@ cons conserved::ptoc(prim& pv, double r, double th) const {
     metriccomp mc = mtr.comp(r, th);
     double sg = mc.sqrtdetgam;
     // covariant velocity
+    double v2 = 0.0;
     double vlow[3] = {0.0, 0.0, 0.0};
     for(int i=0; i<3; i++) {
         for(int j=0; j<3; j++) {
             vlow[i] += mc.gam[i][j]*pv.v[j];
         }
+        v2 += vlow[i]*pv.v[i];
     }
+    v2 = std::min(v2,1.0-1e-10);
+    // lorentz factor
+    pv.lor = 1.0/std::sqrt(1.0-v2);
+    // pressure and enthalpy
+    pv.p = stt.press(pv.rho,pv.eps);
+    pv.h = stt.enth(pv.rho,pv.eps);
+
     // covariant magnetic flux
     double Blow[3] = {0.0, 0.0, 0.0};
     for(int i=0; i<3; i++) {
@@ -51,14 +60,16 @@ cons conserved::ptoc(prim& pv, double r, double th) const {
 
     // conserved variable construction and collection
     cons cv;
-    cv.D = sg*pv.rho*pv.lor; // conserved density
-    cv.tau = sg*(w*pv.lor*pv.lor-pstar-bt*bt)-cv.D; // conserved energy
+    cons& CV = cv;
+    CV.D = sg*pv.rho*pv.lor; // conserved kinetic energy
+    CV.tau = sg*(w*pv.lor*pv.lor-pstar-bt*bt)-CV.D; // conserved potential energy
     for(int i=0; i<3; i++) {
         double bi = (Blow[i]+mc.alpha*bt*pv.lor*vlow[i])/pv.lor;
-        cv.S[i] = sg*(w*pv.lor*pv.lor*vlow[i]-mc.alpha*bt*bi); // conserved momentum
-        cv.B[i] = sg*pv.B[i]; // conserved magnetic field components
+        CV.S[i] = sg*(w*pv.lor*pv.lor*vlow[i]-mc.alpha*bt*bi); // conserved momentum
+        CV.B[i] = sg*pv.B[i]; // conserved magnetic field components
     }
-    return cv;
+    std::cout << "conserved::ptoc diagnostic: " << CV.D << "    " << CV.tau << "\n";
+    return CV;
 }
 
 // there exist no closed-form inverses to recover primitive variables
@@ -144,15 +155,15 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
     double xi = tau+D;
 
     // bracket for lower and upper bounds on \xi
-    double xi_l = D;
-    double xi_h = tau+D+Bsq/2+1e3;
+    double xi_l = D+0.01;
+    double xi_h = tau+D+Bsq/2.0+1.0e3;
     // check that bracket is valid
     double fl = fres(xi_l, Ssq, Bsq, SB, D, tau);
     double fh = fres(xi_h, Ssq, Bsq, SB, D, tau);
     // expand bracket while fl and fh are the same sign
     while(fl*fh>0.0 && xi_h < 1e8*D) {
         xi_h *= 2.0;
-        fl = fres(fl, Ssq, Bsq, SB, D, tau);
+        fl = fres(xi_h, Ssq, Bsq, SB, D, tau);
     }
     
     // try newton-raphson first
@@ -176,13 +187,13 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
     // use brent if newton-raphson fails
     if(!nr_ok_la) {
         double xib;
-        if(!cp_bd(xi_l,xi_h,Ssq,Bsq,SB,D,tau,xib,tol)) return false;
+        if(!cp_bd(xi_l,xi_h,Ssq,Bsq,SB,D,tau,xib,1e-10)) return false;
     }
     // reconstruct primitives
     double xpQ = xi+Bsq;
     double sdb2 = SB*SB;
     double vsq = (Ssq*xpQ*xpQ+sdb2*(2.0*xi+Bsq))/(xpQ*xpQ*xi*xi);
-    vsq = std::min(vsq,1e-10);
+    vsq = std::min(vsq,1.0-1e-10);
     double ltz2 = 1.0/(1.0-vsq);
     double ltz = std::sqrt(ltz2);
     pv_out.lor = ltz;

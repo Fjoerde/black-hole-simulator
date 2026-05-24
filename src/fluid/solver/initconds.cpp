@@ -76,13 +76,14 @@ void init::fm_init(amrtree& tree) {
     double Gamma = tree.stt.gamma;
     // rotation parameters for isco
     double Z1 = 1+pow(1-(a/M)*(a/M),1.0/3.0)*(pow(1+a/M,1.0/3.0)+pow(1-a/M,1.0/3.0));
-    double Z2 = std::sqrt(3*(a/M)*(a/M)-Z1*Z1);
+    double Z2 = std::sqrt(3*(a/M)*(a/M)+Z1*Z1);
     // inner and outer torus limits
     double r_in = 1.5*M*(3+Z2-std::sqrt((3-Z1)*(3+Z1+2*Z2)));
     double r_max = 2.25*r_in;
     // density scale so that \rho_{max}=1 in code units
     double K = 0.01*pow(M,Gamma-1.0);
     double rho_tgt = 1.0;
+    // std::cout << "ISCO diagnostic: \nr_in = " << r_in << "\nr_max = " << r_max << "\n";
 
     // angular momentum at pressure maximum
     metriccomp mc = tree.mtr.comp(r_max,M_PI/2.0);
@@ -119,14 +120,14 @@ void init::fm_init(amrtree& tree) {
                 for(int k=0; k<block; k++) {
                     cell& c = p->cell_(i,j,k);
                     double r = c.r; double th = c.th;
-                    // skip cells too near axis or horizon
+                    // skip cells too near axis or horizon, or with bad coordinate evaluations
+                    if(!std::isfinite(r) || !std::isfinite(th)) continue;
                     if(r<1.05*tree.mtr.M || std::abs(std::sin(th))<0.01) continue;
                     metriccomp mc = tree.mtr.comp(r,th);
                     double W = torus_pot(mc,l0,W_in);
-                    if(W>0.0) {
-                        double rho = pow((Gamma-1.0)*W/(Gamma*K),1.0/(Gamma-1.0));
-                        rho_max = std::max(rho_max,rho);
-
+                    if(W>0.0 && std::isfinite(W)) {
+                        double rho = rho_max*pow((Gamma-1.0)*W/(Gamma*K),1.0/(Gamma-1.0));
+                        if(std::isfinite(rho)) rho_max = std::max(rho_max,rho);
                     }
                 }
             }
@@ -137,7 +138,6 @@ void init::fm_init(amrtree& tree) {
         return;
     }
     double rho_scal = rho_tgt/rho_max;
-
     // set primitives
     for(const auto& p : tree.quilt) {
         for(int i=0; i<block; i++) {
@@ -151,7 +151,8 @@ void init::fm_init(amrtree& tree) {
                     // horizon protections
                     double r_H = tree.mtr.M*(1.0+std::sqrt(1.0-(tree.mtr.a/tree.mtr.M)*(tree.mtr.a/tree.mtr.M)));
                     if(r<1.05*r_H || std::abs(std::sin(th))<0.01) {
-                        c.W = W_p; continue;
+                        c.W = W_p;
+                        continue;
                     }
                     metriccomp mc = tree.mtr.comp(r,th);
                     double W_pot = torus_pot(mc,l0,W_in);
@@ -180,11 +181,13 @@ void init::fm_init(amrtree& tree) {
                         W_p.v[2] = 0.0;
                     }
                     c.W = W_p;
+                    std::cout << "init::fm_init diagnostic : " << c.W.rho << "    " << c.W.eps << "    " << c.W.p << "\n";
                 }
             }
         }
     }
-    std::cout << "Fishbone-Moncrief torus initialisation: L_0 = " << l0 << "    r_in = " << r_in << "    r_max = " << r_max << "    rho_max = " << rho_tgt << "\n";
+    std::cout << "Fishbone-Moncrief torus initialisation:\nL_0 = " << l0 << "\nr_in = " << r_in << "\nr_max = " << r_max << "\nrho_max = " << rho_tgt << "\n";
+    return;
 }
 
 // magnetic field main initialisation function
@@ -192,7 +195,7 @@ void init::B_pot_init(patch& p, const metric& mtr, double glmx_rho) {
     double dx = p.dx(), dy = p.dy(), dz = p.dz();
     // determine maximum density over patch
     double rho_max = glmx_rho;
-    if(rho_max<=1e-14) return; // if patch not a toroidal patch, return without doing anything else
+    if(rho_max<=1e-10) return; // if patch not a toroidal patch, return without doing anything
     for(int i=0; i<block; i++) {
         for(int j=0; j<block; j++) {
             for(int k=0; k<block; k++) {

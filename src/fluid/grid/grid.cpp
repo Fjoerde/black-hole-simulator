@@ -37,13 +37,12 @@ patch::patch(int lvl, std::array<int,3> ijk, std::array<double,3> cor1, std::arr
     cs_z.resize(cpn*cpn*(cpn+1));
     
     // magnetic field and emf
-    int g = ghost;
-    Bfx.resize((block+2*g+1)*(block+2*g)*(block+2*g),0.0);
-    Bfy.resize((block+2*g)*(block+2*g+1)*(block+2*g),0.0);
-    Bfz.resize((block+2*g)*(block+2*g)*(block+2*g+1),0.0);
-    EMFx.resize((block+2*g)*(block+2*g+1)*(block+2*g+1),0.0);
-    EMFy.resize((block+2*g+1)*(block+2*g)*(block+2*g+1),0.0);
-    EMFz.resize((block+2*g+1)*(block+2*g+1)*(block+2*g),0.0);
+    Bfx.resize((cpn+1)*(cpn)*(cpn),0.0);
+    Bfy.resize((cpn)*(cpn+1)*(cpn),0.0);
+    Bfz.resize((cpn)*(cpn)*(cpn+1),0.0);
+    EMFx.resize((cpn)*(cpn+1)*(cpn+1),0.0);
+    EMFy.resize((cpn+1)*(cpn)*(cpn+1),0.0);
+    EMFz.resize((cpn+1)*(cpn+1)*(cpn),0.0);
 
     cell_init();
 }
@@ -60,33 +59,33 @@ const cell& patch::cell_(int i, int j, int k) const {
 }
 // face indexing
 int patch::xfc_idx(int i, int j, int k) const {
-    return (i+ghost)*(block+2*ghost)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+    return (i+ghost)*(cpn)*(cpn)+(j+ghost)*(cpn)+(k+ghost);
 }
 int patch::yfc_idx(int i, int j, int k) const {
-    return (i+ghost)*(block+2*ghost+1)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+    return (i+ghost)*(cpn+1)*(cpn)+(j+ghost)*(cpn)+(k+ghost);
 }
 int patch::zfc_idx(int i, int j, int k) const {
-    return (i+ghost)*(block+2*ghost)*(block+2*ghost+1)+(j+ghost)*(block+2*ghost+1)+(k+ghost);
+    return (i+ghost)*(cpn)*(cpn+1)+(j+ghost)*(cpn+1)+(k+ghost);
 }
 
 // electromagnetic indexing
 int patch::Bfx_idx(int i, int j, int k) const {
-    return (i+ghost)*(block+2*ghost)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+    return (i+ghost)*(cpn)*(cpn)+(j+ghost)*(cpn)+(k+ghost);
 }
 int patch::Bfy_idx(int i, int j, int k) const {
-    return (i+ghost)*(block+2*ghost+1)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+    return (i+ghost)*(cpn+1)*(cpn)+(j+ghost)*(cpn)+(k+ghost);
 }
 int patch::Bfz_idx(int i, int j, int k) const {
-    return (i+ghost)*(block+2*ghost)*(block+2*ghost+1)+(j+ghost)*(block+2*ghost+1)+(k+ghost);
+    return (i+ghost)*(cpn)*(cpn+1)+(j+ghost)*(cpn+1)+(k+ghost);
 }
 int patch::EMFx_idx(int i, int j, int k) const {
-    return (i+ghost)*(block+2*ghost+1)*(block+2*ghost+1)+(j+ghost)*(block+2*ghost+1)+(k+ghost);
+    return (i+ghost)*(cpn+1)*(cpn+1)+(j+ghost)*(cpn+1)+(k+ghost);
 }
 int patch::EMFy_idx(int i, int j, int k) const {
-    return (i+ghost)*(block+2*ghost)*(block+2*ghost+1)+(j+ghost)*(block+2*ghost+1)+(k+ghost);
+    return (i+ghost)*(cpn)*(cpn+1)+(j+ghost)*(cpn+1)+(k+ghost);
 }
 int patch::EMFz_idx(int i, int j, int k) const {
-    return (i+ghost)*(block+2*ghost+1)*(block+2*ghost)+(j+ghost)*(block+2*ghost)+(k+ghost);
+    return (i+ghost)*(cpn+1)*(cpn)+(j+ghost)*(cpn)+(k+ghost);
 }
 // magnetic flux accessors
 double patch::get_Fx_B(int d, int i, int j, int k) const {
@@ -131,15 +130,19 @@ double patch::dy() const {return yedge[1]-yedge[0];}
 double patch::dz() const {return zedge[1]-zedge[0];}
 
 // floor state protection
-prim amrtree::pvfs(double r, double th) const {
+prim amrtree::pvfs(double r, double th) {
     prim W;
-    double rfscal = std::pow(r/r_floor_ref,-1.5);
-    W.rho = rho_floor_r0*rfscal;
-    W.eps = eps_floor_r0*rfscal;
-    W.v[0] = W.v[1] = W.v[2] = 0.0;
-    W.B[0] = W.B[1] = W.B[2] = 0.0;
-    W.T = T_floor;
-    return W;
+    prim& WW = W;
+    double rfscal = 1.0/pow(std::sqrt(std::max(r,1e-10)/r_floor_ref),3.0);
+    WW.rho = rho_floor_r0*rfscal;
+    std::cout << "amrtree::pvfs diagnostic: " << WW.rho << "    " << rfscal << "\n";
+    WW.eps = eps_floor_r0*rfscal;
+    WW.p = this->stt.press(WW.rho,WW.eps);
+    WW.h = this->stt.enth(WW.rho,WW.eps);
+    WW.v[0] = WW.v[1] = WW.v[2] = 0.01;
+    WW.B[0] = WW.B[1] = WW.B[2] = 0.01;
+    WW.T = T_floor;
+    return WW;
 }
 
 // cell initialisation
@@ -160,7 +163,8 @@ void patch::cell_init() {
                 c.ghost = (i<0 || i>=block || j<0 || j>=block || k<0 || k>=block);
                 // spacetime
                 c.r = std::sqrt(c.xc*c.xc+c.yc*c.yc+c.zc*c.zc);
-                c.th = std::acos(c.zc/c.r);
+                if(c.r<1e-10) c.r = 1e-10; // guard against r = 0 zero-division errors
+                c.th = std::acos(std::max(-1.0,std::min(1.0,c.zc/c.r)));
                 c.phi = std::atan2(c.yc,c.xc);
                 metriccomp mc = c.mtr.comp(c.r,c.th);
                 c.mtr.gcova(c.r,c.th,mc.g);
@@ -186,11 +190,15 @@ amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nql
     }
     // set global maximum density for initialisation
     double glmx_rho = 0.0;
-    for(auto& p : quilt) {
+    for(auto& p : this->quilt) {
+        p->cell_init();
         for(int i=0; i<block; i++) {
             for(int j=0; j<block; j++) {
                 for(int k=0; k<block; k++) {
-                    glmx_rho = std::max(glmx_rho, p->cell_(i,j,k).W.rho);
+                    cell& c = p->cell_(i,j,k);
+                    c.W = this->pvfs(c.r,c.th);
+                    std::cout << "amrtree::amrtree diagnostic: " << c.W.rho << "    " << c.W.eps << "    " << c.W.p << "\n";
+                    glmx_rho = std::max(glmx_rho,c.W.rho);
                 }
             }
         }
@@ -333,8 +341,8 @@ void patch::floors(amrtree& tree, patch& p, const state& stt, const metric& mtr)
                     bhl = !tree.cnsv.ctop(c.U,c.r,c.th,pv);
                     if(!bhl) {
                         // check physicality of primitives
-                        bhl = (pv.rho<=0.0 || pv.eps<=0.0);
-                        if (!bhl) c.W = pv;
+                        bool hl = !(pv.rho<=0.0 || pv.eps<=0.0);
+                        if (hl) c.W = pv;
                     }
                 }
                 // if unphysical, apply floors
@@ -475,6 +483,7 @@ void amrtree::gh_prolong(patch* p, patch* nb_crs, int dim, int side) {
                 } else {
                     prim fl = pvfs(p_cell.r,p_cell.th);
                     fl.B[0] = p_cell.W.B[0]; fl.B[1] = p_cell.W.B[1]; fl.B[2] = p_cell.W.B[2];
+                    p_cell.W = fl;
                     p_cell.U = cnsv.ptoc(p_cell.W,p_cell.r,p_cell.th);
                 }
             }
@@ -511,7 +520,7 @@ void amrtree::gh_bndy(patch* p, int dim, int side) {
         }
     }
 }
-// ghost processing for a given patch pointer p.
+// ghost processing for a given patch pointer p
 void amrtree::ghosts(patch* p) {
     for(int dim=0; dim<3; dim++) {
         for(int side : {-1,1}) {
@@ -533,14 +542,29 @@ void amrtree::ghosts(patch* p) {
                 if(!c.ghost) continue;
                 // primitives and floor protections
                 prim pv;
-                bool ok = cnsv.ctop(c.U,c.r,c.th,pv);
+                prim& PV = pv;
+                bool ok = cnsv.ctop(c.U,c.r,c.th,PV);
                 if(ok) {
-                    c.W = pv;
+                    c.W = PV;
+                    c.W.rho = PV.rho;
+                    c.W.eps = PV.eps;
+                    c.W.B[0] = PV.B[0]; c.W.B[1] = PV.B[1]; c.W.B[2] = PV.B[2];
+                    c.W.v[0] = PV.v[0]; c.W.v[1] = PV.v[1]; c.W.v[2] = PV.v[2];
+                    c.W.p = stt.press(PV.rho,PV.eps);
+                    std::cout << "amrtree::ghosts pressure diagnostic: " << c.W.p << "\n";
+                    c.W.h = stt.enth(PV.rho,PV.eps);
+                    std::cout << "amrtree::ghosts enthalpy diagnostic: " << c.W.h << "\n";
+                    c.W.T = stt.temp(PV.rho,PV.eps);
+                    std::cout << "amrtree::ghosts temperature diagnostic: " << c.W.T << "\n";
                 } else {
                     prim fl = pvfs(c.r,c.th);
                     fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
+                    c.W.rho = fl.rho;
+                    c.W.eps = fl.eps;
+                    std::cout << "amrtree::ghosts pvfs floor diagnostic: " << c.W.rho << "    " << c.W.eps << "    " << fl.rho << "    " << fl.eps << "\n";
                     c.U = cnsv.ptoc(c.W,c.r,c.th);
                 }
+                std::cout << "amrtree::ghosts diagnostic: " << c.W.rho << "\n";
             }
         }
     }

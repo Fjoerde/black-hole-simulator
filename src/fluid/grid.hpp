@@ -100,7 +100,7 @@ struct patch {
     // runge-kutta integrator support
     double dt_loc;
     double maxct;
-    int rk_stage;
+    int rk_stage = 0;
     void floors(amrtree& tree, patch& p, const state& stt, const metric& mtr);
 };
 typedef patch patch;
@@ -136,7 +136,7 @@ public:
     void gh_bndy(patch* p, int dim, int side);
 
     // floor states for when reconstruction of primitives fails
-    prim pvfs(double r, double th) const;
+    prim pvfs(double r, double th);
     static constexpr double rho_floor_r0 = 1e-7; // REDEFINE
     static constexpr double eps_floor_r0 = 1e-5; // REDEFINE
     static constexpr double r_floor_ref = 1.0; // REDEFINE
