@@ -11,7 +11,7 @@ using namespace grid;
 
 // get index offsets
 static const prim& getW(const patch& p, int i, int j, int k, int dim, int off) {
-    int di = (dim==0)*off; int dj = (dim==0)*off; int dk = (dim==0)*off;
+    int di = (dim==0)*off; int dj = (dim==1)*off; int dk = (dim==2)*off;
     return p.cell_(i+di,j+dj,k+dk).W;
 }
 // limiter choice switch
@@ -76,7 +76,7 @@ facestate reconfp(const patch& p, int i, int j, int k, int dim, limiter lim) {
         }
         // if v > c, scale to just barely be causal velocity
         if(v2>=1.0) {
-            double s = (1-1e-8)/std::sqrt(v2);
+            double s = (1-1e-10)/std::sqrt(v2);
             for(int i=0; i<3; i++) {W.v[i] *= s;};
         }
     };

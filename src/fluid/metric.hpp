@@ -36,16 +36,16 @@ public:
     void gcova(double r, double th, double g[4][4]) const;
     void gcntr(double r, double th, double g_inv[4][4]) const;
     void christ(double M, double a, double Q, double r, double th, double g_inv[4][4], double Gamma[4][4][4]) const;
-    void gdet(double a, double r, double th, double sqrtdetg) const;
+    void gdet(double a, double r, double th, double& sqrtdetg) const;
 
     // lapse and shift functions
-    void lapse(double H, double r, double th, double alpha) const;
+    void lapse(double H, double r, double th, double& alpha) const;
     void shift(double g_inv[4][4], double r, double th, double beta[3]) const;
 
     // spatial metric component functions
     void smgam(double g[4][4], double gam[3][3]) const;
     void smgaminv(double g_inv[4][4], double gam_inv[3][3]) const;
-    void smgamdet(double alpha, double sqrtdetg, double sqrtdetgam) const;
+    void smgamdet(double alpha, double sqrtdetg, double& sqrtdetgam) const;
 
 private:
     double Sigma(double r, double th) const;

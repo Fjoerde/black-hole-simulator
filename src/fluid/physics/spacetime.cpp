@@ -49,7 +49,7 @@ void metric::gcntr(double r, double th, double g_inv[4][4]) const {
 }
 
 // compute metric determinant
-void metric::gdet(double a, double r, double th, double sqrtdetg) const {
+void metric::gdet(double a, double r, double th, double& sqrtdetg) const {
     sqrtdetg = (r*r+a*a*pow(sin(th),2))*sin(th);
 }
 
@@ -90,8 +90,8 @@ void metric::christ(double M, double a, double Q, double r, double th, double g_
 }
 
 // compute 3+1 ADM lapse and shift
-void metric::lapse(double H, double r, double th, double alpha) const {
-    alpha = pow(1+metric::H(r,th),-1/2);
+void metric::lapse(double H, double r, double th, double& alpha) const {
+    alpha = pow(1+metric::H(r,th),-1.0/2.0);
 }
 void metric::shift(double g_inv[4][4], double r, double th, double beta[3]) const {
     for (int i=0; i<3; i++) {
@@ -114,7 +114,7 @@ void metric::smgaminv(double g_inv[4][4], double gam_inv[3][3]) const {
         }
     }
 }
-void metric::smgamdet(double alpha, double sqrtdetg, double sqrtdetgam) const {
+void metric::smgamdet(double alpha, double sqrtdetg, double& sqrtdetgam) const {
     sqrtdetgam = alpha*sqrtdetg;
 }
 
@@ -127,7 +127,7 @@ metriccomp metric::comp(double r, double th) const {
     christ(M,a,Q,r,th,mc.g_inv,mc.Gamma);
     lapse(H(r,th),r,th,mc.alpha);
     shift(mc.g_inv,r,th,mc.beta);
-    smgam(mc.g, mc.gam);
+    smgam(mc.g,mc.gam);
     smgaminv(mc.g_inv,mc.gam_inv);
     smgamdet(mc.alpha,mc.sqrtdetg,mc.sqrtdetgam);
     return mc;

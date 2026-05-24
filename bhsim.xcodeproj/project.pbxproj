@@ -1,0 +1,715 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		E41E247F2FC0CF4900605CD2 /* integrator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23F12FC0CF4900605CD2 /* integrator.cpp */; };
+		E41E24802FC0CF4900605CD2 /* spacetime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23EC2FC0CF4900605CD2 /* spacetime.cpp */; };
+		E41E24812FC0CF4900605CD2 /* transport.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23E82FC0CF4900605CD2 /* transport.cpp */; };
+		E41E24822FC0CF4900605CD2 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23FB2FC0CF4900605CD2 /* main.cpp */; };
+		E41E24832FC0CF4900605CD2 /* reconstruction.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23E72FC0CF4900605CD2 /* reconstruction.cpp */; };
+		E41E24842FC0CF4900605CD2 /* hlld.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23EF2FC0CF4900605CD2 /* hlld.cpp */; };
+		E41E24852FC0CF4900605CD2 /* primitive.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23EB2FC0CF4900605CD2 /* primitive.cpp */; };
+		E41E24862FC0CF4900605CD2 /* grid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23E62FC0CF4900605CD2 /* grid.cpp */; };
+		E41E24872FC0CF4900605CD2 /* initconds.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23F02FC0CF4900605CD2 /* initconds.cpp */; };
+		E41E24882FC0CF4900605CD2 /* thermo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23ED2FC0CF4900605CD2 /* thermo.cpp */; };
+		E41E24892FC0CF4900605CD2 /* conserved.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23EA2FC0CF4900605CD2 /* conserved.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E41E23D82FC0CEB800605CD2 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		E41E23DA2FC0CEB800605CD2 /* bhsim */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bhsim; sourceTree = BUILT_PRODUCTS_DIR; };
+		E41E23E62FC0CF4900605CD2 /* grid.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = grid.cpp; sourceTree = "<group>"; };
+		E41E23E72FC0CF4900605CD2 /* reconstruction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = reconstruction.cpp; sourceTree = "<group>"; };
+		E41E23E82FC0CF4900605CD2 /* transport.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = transport.cpp; sourceTree = "<group>"; };
+		E41E23EA2FC0CF4900605CD2 /* conserved.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = conserved.cpp; sourceTree = "<group>"; };
+		E41E23EB2FC0CF4900605CD2 /* primitive.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = primitive.cpp; sourceTree = "<group>"; };
+		E41E23EC2FC0CF4900605CD2 /* spacetime.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = spacetime.cpp; sourceTree = "<group>"; };
+		E41E23ED2FC0CF4900605CD2 /* thermo.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = thermo.cpp; sourceTree = "<group>"; };
+		E41E23EF2FC0CF4900605CD2 /* hlld.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = hlld.cpp; sourceTree = "<group>"; };
+		E41E23F02FC0CF4900605CD2 /* initconds.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = initconds.cpp; sourceTree = "<group>"; };
+		E41E23F12FC0CF4900605CD2 /* integrator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = integrator.cpp; sourceTree = "<group>"; };
+		E41E23F32FC0CF4900605CD2 /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
+		E41E23F42FC0CF4900605CD2 /* cell.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cell.hpp; sourceTree = "<group>"; };
+		E41E23F52FC0CF4900605CD2 /* cons.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cons.hpp; sourceTree = "<group>"; };
+		E41E23F62FC0CF4900605CD2 /* ct.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ct.hpp; sourceTree = "<group>"; };
+		E41E23F72FC0CF4900605CD2 /* data.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = data.hpp; sourceTree = "<group>"; };
+		E41E23F82FC0CF4900605CD2 /* grid.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = grid.hpp; sourceTree = "<group>"; };
+		E41E23F92FC0CF4900605CD2 /* hlld.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = hlld.hpp; sourceTree = "<group>"; };
+		E41E23FA2FC0CF4900605CD2 /* initial.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = initial.hpp; sourceTree = "<group>"; };
+		E41E23FB2FC0CF4900605CD2 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		E41E23FC2FC0CF4900605CD2 /* metric.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = metric.hpp; sourceTree = "<group>"; };
+		E41E23FD2FC0CF4900605CD2 /* prim.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = prim.hpp; sourceTree = "<group>"; };
+		E41E23FE2FC0CF4900605CD2 /* recon.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = recon.hpp; sourceTree = "<group>"; };
+		E41E23FF2FC0CF4900605CD2 /* rk2.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = rk2.hpp; sourceTree = "<group>"; };
+		E41E24002FC0CF4900605CD2 /* state.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = state.hpp; sourceTree = "<group>"; };
+		E41E24022FC0CF4900605CD2 /* __init__.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24032FC0CF4900605CD2 /* classes.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "classes.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24042FC0CF4900605CD2 /* diagnostics.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "diagnostics.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24052FC0CF4900605CD2 /* light_path_plot.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "light_path_plot.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24062FC0CF4900605CD2 /* rendering.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "rendering.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24072FC0CF4900605CD2 /* rendering.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "rendering.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E24092FC0CF4900605CD2 /* __init__.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E240A2FC0CF4900605CD2 /* __init__.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E240B2FC0CF4900605CD2 /* base.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "base.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E240C2FC0CF4900605CD2 /* base.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "base.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E240D2FC0CF4900605CD2 /* classes.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "classes.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E240E2FC0CF4900605CD2 /* classes.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "classes.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E240F2FC0CF4900605CD2 /* tags.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "tags.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24102FC0CF4900605CD2 /* tags.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "tags.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E24122FC0CF4900605CD2 /* __init__.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24132FC0CF4900605CD2 /* __init__.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E24142FC0CF4900605CD2 /* funcs.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "funcs.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24152FC0CF4900605CD2 /* funcs.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "funcs.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E24162FC0CF4900605CD2 /* grav_lib.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "grav_lib.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24172FC0CF4900605CD2 /* grav_lib.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "grav_lib.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E24182FC0CF4900605CD2 /* kerr_newman.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "kerr_newman.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24192FC0CF4900605CD2 /* kerr.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "kerr.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E241A2FC0CF4900605CD2 /* methods.chr_sym-23.py312.nbi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.chr_sym-23.py312.nbi"; sourceTree = "<group>"; };
+		E41E241B2FC0CF4900605CD2 /* methods.chr_sym-23.py312.1.nbc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.chr_sym-23.py312.1.nbc"; sourceTree = "<group>"; };
+		E41E241C2FC0CF4900605CD2 /* methods.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E241D2FC0CF4900605CD2 /* methods.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E241E2FC0CF4900605CD2 /* methods.geodesic_eq-48.py312.nbi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.geodesic_eq-48.py312.nbi"; sourceTree = "<group>"; };
+		E41E241F2FC0CF4900605CD2 /* methods.geodesic_eq-48.py312.1.nbc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.geodesic_eq-48.py312.1.nbc"; sourceTree = "<group>"; };
+		E41E24202FC0CF4900605CD2 /* methods.kretsch_scal-61.py312.nbi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.kretsch_scal-61.py312.nbi"; sourceTree = "<group>"; };
+		E41E24212FC0CF4900605CD2 /* methods.kretsch_scal-61.py312.1.nbc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.kretsch_scal-61.py312.1.nbc"; sourceTree = "<group>"; };
+		E41E24222FC0CF4900605CD2 /* methods.metric_at-11.py312.nbi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.metric_at-11.py312.nbi"; sourceTree = "<group>"; };
+		E41E24232FC0CF4900605CD2 /* methods.metric_at-11.py312.1.nbc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "methods.metric_at-11.py312.1.nbc"; sourceTree = "<group>"; };
+		E41E24242FC0CF4900605CD2 /* minkowski.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "minkowski.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24252FC0CF4900605CD2 /* precomp.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "precomp.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24262FC0CF4900605CD2 /* precomp.precomp_g-138.py311.nbi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "precomp.precomp_g-138.py311.nbi"; sourceTree = "<group>"; };
+		E41E24272FC0CF4900605CD2 /* precomp.precomp_g-138.py311.1.nbc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "precomp.precomp_g-138.py311.1.nbc"; sourceTree = "<group>"; };
+		E41E24282FC0CF4900605CD2 /* precomp.precomp_Gamma-156.py311.nbi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "precomp.precomp_Gamma-156.py311.nbi"; sourceTree = "<group>"; };
+		E41E24292FC0CF4900605CD2 /* precomp.precomp_Gamma-156.py311.1.nbc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "precomp.precomp_Gamma-156.py311.1.nbc"; sourceTree = "<group>"; };
+		E41E242A2FC0CF4900605CD2 /* schwarzschild.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "schwarzschild.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E242C2FC0CF4900605CD2 /* __init__.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		E41E242D2FC0CF4900605CD2 /* kerr.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = kerr.py; sourceTree = "<group>"; };
+		E41E242E2FC0CF4900605CD2 /* kerr_newman.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = kerr_newman.py; sourceTree = "<group>"; };
+		E41E242F2FC0CF4900605CD2 /* minkowski.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = minkowski.py; sourceTree = "<group>"; };
+		E41E24302FC0CF4900605CD2 /* schwarzschild.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = schwarzschild.py; sourceTree = "<group>"; };
+		E41E24322FC0CF4900605CD2 /* __init__.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24332FC0CF4900605CD2 /* __init__.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E24342FC0CF4900605CD2 /* blackbody.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "blackbody.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24352FC0CF4900605CD2 /* checkerboard.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "checkerboard.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24362FC0CF4900605CD2 /* common.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "common.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24372FC0CF4900605CD2 /* core.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "core.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24382FC0CF4900605CD2 /* light.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "light.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24392FC0CF4900605CD2 /* light.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "light.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E243A2FC0CF4900605CD2 /* null.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "null.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E243B2FC0CF4900605CD2 /* null.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "null.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E243D2FC0CF4900605CD2 /* __init__.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		E41E243E2FC0CF4900605CD2 /* blackbody.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = blackbody.py; sourceTree = "<group>"; };
+		E41E243F2FC0CF4900605CD2 /* checkerboard.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = checkerboard.py; sourceTree = "<group>"; };
+		E41E24402FC0CF4900605CD2 /* null.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = null.py; sourceTree = "<group>"; };
+		E41E24422FC0CF4900605CD2 /* __init__.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24432FC0CF4900605CD2 /* geodesiceq.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "geodesiceq.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24442FC0CF4900605CD2 /* specint.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "specint.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24462FC0CF4900605CD2 /* __init__.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		E41E24472FC0CF4900605CD2 /* geodesiceq.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = geodesiceq.py; sourceTree = "<group>"; };
+		E41E24482FC0CF4900605CD2 /* specint.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = specint.py; sourceTree = "<group>"; };
+		E41E244A2FC0CF4900605CD2 /* __init__.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E244B2FC0CF4900605CD2 /* __init__.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "__init__.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E244C2FC0CF4900605CD2 /* annulus.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "annulus.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E244D2FC0CF4900605CD2 /* annulus.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "annulus.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E244E2FC0CF4900605CD2 /* common.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "common.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E244F2FC0CF4900605CD2 /* core.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "core.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24502FC0CF4900605CD2 /* cylinder.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "cylinder.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24512FC0CF4900605CD2 /* cylinder.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "cylinder.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E24522FC0CF4900605CD2 /* null.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "null.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24532FC0CF4900605CD2 /* null.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "null.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E24542FC0CF4900605CD2 /* sphere.cpython-311.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "sphere.cpython-311.pyc"; sourceTree = "<group>"; };
+		E41E24552FC0CF4900605CD2 /* sphere.cpython-312.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; path = "sphere.cpython-312.pyc"; sourceTree = "<group>"; };
+		E41E24572FC0CF4900605CD2 /* __init__.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		E41E24582FC0CF4900605CD2 /* annulus.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = annulus.py; sourceTree = "<group>"; };
+		E41E24592FC0CF4900605CD2 /* cylinder.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = cylinder.py; sourceTree = "<group>"; };
+		E41E245A2FC0CF4900605CD2 /* null.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = null.py; sourceTree = "<group>"; };
+		E41E245B2FC0CF4900605CD2 /* sphere.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = sphere.py; sourceTree = "<group>"; };
+		E41E245D2FC0CF4900605CD2 /* __init__.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		E41E245E2FC0CF4900605CD2 /* base.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = base.py; sourceTree = "<group>"; };
+		E41E245F2FC0CF4900605CD2 /* classes.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = classes.py; sourceTree = "<group>"; };
+		E41E24602FC0CF4900605CD2 /* tags.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = tags.py; sourceTree = "<group>"; };
+		E41E24622FC0CF4900605CD2 /* background1.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = background1.jpg; sourceTree = "<group>"; };
+		E41E24632FC0CF4900605CD2 /* background2.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = background2.jpg; sourceTree = "<group>"; };
+		E41E24642FC0CF4900605CD2 /* test1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test1.png; sourceTree = "<group>"; };
+		E41E24652FC0CF4900605CD2 /* test2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test2.png; sourceTree = "<group>"; };
+		E41E24662FC0CF4900605CD2 /* test3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test3.png; sourceTree = "<group>"; };
+		E41E24672FC0CF4900605CD2 /* test4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test4.png; sourceTree = "<group>"; };
+		E41E24682FC0CF4900605CD2 /* test5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test5.png; sourceTree = "<group>"; };
+		E41E24692FC0CF4900605CD2 /* test6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test6.png; sourceTree = "<group>"; };
+		E41E246A2FC0CF4900605CD2 /* test7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test7.png; sourceTree = "<group>"; };
+		E41E246B2FC0CF4900605CD2 /* test8.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test8.png; sourceTree = "<group>"; };
+		E41E246C2FC0CF4900605CD2 /* test9.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test9.png; sourceTree = "<group>"; };
+		E41E246D2FC0CF4900605CD2 /* test10.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test10.png; sourceTree = "<group>"; };
+		E41E246E2FC0CF4900605CD2 /* test11.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test11.png; sourceTree = "<group>"; };
+		E41E246F2FC0CF4900605CD2 /* test12.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test12.png; sourceTree = "<group>"; };
+		E41E24702FC0CF4900605CD2 /* test13.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test13.png; sourceTree = "<group>"; };
+		E41E24712FC0CF4900605CD2 /* test14.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test14.png; sourceTree = "<group>"; };
+		E41E24722FC0CF4900605CD2 /* test15.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test15.png; sourceTree = "<group>"; };
+		E41E24732FC0CF4900605CD2 /* test16.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test16.png; sourceTree = "<group>"; };
+		E41E24742FC0CF4900605CD2 /* test17.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test17.png; sourceTree = "<group>"; };
+		E41E24752FC0CF4900605CD2 /* test18.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test18.png; sourceTree = "<group>"; };
+		E41E24762FC0CF4900605CD2 /* test19.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = test19.png; sourceTree = "<group>"; };
+		E41E24782FC0CF4900605CD2 /* __init__.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = __init__.py; sourceTree = "<group>"; };
+		E41E24792FC0CF4900605CD2 /* call.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = call.py; sourceTree = "<group>"; };
+		E41E247A2FC0CF4900605CD2 /* diagnostics.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = diagnostics.py; sourceTree = "<group>"; };
+		E41E247B2FC0CF4900605CD2 /* rendering.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = rendering.py; sourceTree = "<group>"; };
+		E41E247C2FC0CF4900605CD2 /* test.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test.py; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E41E23D72FC0CEB800605CD2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		E41E23D12FC0CEB800605CD2 = {
+			isa = PBXGroup;
+			children = (
+				E41E247E2FC0CF4900605CD2 /* src */,
+				E41E23DB2FC0CEB800605CD2 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E41E23DB2FC0CEB800605CD2 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E41E23DA2FC0CEB800605CD2 /* bhsim */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E41E23E92FC0CF4900605CD2 /* grid */ = {
+			isa = PBXGroup;
+			children = (
+				E41E23E62FC0CF4900605CD2 /* grid.cpp */,
+				E41E23E72FC0CF4900605CD2 /* reconstruction.cpp */,
+				E41E23E82FC0CF4900605CD2 /* transport.cpp */,
+			);
+			path = grid;
+			sourceTree = "<group>";
+		};
+		E41E23EE2FC0CF4900605CD2 /* physics */ = {
+			isa = PBXGroup;
+			children = (
+				E41E23EA2FC0CF4900605CD2 /* conserved.cpp */,
+				E41E23EB2FC0CF4900605CD2 /* primitive.cpp */,
+				E41E23EC2FC0CF4900605CD2 /* spacetime.cpp */,
+				E41E23ED2FC0CF4900605CD2 /* thermo.cpp */,
+			);
+			path = physics;
+			sourceTree = "<group>";
+		};
+		E41E23F22FC0CF4900605CD2 /* solver */ = {
+			isa = PBXGroup;
+			children = (
+				E41E23EF2FC0CF4900605CD2 /* hlld.cpp */,
+				E41E23F02FC0CF4900605CD2 /* initconds.cpp */,
+				E41E23F12FC0CF4900605CD2 /* integrator.cpp */,
+			);
+			path = solver;
+			sourceTree = "<group>";
+		};
+		E41E24012FC0CF4900605CD2 /* fluid */ = {
+			isa = PBXGroup;
+			children = (
+				E41E23E92FC0CF4900605CD2 /* grid */,
+				E41E23EE2FC0CF4900605CD2 /* physics */,
+				E41E23F22FC0CF4900605CD2 /* solver */,
+				E41E23F32FC0CF4900605CD2 /* build.sh */,
+				E41E23F42FC0CF4900605CD2 /* cell.hpp */,
+				E41E23F52FC0CF4900605CD2 /* cons.hpp */,
+				E41E23F62FC0CF4900605CD2 /* ct.hpp */,
+				E41E23F72FC0CF4900605CD2 /* data.hpp */,
+				E41E23F82FC0CF4900605CD2 /* grid.hpp */,
+				E41E23F92FC0CF4900605CD2 /* hlld.hpp */,
+				E41E23FA2FC0CF4900605CD2 /* initial.hpp */,
+				E41E23FB2FC0CF4900605CD2 /* main.cpp */,
+				E41E23FC2FC0CF4900605CD2 /* metric.hpp */,
+				E41E23FD2FC0CF4900605CD2 /* prim.hpp */,
+				E41E23FE2FC0CF4900605CD2 /* recon.hpp */,
+				E41E23FF2FC0CF4900605CD2 /* rk2.hpp */,
+				E41E24002FC0CF4900605CD2 /* state.hpp */,
+			);
+			path = fluid;
+			sourceTree = "<group>";
+		};
+		E41E24082FC0CF4900605CD2 /* __pycache__ */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24022FC0CF4900605CD2 /* __init__.cpython-311.pyc */,
+				E41E24032FC0CF4900605CD2 /* classes.cpython-311.pyc */,
+				E41E24042FC0CF4900605CD2 /* diagnostics.cpython-311.pyc */,
+				E41E24052FC0CF4900605CD2 /* light_path_plot.cpython-311.pyc */,
+				E41E24062FC0CF4900605CD2 /* rendering.cpython-311.pyc */,
+				E41E24072FC0CF4900605CD2 /* rendering.cpython-312.pyc */,
+			);
+			path = __pycache__;
+			sourceTree = "<group>";
+		};
+		E41E24112FC0CF4900605CD2 /* __pycache__ */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24092FC0CF4900605CD2 /* __init__.cpython-311.pyc */,
+				E41E240A2FC0CF4900605CD2 /* __init__.cpython-312.pyc */,
+				E41E240B2FC0CF4900605CD2 /* base.cpython-311.pyc */,
+				E41E240C2FC0CF4900605CD2 /* base.cpython-312.pyc */,
+				E41E240D2FC0CF4900605CD2 /* classes.cpython-311.pyc */,
+				E41E240E2FC0CF4900605CD2 /* classes.cpython-312.pyc */,
+				E41E240F2FC0CF4900605CD2 /* tags.cpython-311.pyc */,
+				E41E24102FC0CF4900605CD2 /* tags.cpython-312.pyc */,
+			);
+			path = __pycache__;
+			sourceTree = "<group>";
+		};
+		E41E242B2FC0CF4900605CD2 /* __pycache__ */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24122FC0CF4900605CD2 /* __init__.cpython-311.pyc */,
+				E41E24132FC0CF4900605CD2 /* __init__.cpython-312.pyc */,
+				E41E24142FC0CF4900605CD2 /* funcs.cpython-311.pyc */,
+				E41E24152FC0CF4900605CD2 /* funcs.cpython-312.pyc */,
+				E41E24162FC0CF4900605CD2 /* grav_lib.cpython-311.pyc */,
+				E41E24172FC0CF4900605CD2 /* grav_lib.cpython-312.pyc */,
+				E41E24182FC0CF4900605CD2 /* kerr_newman.cpython-311.pyc */,
+				E41E24192FC0CF4900605CD2 /* kerr.cpython-311.pyc */,
+				E41E241A2FC0CF4900605CD2 /* methods.chr_sym-23.py312.nbi */,
+				E41E241B2FC0CF4900605CD2 /* methods.chr_sym-23.py312.1.nbc */,
+				E41E241C2FC0CF4900605CD2 /* methods.cpython-311.pyc */,
+				E41E241D2FC0CF4900605CD2 /* methods.cpython-312.pyc */,
+				E41E241E2FC0CF4900605CD2 /* methods.geodesic_eq-48.py312.nbi */,
+				E41E241F2FC0CF4900605CD2 /* methods.geodesic_eq-48.py312.1.nbc */,
+				E41E24202FC0CF4900605CD2 /* methods.kretsch_scal-61.py312.nbi */,
+				E41E24212FC0CF4900605CD2 /* methods.kretsch_scal-61.py312.1.nbc */,
+				E41E24222FC0CF4900605CD2 /* methods.metric_at-11.py312.nbi */,
+				E41E24232FC0CF4900605CD2 /* methods.metric_at-11.py312.1.nbc */,
+				E41E24242FC0CF4900605CD2 /* minkowski.cpython-311.pyc */,
+				E41E24252FC0CF4900605CD2 /* precomp.cpython-311.pyc */,
+				E41E24262FC0CF4900605CD2 /* precomp.precomp_g-138.py311.nbi */,
+				E41E24272FC0CF4900605CD2 /* precomp.precomp_g-138.py311.1.nbc */,
+				E41E24282FC0CF4900605CD2 /* precomp.precomp_Gamma-156.py311.nbi */,
+				E41E24292FC0CF4900605CD2 /* precomp.precomp_Gamma-156.py311.1.nbc */,
+				E41E242A2FC0CF4900605CD2 /* schwarzschild.cpython-311.pyc */,
+			);
+			path = __pycache__;
+			sourceTree = "<group>";
+		};
+		E41E24312FC0CF4900605CD2 /* GravField */ = {
+			isa = PBXGroup;
+			children = (
+				E41E242B2FC0CF4900605CD2 /* __pycache__ */,
+				E41E242C2FC0CF4900605CD2 /* __init__.py */,
+				E41E242D2FC0CF4900605CD2 /* kerr.py */,
+				E41E242E2FC0CF4900605CD2 /* kerr_newman.py */,
+				E41E242F2FC0CF4900605CD2 /* minkowski.py */,
+				E41E24302FC0CF4900605CD2 /* schwarzschild.py */,
+			);
+			path = GravField;
+			sourceTree = "<group>";
+		};
+		E41E243C2FC0CF4900605CD2 /* __pycache__ */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24322FC0CF4900605CD2 /* __init__.cpython-311.pyc */,
+				E41E24332FC0CF4900605CD2 /* __init__.cpython-312.pyc */,
+				E41E24342FC0CF4900605CD2 /* blackbody.cpython-311.pyc */,
+				E41E24352FC0CF4900605CD2 /* checkerboard.cpython-311.pyc */,
+				E41E24362FC0CF4900605CD2 /* common.cpython-311.pyc */,
+				E41E24372FC0CF4900605CD2 /* core.cpython-311.pyc */,
+				E41E24382FC0CF4900605CD2 /* light.cpython-311.pyc */,
+				E41E24392FC0CF4900605CD2 /* light.cpython-312.pyc */,
+				E41E243A2FC0CF4900605CD2 /* null.cpython-311.pyc */,
+				E41E243B2FC0CF4900605CD2 /* null.cpython-312.pyc */,
+			);
+			path = __pycache__;
+			sourceTree = "<group>";
+		};
+		E41E24412FC0CF4900605CD2 /* Hittables */ = {
+			isa = PBXGroup;
+			children = (
+				E41E243C2FC0CF4900605CD2 /* __pycache__ */,
+				E41E243D2FC0CF4900605CD2 /* __init__.py */,
+				E41E243E2FC0CF4900605CD2 /* blackbody.py */,
+				E41E243F2FC0CF4900605CD2 /* checkerboard.py */,
+				E41E24402FC0CF4900605CD2 /* null.py */,
+			);
+			path = Hittables;
+			sourceTree = "<group>";
+		};
+		E41E24452FC0CF4900605CD2 /* __pycache__ */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24422FC0CF4900605CD2 /* __init__.cpython-311.pyc */,
+				E41E24432FC0CF4900605CD2 /* geodesiceq.cpython-311.pyc */,
+				E41E24442FC0CF4900605CD2 /* specint.cpython-311.pyc */,
+			);
+			path = __pycache__;
+			sourceTree = "<group>";
+		};
+		E41E24492FC0CF4900605CD2 /* Integrators */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24452FC0CF4900605CD2 /* __pycache__ */,
+				E41E24462FC0CF4900605CD2 /* __init__.py */,
+				E41E24472FC0CF4900605CD2 /* geodesiceq.py */,
+				E41E24482FC0CF4900605CD2 /* specint.py */,
+			);
+			path = Integrators;
+			sourceTree = "<group>";
+		};
+		E41E24562FC0CF4900605CD2 /* __pycache__ */ = {
+			isa = PBXGroup;
+			children = (
+				E41E244A2FC0CF4900605CD2 /* __init__.cpython-311.pyc */,
+				E41E244B2FC0CF4900605CD2 /* __init__.cpython-312.pyc */,
+				E41E244C2FC0CF4900605CD2 /* annulus.cpython-311.pyc */,
+				E41E244D2FC0CF4900605CD2 /* annulus.cpython-312.pyc */,
+				E41E244E2FC0CF4900605CD2 /* common.cpython-311.pyc */,
+				E41E244F2FC0CF4900605CD2 /* core.cpython-311.pyc */,
+				E41E24502FC0CF4900605CD2 /* cylinder.cpython-311.pyc */,
+				E41E24512FC0CF4900605CD2 /* cylinder.cpython-312.pyc */,
+				E41E24522FC0CF4900605CD2 /* null.cpython-311.pyc */,
+				E41E24532FC0CF4900605CD2 /* null.cpython-312.pyc */,
+				E41E24542FC0CF4900605CD2 /* sphere.cpython-311.pyc */,
+				E41E24552FC0CF4900605CD2 /* sphere.cpython-312.pyc */,
+			);
+			path = __pycache__;
+			sourceTree = "<group>";
+		};
+		E41E245C2FC0CF4900605CD2 /* Shapes */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24562FC0CF4900605CD2 /* __pycache__ */,
+				E41E24572FC0CF4900605CD2 /* __init__.py */,
+				E41E24582FC0CF4900605CD2 /* annulus.py */,
+				E41E24592FC0CF4900605CD2 /* cylinder.py */,
+				E41E245A2FC0CF4900605CD2 /* null.py */,
+				E41E245B2FC0CF4900605CD2 /* sphere.py */,
+			);
+			path = Shapes;
+			sourceTree = "<group>";
+		};
+		E41E24612FC0CF4900605CD2 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24112FC0CF4900605CD2 /* __pycache__ */,
+				E41E24312FC0CF4900605CD2 /* GravField */,
+				E41E24412FC0CF4900605CD2 /* Hittables */,
+				E41E24492FC0CF4900605CD2 /* Integrators */,
+				E41E245C2FC0CF4900605CD2 /* Shapes */,
+				E41E245D2FC0CF4900605CD2 /* __init__.py */,
+				E41E245E2FC0CF4900605CD2 /* base.py */,
+				E41E245F2FC0CF4900605CD2 /* classes.py */,
+				E41E24602FC0CF4900605CD2 /* tags.py */,
+			);
+			path = Classes;
+			sourceTree = "<group>";
+		};
+		E41E24772FC0CF4900605CD2 /* Images */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24622FC0CF4900605CD2 /* background1.jpg */,
+				E41E24632FC0CF4900605CD2 /* background2.jpg */,
+				E41E24642FC0CF4900605CD2 /* test1.png */,
+				E41E24652FC0CF4900605CD2 /* test2.png */,
+				E41E24662FC0CF4900605CD2 /* test3.png */,
+				E41E24672FC0CF4900605CD2 /* test4.png */,
+				E41E24682FC0CF4900605CD2 /* test5.png */,
+				E41E24692FC0CF4900605CD2 /* test6.png */,
+				E41E246A2FC0CF4900605CD2 /* test7.png */,
+				E41E246B2FC0CF4900605CD2 /* test8.png */,
+				E41E246C2FC0CF4900605CD2 /* test9.png */,
+				E41E246D2FC0CF4900605CD2 /* test10.png */,
+				E41E246E2FC0CF4900605CD2 /* test11.png */,
+				E41E246F2FC0CF4900605CD2 /* test12.png */,
+				E41E24702FC0CF4900605CD2 /* test13.png */,
+				E41E24712FC0CF4900605CD2 /* test14.png */,
+				E41E24722FC0CF4900605CD2 /* test15.png */,
+				E41E24732FC0CF4900605CD2 /* test16.png */,
+				E41E24742FC0CF4900605CD2 /* test17.png */,
+				E41E24752FC0CF4900605CD2 /* test18.png */,
+				E41E24762FC0CF4900605CD2 /* test19.png */,
+			);
+			path = Images;
+			sourceTree = "<group>";
+		};
+		E41E247D2FC0CF4900605CD2 /* render */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24082FC0CF4900605CD2 /* __pycache__ */,
+				E41E24612FC0CF4900605CD2 /* Classes */,
+				E41E24772FC0CF4900605CD2 /* Images */,
+				E41E24782FC0CF4900605CD2 /* __init__.py */,
+				E41E24792FC0CF4900605CD2 /* call.py */,
+				E41E247A2FC0CF4900605CD2 /* diagnostics.py */,
+				E41E247B2FC0CF4900605CD2 /* rendering.py */,
+				E41E247C2FC0CF4900605CD2 /* test.py */,
+			);
+			path = render;
+			sourceTree = "<group>";
+		};
+		E41E247E2FC0CF4900605CD2 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				E41E24012FC0CF4900605CD2 /* fluid */,
+				E41E247D2FC0CF4900605CD2 /* render */,
+			);
+			path = src;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E41E23D92FC0CEB800605CD2 /* bhsim */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E41E23E12FC0CEB800605CD2 /* Build configuration list for PBXNativeTarget "bhsim" */;
+			buildPhases = (
+				E41E23D62FC0CEB800605CD2 /* Sources */,
+				E41E23D72FC0CEB800605CD2 /* Frameworks */,
+				E41E23D82FC0CEB800605CD2 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = bhsim;
+			packageProductDependencies = (
+			);
+			productName = bhsim;
+			productReference = E41E23DA2FC0CEB800605CD2 /* bhsim */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E41E23D22FC0CEB800605CD2 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					E41E23D92FC0CEB800605CD2 = {
+						CreatedOnToolsVersion = 26.5;
+					};
+				};
+			};
+			buildConfigurationList = E41E23D52FC0CEB800605CD2 /* Build configuration list for PBXProject "bhsim" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E41E23D12FC0CEB800605CD2;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = E41E23DB2FC0CEB800605CD2 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E41E23D92FC0CEB800605CD2 /* bhsim */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E41E23D62FC0CEB800605CD2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E41E247F2FC0CF4900605CD2 /* integrator.cpp in Sources */,
+				E41E24802FC0CF4900605CD2 /* spacetime.cpp in Sources */,
+				E41E24812FC0CF4900605CD2 /* transport.cpp in Sources */,
+				E41E24822FC0CF4900605CD2 /* main.cpp in Sources */,
+				E41E24832FC0CF4900605CD2 /* reconstruction.cpp in Sources */,
+				E41E24842FC0CF4900605CD2 /* hlld.cpp in Sources */,
+				E41E24852FC0CF4900605CD2 /* primitive.cpp in Sources */,
+				E41E24862FC0CF4900605CD2 /* grid.cpp in Sources */,
+				E41E24872FC0CF4900605CD2 /* initconds.cpp in Sources */,
+				E41E24882FC0CF4900605CD2 /* thermo.cpp in Sources */,
+				E41E24892FC0CF4900605CD2 /* conserved.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		E41E23DF2FC0CEB800605CD2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ADDRESS_SANITIZER_CONTAINER_OVERFLOW = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CPLUSPLUSFLAGS = "";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		E41E23E02FC0CEB800605CD2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ADDRESS_SANITIZER_CONTAINER_OVERFLOW = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CPLUSPLUSFLAGS = "";
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		E41E23E22FC0CEB800605CD2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		E41E23E32FC0CEB800605CD2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		E41E23D52FC0CEB800605CD2 /* Build configuration list for PBXProject "bhsim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E41E23DF2FC0CEB800605CD2 /* Debug */,
+				E41E23E02FC0CEB800605CD2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E41E23E12FC0CEB800605CD2 /* Build configuration list for PBXNativeTarget "bhsim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E41E23E22FC0CEB800605CD2 /* Debug */,
+				E41E23E32FC0CEB800605CD2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E41E23D22FC0CEB800605CD2 /* Project object */;
+}

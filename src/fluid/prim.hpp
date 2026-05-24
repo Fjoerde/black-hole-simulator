@@ -34,7 +34,7 @@ public:
     primitive(const metric& m, const state& s) : mtr(m), st(s) {};
 
     // compute quantities
-    prim comp(double rho, double eps, double v[3], double B[3], double r, double th) const;
-    double lorentz(double v[3], const metriccomp mc) const;
-    double bsq(double B[3], double v[3], const metriccomp mc) const;    
+    prim comp(double& rho, double& eps, double v[3], double B[3], double r, double th) const;
+    double lorentz(double v[3], const metriccomp& mc) const;
+    double bsq(double B[3], double v[3], const metriccomp& mc) const;    
 };

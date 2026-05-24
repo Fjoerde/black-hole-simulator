@@ -14,29 +14,38 @@ using namespace torus;
 std::array<double,3> init::A_vpot(double x, double y, double z, double rho, double rho_max) {
     // torus initialisation, so only A_phi component nonzero
     double Ap = std::max(rho/rho_max-0.2,0.0);
-    double phi = (x/std::sqrt(x*x+y*y+z*z));
+    double phi = atan2(y,x);
     double theta = std::acos(z/std::sqrt(x*x+y*y+z*z));
     return {-Ap*std::sin(phi)*std::sin(theta),Ap*std::cos(phi)*std::sin(theta),0.0};
 }
-// edge densities
+// edge densities, averaged from 4 surrounding cells
 static double edge_rhox(const patch& p, int i, int j, int k) {
-    return (p.cell_(i,j,k).W.rho+p.cell_(i,j+1,k).W.rho+p.cell_(i,j,k+1).W.rho+p.cell_(i,j+1,k+1).W.rho)/4;
+    int j1 = std::min(j+1,block+ghost-1);
+    int k1 = std::min(k+1,block+ghost-1);
+    return (p.cell_(i,j,k).W.rho+p.cell_(i,j1,k).W.rho+p.cell_(i,j,k1).W.rho+p.cell_(i,j1,k1).W.rho)/4;
 }
 static double edge_rhoy(const patch& p, int i, int j, int k) {
-    return (p.cell_(i,j,k).W.rho+p.cell_(i+1,j,k).W.rho+p.cell_(i,j,k+1).W.rho+p.cell_(i+1,j,k+1).W.rho)/4;
+    int i1 = std::min(i+1,block+ghost-1);
+    int k1 = std::min(k+1,block+ghost-1);
+    return (p.cell_(i,j,k).W.rho+p.cell_(i1,j,k).W.rho+p.cell_(i,j,k1).W.rho+p.cell_(i1,j,k1).W.rho)/4;
 }
 static double edge_rhoz(const patch& p, int i, int j, int k) {
-    return (p.cell_(i,j,k).W.rho+p.cell_(i+1,j,k).W.rho+p.cell_(i,j+1,k).W.rho+p.cell_(i+1,j+1,k).W.rho)/4;
+    int i1 = std::min(i+1,block+ghost-1);
+    int j1 = std::min(j+1,block+ghost-1);
+    return (p.cell_(i,j,k).W.rho+p.cell_(i1,j,k).W.rho+p.cell_(i,j1,k).W.rho+p.cell_(i1,j1,k).W.rho)/4;
 }
 // physical coordinates of edges
 static std::array<double,3> xedge_pos(const patch& p, int i, int j, int k) {
-    return {p.xedge[i]+p.dx()/2,p.yedge[j+1],p.zedge[k+1]};
+    const cell& c = p.cell_(i,j,k);
+    return {c.xc,c.yc+p.dy()/2.0,c.zc+p.dz()/2.0};
 }
 static std::array<double,3> yedge_pos(const patch& p, int i, int j, int k) {
-    return {p.xedge[i+1]/2,p.yedge[j]+p.dy(),p.zedge[k+1]};
+    const cell& c = p.cell_(i,j,k);
+    return {c.xc+p.dx()/2.0,c.yc,c.zc+p.dz()/2.0};
 }
 static std::array<double,3> zedge_pos(const patch& p, int i, int j, int k) {
-    return {p.xedge[i+1]/2,p.yedge[j+1],p.zedge[k]+p.dz()};
+    const cell& c = p.cell_(i,j,k);
+    return {c.xc+p.dx()/2.0,c.yc+p.dy()/2.0,c.zc};
 }
 // time component of 4-velocity for given angular momentum
 static double comp_utsq (const metriccomp& mc, double l) {
@@ -66,14 +75,15 @@ void init::fm_init(amrtree& tree) {
     double a = tree.mtr.a;
     double Gamma = tree.stt.gamma;
     // rotation parameters for isco
-    double Z1 = 1+pow(1-(a/M)*(a/M),1/3)*(pow(1+a/M,1/3)+pow(1-a/M,1/3));
-    double Z2 = std::sqrt(3*(a/M)*(a/M)-Z1*Z1);
+    double Z1 = 1+pow(1-(a/M)*(a/M),1.0/3.0)*(pow(1+a/M,1.0/3.0)+pow(1-a/M,1.0/3.0));
+    double Z2 = std::sqrt(3*(a/M)*(a/M)+Z1*Z1);
     // inner and outer torus limits
     double r_in = 1.5*M*(3+Z2-std::sqrt((3-Z1)*(3+Z1+2*Z2)));
     double r_max = 2.25*r_in;
     // density scale so that \rho_{max}=1 in code units
     double K = 0.01*pow(M,Gamma-1.0);
     double rho_tgt = 1.0;
+    // std::cout << "ISCO diagnostic: \nr_in = " << r_in << "\nr_max = " << r_max << "\n";
 
     // angular momentum at pressure maximum
     metriccomp mc = tree.mtr.comp(r_max,M_PI/2.0);
@@ -94,7 +104,7 @@ void init::fm_init(amrtree& tree) {
     double l0 = -(gtph+Omega_K*gphph)/(gtt+Omega_K*gtph);
 
     // inner radius potential
-    metriccomp mc_in = tree.mtr.comp(r_in,M_PI/2);
+    metriccomp mc_in = tree.mtr.comp(r_in,M_PI/2.0);
     double utsq_in = comp_utsq(mc_in,l0);
     if(utsq_in<=0.0) {
         std::cerr << "Fishbone-Moncrief torus initialisation threw back an error at inner edge: u_t^2 is nonpositive! Check inner radius.\n";
@@ -110,14 +120,14 @@ void init::fm_init(amrtree& tree) {
                 for(int k=0; k<block; k++) {
                     cell& c = p->cell_(i,j,k);
                     double r = c.r; double th = c.th;
-                    // skip cells too near axis or horizon
+                    // skip cells too near axis or horizon, or with bad coordinate evaluations
+                    if(!std::isfinite(r) || !std::isfinite(th)) continue;
                     if(r<1.05*tree.mtr.M || std::abs(std::sin(th))<0.01) continue;
                     metriccomp mc = tree.mtr.comp(r,th);
                     double W = torus_pot(mc,l0,W_in);
-                    if(W>0.0) {
-                        double rho = pow((Gamma-1.0)*W/(Gamma*K),1.0/(Gamma-1.0));
-                        rho_max = std::max(rho_max,rho);
-
+                    if(W>0.0 && std::isfinite(W)) {
+                        double rho = rho_max*pow((Gamma-1.0)*W/(Gamma*K),1.0/(Gamma-1.0));
+                        if(std::isfinite(rho)) rho_max = std::max(rho_max,rho);
                     }
                 }
             }
@@ -128,20 +138,21 @@ void init::fm_init(amrtree& tree) {
         return;
     }
     double rho_scal = rho_tgt/rho_max;
-
     // set primitives
     for(const auto& p : tree.quilt) {
         for(int i=0; i<block; i++) {
             for(int j=0; j<block; j++) {
                 for(int k=0; k<block; k++) {
                     cell& c = p->cell_(i,j,k);
+                    c.W = tree.pvfs(c.r,c.th);
                     double r = c.r; double th = c.th;
                     // default values are floors
                     prim W_p = tree.pvfs(r,th);
                     // horizon protections
                     double r_H = tree.mtr.M*(1.0+std::sqrt(1.0-(tree.mtr.a/tree.mtr.M)*(tree.mtr.a/tree.mtr.M)));
                     if(r<1.05*r_H || std::abs(std::sin(th))<0.01) {
-                        c.W = W_p; continue;
+                        c.W = W_p;
+                        continue;
                     }
                     metriccomp mc = tree.mtr.comp(r,th);
                     double W_pot = torus_pot(mc,l0,W_in);
@@ -170,18 +181,21 @@ void init::fm_init(amrtree& tree) {
                         W_p.v[2] = 0.0;
                     }
                     c.W = W_p;
+                    std::cout << "init::fm_init diagnostic : " << c.W.rho << "    " << c.W.eps << "    " << c.W.p << "\n";
                 }
             }
         }
     }
-    std::cout << "Fishbone-Moncrief torus initialisation: L_0 = " << l0 << "    r_in = " << r_in << "    r_max = " << r_max << "    rho_max = " << rho_tgt << "\n";
+    std::cout << "Fishbone-Moncrief torus initialisation:\nL_0 = " << l0 << "\nr_in = " << r_in << "\nr_max = " << r_max << "\nrho_max = " << rho_tgt << "\n";
+    return;
 }
 
 // magnetic field main initialisation function
 void init::B_pot_init(patch& p, const metric& mtr, double glmx_rho) {
     double dx = p.dx(), dy = p.dy(), dz = p.dz();
     // determine maximum density over patch
-    double rho_max = 0.0;
+    double rho_max = glmx_rho;
+    if(rho_max<=1e-10) return; // if patch not a toroidal patch, return without doing anything
     for(int i=0; i<block; i++) {
         for(int j=0; j<block; j++) {
             for(int k=0; k<block; k++) {
@@ -190,9 +204,9 @@ void init::B_pot_init(patch& p, const metric& mtr, double glmx_rho) {
         }
     }
     // magnetic updates
-    for(int i=-ghost; i<block+ghost; i++) {
-        for(int j=-ghost; j<block+ghost; j++) {
-            for(int k=-ghost; k<block+ghost; k++) {
+    for(int i=-ghost+1; i<block+ghost; i++) {
+        for(int j=-ghost+1; j<block+ghost; j++) {
+            for(int k=-ghost+1; k<block+ghost; k++) {
                 // Bfx update
                 // y edge
                 auto [x_ykp,y_ykp,z_ykp] = yedge_pos(p,i,j,k);

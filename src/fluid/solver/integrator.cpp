@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <limits>
 #include "hlld.hpp"
-#include "solver/hlld.cpp"
 #include "recon.hpp"
 #include "ct.hpp"
 #include "grid.hpp"
@@ -193,8 +192,9 @@ void rk2integrator::rkstg(amrtree& tree, double dt, int stage) {
                 for(int k=-ghost; k<block+ghost; k++) {
                     cell& c = p->cell_(i,j,k);
                     prim pv;
-                    bool ok = tree.cnsv.ctop(c.U,c.r,c.th,pv);
-                    if(ok) c.W = pv;
+                    prim& PV = pv;
+                    bool ok = tree.cnsv.ctop(c.U,c.r,c.th,PV);
+                    if(ok) c.W = PV;
                     else {
                         prim fl = tree.pvfs(c.r,c.th);
                         fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
