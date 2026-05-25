@@ -216,8 +216,7 @@ class Grid:
                         if min_corner and (not child.on_bdary(pt, pos=False)): valid = False
                         if is_patch_pt and (not child.is_patch_pt(pt)): valid = False
                         if valid: in_child = True; idx = j; break
-                if in_child: continue
-                else: patch_idxs[i] = idx; break
+                if not in_child: break
             patch_idxs[i] = idx
         return patch_idxs
 
@@ -500,8 +499,8 @@ class Function:
 
 
 # Color Converters
-spec_colconvert = [("grid", Grid.class_type.instance_type), ("sorted_wvls", float64[::1]), ("A_W", float64[:,::1]),
-                   ("D", float64[:,::1]), ("norm_scal", float64), ("norm_lux", float64)]
+spec_colconvert = [("grid", Grid.class_type.instance_type), ("sorted_wvls", float64[::1]), ("vis_wvls", float64[::1]),
+                   ("A_W", float64[:,::1]), ("D", float64[:,::1]), ("norm_scal", float64), ("norm_lux", float64)]
 @jitclass(spec_colconvert)
 class ColConverter:
     """Calculate the spectral intensity (in W m^-2 nm^-1) and RGB values for a given color.
@@ -512,10 +511,17 @@ class ColConverter:
     norm_lux: A reference luminous intensity, equal to that of bright daylight (blackbody spectrum at 6504 K).
     Every conversion scales accordingly (so bright white gives back the blackbody spectrum)."""
 
-    def __init__(self, norm_lux:float=1e5):
+    def __init__(self, grid:Grid, norm_lux:float=1e5):
+        if grid.dim != 1: raise ValueError("grid must have dimension 1.")
+        if np.min(grid.pts) > 380 or np.max(grid.pts) < 780:
+            raise ValueError("Grid must contain the entirety of the visible spectrum, from 380 to 780 nm.")
+
         self.norm_lux = norm_lux
-        self.grid = Grid(Patch([np.linspace(380, 780, 41)]))
+        self.grid = grid
         self.sorted_wvls = np.sort(np.ascontiguousarray(self.grid.pts).reshape(len(self.grid.pts)))
+        self.vis_wvls = self.sorted_wvls[(self.sorted_wvls >= 380) & (self.sorted_wvls <= 780)]
+        if len(self.vis_wvls) == 1: raise ValueError("There must be at least two grid points inside the visible spectrum.")
+
         self.norm_scal = self.get_norm_scal()
         self.A_W = self.get_A_W()
         self.D = self.get_D()
@@ -557,7 +563,7 @@ class ColConverter:
     def get_A_W(self) -> np.ndarray:
         """The matrix used for the constraint equation on reflectance."""
 
-        wvls = self.sorted_wvls
+        wvls = self.vis_wvls
         col_bases = self.get_col_bases(wvls).T
         W = self.d65(wvls).repeat(3).reshape((len(wvls), 3)) * self.norm_scal
         diff_wvls = np.diff(wvls); diff_wvls = np.append(diff_wvls, diff_wvls[-1])
@@ -568,9 +574,9 @@ class ColConverter:
     def get_D(self) -> np.ndarray:
         """The difference matrix that penalizes big changes in slopes."""
 
-        N = len(self.grid.pts)
+        N = len(self.vis_wvls)
         D = np.zeros((N, N), dtype=np.float64)
-        h = np.diff(self.sorted_wvls)
+        h = np.diff(self.vis_wvls)
         for i in range(N-1):
             inv_h = 1 / h[i]
             D[i,i] += inv_h; D[i+1,i+1] += inv_h
@@ -580,7 +586,7 @@ class ColConverter:
     def lhtss_iter(self, z:np.ndarray, tst_vals:np.ndarray) -> np.ndarray: # Newton's method for solving a non-linear system of eqs
         """An iteration of the LHTSS method."""
         
-        N = len(self.grid.pts)
+        N = len(self.vis_wvls)
         R = (np.tanh(z) + 1) / 2
         dR = np.diag((1 - np.tanh(z)**2) / 2)
         tst_vals_cur = self.A_W.T @ R
@@ -594,14 +600,19 @@ class ColConverter:
         """Calculates the reflectance for a given triplet of tristimulus values by solving for the
         least-hyperbolic-tangent-squared-slope (LHTSS) graph (so that it stays between 0 and 1)."""
 
-        z = np.zeros(len(self.grid.pts), dtype=np.float64) # Initial guess, R = 0.5 everywhere
+        z = np.zeros(len(self.vis_wvls), dtype=np.float64) # Initial guess, R = 0.5 everywhere
         last_dz = np.inf # To check if sequence is converging
         for _ in range(50):
             dz = self.lhtss_iter(z, tst_vals); z += dz
             max_dz = np.max(np.abs(dz))
             if max_dz <= 1e-4 or max_dz >= last_dz: break # End loop if change is small or if diverging
             last_dz = max_dz
-        return (np.tanh(z) + 1) / 2
+        R = (np.tanh(z) + 1) / 2
+        R_m = np.zeros(len(np.where(self.sorted_wvls < 380)[0]), dtype=np.float64)
+        R_p = np.zeros(len(np.where(self.sorted_wvls > 780)[0]), dtype=np.float64)
+        if len(R_m) != 0: R = np.concatenate((R_m, R))
+        if len(R_p) != 0: R = np.concatenate((R, R_p))
+        return R
 
     def get_tst_vals(self, spec_int:Function) -> np.ndarray:
         """Computes the tristimulus values for a given spectral intensity function."""
@@ -648,4 +659,4 @@ class ColConverter:
         rgb = np.clip(np.where(rgb_lin <= 0.0031308, rgb_lin*12.92, 1.055*(rgb_lin)**(1/2.4) - 0.055), 0, 1)
         return rgb
 
-def_cc = ColConverter() # Initialize default color converter
+def_cc = ColConverter(Grid(Patch([np.linspace(380, 780, 41)]))) # Initialize default color converter

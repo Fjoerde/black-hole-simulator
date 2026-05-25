@@ -40,7 +40,7 @@ def plot_func(func, min:np.ndarray, max:np.ndarray, label:str="Function"):
 
     if func.dim == 1:
         xx = np.linspace(min[0], max[0], 1000)
-        plt.plot(xx, func.interp(xx.reshape(xx.shape[0], 1)), label=label)
+        plt.plot(xx, func.interp(xx.reshape(xx.shape[0], 1)[:,0]), label=label)
         plt.xlabel("x"); plt.ylabel("y")
         plt.legend()
         plt.show()
@@ -124,11 +124,10 @@ def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
     """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
 
     ray_dir.is_normal()
-    print(ray_dir.np_array())
     x0 = ray_pos.four_vec(0)
     X0 = settings.grav_field.coord_pos(x0)
     V0 = settings.grav_field.null_cond(ray_dir, x0)
-    y0 = np.concatenate((X0, V0, np.array([0], dtype=np.float64)))
+    y0 = np.concatenate((X0, V0))
     integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene,
                             cam_pos=settings.cam_pos, bg_rad=settings.bg_rad)
     geodesic = trace_geodesic(integrator, y0, settings.bg_rad)
@@ -180,7 +179,7 @@ def ray_col(geodesic:Function, gas_val:Function, vel:Vec, settings:RenderSetting
     # Find initial spectral intensity
     spec_int0 = np.zeros(len(grid.pts), dtype=np.float64)
     x0 = geodesic.vals[0,:4]; pos = Vec(x0[1], x0[2], x0[3])
-    k0 = geodesic.vals[0,4:8]; k1 = geodesic.vals[-1,4:8]
+    k0 = geodesic.vals[0,4:]; k1 = geodesic.vals[-1,4:]
     if (pos - settings.cam_pos).length() >= settings.bg_rad: # If light ray hits the background
         theta = np.acos(pos.z / pos.length()); phi = np.atan2(pos.y, pos.x)
         spec_int0 = settings.sample_bg(theta, phi)

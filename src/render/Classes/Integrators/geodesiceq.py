@@ -14,15 +14,11 @@ def init(self, grav_field, scene, cam_pos, bg_rad):
 @njit
 def derivative(self, _, y:np.ndarray) -> np.ndarray:
     y = np.ascontiguousarray(y)
-    x, v = y[:4], y[4:8]
+    x, v = y[:4], y[4:]
     chr_syms = self.grav_field.sample_Gamma(x)
     A = np.zeros(4, dtype=np.float64)
     for c in range(4): A[c] -= (chr_syms[c] @ v) @ v # Geodesic equation
-
-    v3 = self.grav_field.mink_vel(v, x)[1:]; a3 = self.grav_field.mink_vel(A, x)[1:]
-    dTheta = np.linalg.norm(np.cross(v3, a3)) / np.linalg.norm(v3)**2
-
-    y_new = np.concatenate((v, A, np.array([dTheta], dtype=np.float64)))
+    y_new = np.concatenate((v, A))
     return np.ascontiguousarray(y_new)
 
 @njit

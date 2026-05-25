@@ -5,5 +5,5 @@ from Classes.math import *
 def init(self): pass
 
 @njit
-def spec_int(self, pt):
-    return Function(Grid(Patch([np.zeros(1, dtype=np.float64)])), np.zeros((1,1), dtype=np.float64))
+def get_col(self, pt):
+    return np.zeros(3, dtype=np.float64)

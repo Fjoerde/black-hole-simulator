@@ -4,6 +4,9 @@ from numba.typed import List
 
 @njit
 def init(self, specint_grid, geodesic, gas_val, grav_field, obs_vel):
+    if specint_grid.dim != 1: raise ValueError("Invalid dimension for specint_grid.")
+    if geodesic.dim != 1: raise ValueError("Invalid dimension for geodesic.")
+    if gas_val.dim != 1: raise ValueError("Invalid dimension for gas_val.")
     if obs_vel.shape != (4,): raise ValueError("Invalid shape for obs_vel.")
 
     self.specint_grid = specint_grid
@@ -12,7 +15,7 @@ def init(self, specint_grid, geodesic, gas_val, grav_field, obs_vel):
     self.grav_field = grav_field
 
     x = self.geodesic.vals[-1,:4]
-    k = self.geodesic.vals[-1,4:8]
+    k = self.geodesic.vals[-1,4:]
     J = self.grav_field.jacobian(x); g = self.grav_field.sample_g(self.grav_field.coord_pos(x))
     g = J.T @ g @ J # Transform coordinates back to Minkowski
     self.doppler_obs = (g @ k) @ obs_vel
@@ -22,7 +25,7 @@ def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
     t_arr = np.array([[t]], dtype=np.float64)
 
     geodesic_val = self.geodesic.interp(t_arr)[0]
-    x = geodesic_val[:4]; k = geodesic_val[4:8]
+    x = geodesic_val[:4]; k = geodesic_val[4:]
     gas_val = self.gas_val.interp(t_arr)[0]
     vel = gas_val[:4]; temp = max(gas_val[4], 0); ext_coeff = max(gas_val[5], 0)
 

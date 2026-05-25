@@ -9,7 +9,7 @@ from Classes.math import *
 from Classes.physics import GravField
 from Classes.int_and_settings import RenderSettings
 from Classes.tags import *
-from rendering import render_seq
+from rendering import render_img
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -20,10 +20,9 @@ print("Initializing...")
 
 def get_gas(pts):
     x, y, z = pts[:,1], pts[:,2], pts[:,3]
-    s = np.sqrt(x**2 + y**2) - 5
-    d = np.sqrt(s**2 + z**2)
-    temp = 2e4 * np.exp(-d**2/5)
-    ext_coeff = 0.125 * np.exp(-d**2/5)
+    r = np.sqrt(x**2 + y**2 + z**2)
+    temp = 2e4 * np.exp(-r**2/20)
+    ext_coeff = 0.125 * np.exp(-r**2/20)
     gas_params = np.zeros((len(pts), 6), dtype=np.float64); gas_params[:,0] += 1
     gas_params[:,4] = temp; gas_params[:,5] = ext_coeff
     return gas_params
@@ -39,19 +38,23 @@ gas_vals = get_gas(grid.pts)
 gas = Function(grid, gas_vals)
 
 bg = np.array(Image.open("Images/background1.jpg")).astype(np.float64) / 255.
-ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
-settings = RenderSettings(w=1280, h=720, cam_pos=Vec(-15,0,5), cam_dir=Vec(15,0,-5).normal(), cam_vel=Vec(0,0,0),
-                          background=bg, bg_rad=30, gas=gas, grav_field=ss)
+col_conv = ColConverter(Grid(Patch([np.linspace(200, 900, 61, dtype=np.float64)])))
+settings = RenderSettings(w=100, h=100, cam_pos=Vec(-5,0,0), cam_dir=Vec(1,0,0), cam_vel=Vec(0,0,0),
+                          background=bg, bg_rad=30, col_converter=col_conv, gas=gas)
 
 t3 = time.perf_counter()
 print(f"Initialization finished in {t3-t2:.4f} s\n")
 
 print("Rendering (ignore NumbaPerformanceWarning's)...")
-render_img, ang_dev_img, avg_specint_img = render_seq(settings)
-render_filename = "test22.png" # test21, test22
-render_img.save(f"Images/{render_filename}") 
+rendered_img, ang_dev_img, avg_specint_img = render_img(settings)
+rendered_filename = "test22.png"
+angdev_filename = "ang_dev1.png"
+specint_filename = "spec_int1.png"
+# render_img.save(f"Images/{render_filename}") 
+# ang_dev_img.save(f"Images/{angdev_filename}")
+avg_specint_img.save(f"Images/{specint_filename}")
   
-t4= time.perf_counter()
+t4 = time.perf_counter()
 print(f"Rendering finished in {(t4-t3)/60:.4f} min\n")
-print(f"Saved '{render_filename}")
+print(f"Saved '{rendered_filename}' and '{angdev_filename}'")
 

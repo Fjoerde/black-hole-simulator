@@ -138,11 +138,14 @@ class RenderSettings:
     """Wrapper class for the settings of the rendered scene. Includes parameters like camera position, angle, and scene, etc.
     
     For a scene with no object, simply omit the scene argument, or pass a list of a Hittable with a null Shape.
+
+    rot: A tuple of three floats, specifying yaw, pitch, and roll respectively.
     
     bg_rad: Radius of the background box."""
 
     def __init__(self, w:int=800, h:int=600, f:float=1, # Width, height of image, focal length of camera
-                 cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), cam_vel:Vec=Vec(0,0,0), # Position, direction, and velocity of camera
+                 cam_pos:Vec=Vec(0,0,0), cam_vel:Vec=Vec(0,0,0), # Position and velocity of camera
+                 rot:tuple[float,float,float]=(0,np.pi/2,0), # Yaw, pitch, and roll
                  scene:list[Hittable]=def_scene, background:np.ndarray=np.zeros((1,1,3), dtype=np.float64), bg_rad:float=20, 
                  col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
        
@@ -152,11 +155,12 @@ class RenderSettings:
         for obj in scene:
             if (obj.shape.pos - cam_pos).length() > bg_rad: raise ValueError("All objects must be within the radius of the background image.")
 
+        phi, theta, _ = rot
         self.w = w
         self.h = h
         self.f = f
         self.cam_pos = cam_pos
-        self.cam_dir = cam_dir
+        self.cam_dir = Vec(np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta))
         self.cam_vel = cam_vel
         self.scene = List(scene)
         self.background = background
@@ -166,8 +170,15 @@ class RenderSettings:
         self.grav_field = grav_field
 
         self.aspect = self.w / self.h
-        self.cam_u = self.cam_dir.cross(Vec(0,0,1)).normal() # Need to deal with cam_dir being close to Vec(0,0,1)
-        self.cam_v = self.cam_u.cross(self.cam_dir).normal()
+        self.cam_u, self.cam_v = self.viewport_basis(rot)
+
+    def viewport_basis(self, rot) -> tuple[Vec, Vec]:
+        phi, _, xi = rot
+        cam_u = Vec(np.sin(phi), -np.cos(phi), 0)
+        X = cam_u; Y = self.cam_dir.cross(X)
+        cam_u = np.cos(xi) * X + np.sin(xi) * Y
+        cam_v = cam_u.cross(self.cam_dir)
+        return cam_u, cam_v
 
     def ray_dir_px(self, x:int, y:int) -> Vec:
         """Returns the three-direction of the light ray corresponding to a pixel on the final rendered image."""

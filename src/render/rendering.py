@@ -24,12 +24,11 @@ def trace_geodesic(integrator:Integrator, y0:np.ndarray, bg_rad:float) -> Functi
     
     if integrator.tag != INTEGRATOR_GEODESICEQ: raise ValueError("Invalid tag for integrator.")
     geodesic = integrator.solve(0, y0, bg_rad/50, bg_rad*3)
-    gdsic_vals = np.empty((len(geodesic.grid.pts), 9), dtype=np.float64)
+    gdsic_vals = np.empty((len(geodesic.grid.pts), 8), dtype=np.float64)
     for i in range(len(geodesic.grid.pts)):
         x0 = geodesic.vals[i,:4]
         gdsic_vals[i,:4] = integrator.grav_field.mink_pos(x0)
-        gdsic_vals[i,4:8] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:8], x0)
-        gdsic_vals[i,8] = geodesic.vals[i,8]
+        gdsic_vals[i,4:8] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:], x0)
     gdsic_vals = np.ascontiguousarray(np.flipud(gdsic_vals))
     grid_pts = geodesic.grid.pts.reshape(len(geodesic.grid.pts))
     grid_pts = np.ascontiguousarray(np.flip(np.max(grid_pts) - grid_pts))
@@ -46,7 +45,7 @@ def get_geodesics(integrator:Integrator, geodesics:list[Function], settings:Rend
         y, x = i//settings.w, i%settings.w
         ray_dir = settings.ray_dir_px(x, y)
         V0 = settings.grav_field.null_cond(ray_dir, x0)
-        y0 = np.concatenate((X0, V0, np.array([0], dtype=np.float64)))
+        y0 = np.concatenate((X0, V0))
         geodesics[i] = trace_geodesic(integrator, y0, settings.bg_rad)
         pbar.update(1)
     return geodesics
@@ -81,7 +80,7 @@ def get_colors(geodesics:list[Function], gas_vals:list[Function], settings:Rende
         spec_int0 = np.zeros(len(integrator.specint_grid.pts), dtype=np.float64)
         geodesic = geodesics[i]
         x0 = geodesic.vals[0,:4]; pos = Vec(x0[1], x0[2], x0[3])
-        k0 = geodesic.vals[0,4:8]; k1 = geodesic.vals[-1,4:8]
+        k0 = geodesic.vals[0,4:]; k1 = geodesic.vals[-1,4:]
         # Find which object the light ray hits
         if (pos - settings.cam_pos).length() >= settings.bg_rad: # If light ray hits the background
             theta = np.acos(pos.z / pos.length()); phi = np.atan2(pos.y, pos.x)
@@ -91,7 +90,7 @@ def get_colors(geodesics:list[Function], gas_vals:list[Function], settings:Rende
         else: # Find which object the light ray hits
             for obj in settings.scene:
                 if obj.shape.on_surface(pos):
-                    spec_int0 = obj.spec_int(pos)
+                    spec_int0 = settings.col_converter.get_spec_int(obj.get_col(pos))
                     spec_int0 = settings.doppler_spec(spec_int0, x0, k0, k1).vals
                     spec_int0 = spec_int0.reshape(len(spec_int0))
                     break
@@ -105,7 +104,7 @@ def get_colors(geodesics:list[Function], gas_vals:list[Function], settings:Rende
 
 
 # Functions outside of nopython mode
-def render_seq(settings:RenderSettings) -> tuple[Image.Image]:
+def render_img(settings:RenderSettings) -> tuple[Image.Image, Image.Image, Image.Image]:
     """Call to perform the rendering sequence."""
 
     print("Calculating geodesics...")
@@ -132,6 +131,6 @@ def render_seq(settings:RenderSettings) -> tuple[Image.Image]:
     del geodesics, gas_vals
 
     print("Plotting the average spectral radiance...")
-    avg_specint_img = avg_specint(spec_ints, settings)
+    tot_specint_img = tot_specint(spec_ints, settings)
 
-    return render_img, ang_dev_img, avg_specint_img
+    return render_img, ang_dev_img, tot_specint_img
