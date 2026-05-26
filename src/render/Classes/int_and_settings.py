@@ -23,8 +23,8 @@ spec_integrator = [("tag", int64),
                    ("grav_field", GravField.class_type.instance_type), ("gas", Function.class_type.instance_type),
 
                    # For SpecInts
-                   ("specint_grid", Grid.class_type.instance_type), ("geodesics", types.ListType(Function.class_type.instance_type)),
-                   ("gas_vals", types.ListType(Function.class_type.instance_type)), ("doppler_obs", float64[::1]), ("solve_idx", int64)]
+                   ("specint_grid", Grid.class_type.instance_type), ("geodesic", Function.class_type.instance_type),
+                   ("gas_val", Function.class_type.instance_type), ("doppler_obs", float64)]
 @jitclass(spec_integrator)
 class Integrator:
     """Initiate an integrator that solves differential equations.
@@ -46,12 +46,12 @@ class Integrator:
     def __init__(self, tag:int,
                  grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI), scene:list[Hittable]=def_scene,
                  cam_pos:Vec=Vec(0,0,0), bg_rad:float=20, specint_grid:Grid=Grid(),
-                 geodesics:list[Function]=[Function()], gas_vals:list[Function]=[Function()],
+                 geodesic:Function=Function(), gas_val:Function=Function(),
                  obs_vel:np.ndarray=np.array([1,0,0,0], dtype=np.float64)):
     
         self.tag = tag
         if self.tag == INTEGRATOR_GEODESICEQ: GeodesicEq.init(self, grav_field, scene, cam_pos, bg_rad)
-        if self.tag == INTEGRATOR_SPECINT: SpecInt.init(self, specint_grid, geodesics, gas_vals, grav_field, obs_vel)
+        if self.tag == INTEGRATOR_SPECINT: SpecInt.init(self, specint_grid, geodesic, gas_val, grav_field, obs_vel)
 
     def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
         """Returns the derivative of the state vector y."""
@@ -96,7 +96,7 @@ class Integrator:
             return h * max(0.1, factor)
 
     def solve(self, t0:float, y0:np.ndarray,
-              h_init:float=0.1, max_t:float=1e3, tol:float=1e-8, safety:float=0.5) -> Function:
+              h_init:float=0.1, max_t:float=1e3, tol:float=1e-6, safety:float=0.5) -> Function:
         """Solves the differential equation and returns the function representing it."""
 
         t, y, h = t0, y0, h_init
@@ -127,7 +127,7 @@ class Integrator:
 
 
 # Render Settings
-spec_settings = [("w", int64), ("h", int64), ("aspect", float64),
+spec_settings = [("w", int64), ("h", int64), ("f", float64), ("t", float64), ("aspect", float64),
                  ("cam_pos", Vec.class_type.instance_type), ("cam_dir", Vec.class_type.instance_type), ("cam_vel", Vec.class_type.instance_type),
                  ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type),
                  ("scene", types.ListType(Hittable.class_type.instance_type)),
@@ -138,23 +138,30 @@ class RenderSettings:
     """Wrapper class for the settings of the rendered scene. Includes parameters like camera position, angle, and scene, etc.
     
     For a scene with no object, simply omit the scene argument, or pass a list of a Hittable with a null Shape.
+
+    rot: A tuple of three floats, specifying yaw, pitch, and roll respectively.
     
     bg_rad: Radius of the background box."""
 
-    def __init__(self, w:int=800, h:int=600, # Width, height of image
-                 cam_pos:Vec=Vec(0,0,0), cam_dir:Vec=Vec(1,0,0), cam_vel:Vec=Vec(0,0,0), # Position, direction, and velocity of camera
+    def __init__(self, w:int=800, h:int=600, f:float=1, # Width, height of image, focal length of camera
+                 cam_pos:Vec=Vec(0,0,0), cam_vel:Vec=Vec(0,0,0), t:float=0, # Position and velocity of camera, t-coordinate
+                 rot:tuple[float,float,float]=(0,np.pi/2,0), # Yaw, pitch, and roll
                  scene:list[Hittable]=def_scene, background:np.ndarray=np.zeros((1,1,3), dtype=np.float64), bg_rad:float=20, 
                  col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
        
+        if gas.entries != 6: raise ValueError("Invalid number of entries for the gas.")
         if (background > 1).any(): raise ValueError("Encountered invalid background colors.")
         if cam_vel.length() >= 1: raise ValueError("Velocity of camera must be smaller than 1.")
         for obj in scene:
             if (obj.shape.pos - cam_pos).length() > bg_rad: raise ValueError("All objects must be within the radius of the background image.")
 
+        phi, theta, _ = rot
         self.w = w
         self.h = h
+        self.f = f
+        self.t = t
         self.cam_pos = cam_pos
-        self.cam_dir = cam_dir
+        self.cam_dir = Vec(np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta))
         self.cam_vel = cam_vel
         self.scene = List(scene)
         self.background = background
@@ -164,15 +171,21 @@ class RenderSettings:
         self.grav_field = grav_field
 
         self.aspect = self.w / self.h
-        self.cam_u = self.cam_dir.cross(Vec(0,0,1)).normal() # Need to deal with cam_dir being close to Vec(0,0,1)
-        self.cam_v = self.cam_u.cross(self.cam_dir).normal()
+        self.cam_u, self.cam_v = self.viewport_basis(rot)
+
+    def viewport_basis(self, rot) -> tuple[Vec, Vec]:
+        phi, _, xi = rot
+        cam_u = Vec(np.sin(phi), -np.cos(phi), 0)
+        X = cam_u; Y = self.cam_dir.cross(X)
+        cam_u = np.cos(xi) * X + np.sin(xi) * Y; cam_v = -Y
+        return cam_u, cam_v
 
     def ray_dir_px(self, x:int, y:int) -> Vec:
         """Returns the three-direction of the light ray corresponding to a pixel on the final rendered image."""
 
         u = (2*(x+0.5)/self.w - 1) * self.aspect # Viewport coordinates, varies from -aspect to +aspect
         v = 1 - 2*(y+0.5)/self.h # varies from -1 to +1
-        ray_dir_p = (self.cam_dir + u*self.cam_u + v*self.cam_v).normal() # p stands for primed (in the moving camera's frame)
+        ray_dir_p = (self.f*self.cam_dir + u*self.cam_u + v*self.cam_v).normal() # p stands for primed (in the moving camera's frame)
         beta = self.cam_vel.length(); gamma = 1 / np.sqrt(1-beta**2)
         if np.abs(beta) < 1e-4: return ray_dir_p
 
@@ -184,6 +197,8 @@ class RenderSettings:
         return ray_dir.normal()
 
     def sample_bg(self, theta:float, phi:float) -> Function:
+        """Returns the spectral radiance corresponding to the color of the background at a specific angular coordinate."""
+
         u, v = (phi+np.pi)/(2*np.pi), theta/np.pi
         h, w, _ = self.background.shape
         x, y = int(u*(w-1)), int(v*(h-1)) # Pixel coordinate on the image
@@ -202,8 +217,7 @@ class RenderSettings:
         J = self.grav_field.jacobian(x_src); g = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
         g = (g @ J) @ J
         D_src = (g @ k_src) @ np.array([1,0,0,0], dtype=np.float64)
-        cam_x = np.array([0, self.cam_pos.x, self.cam_pos.y, self.cam_pos.z], dtype=np.float64)
-        D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel, cam_x)
+        D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel, self.cam_pos.four_vec(self.t))
         if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
         else: D = D_src / D_obs
 
@@ -225,6 +239,140 @@ class RenderSettings:
             ray_dir = -Vec(k_obs[1], k_obs[2], k_obs[3]).normal()
             theta = np.arccos(ray_dir.dot(self.cam_vel.normal()))
             beta = self.cam_vel.length(); gamma = 1 / np.sqrt(1-beta**2)
+            aberr = (gamma * (1+beta*np.cos(theta))) / (np.sin(theta)**2 + gamma**2*(np.cos(theta)+beta)**2)**1.5
+            spec_vals = spec_int.vals / aberr
+            new_specint = Function(spec_int.grid, np.ascontiguousarray(spec_vals))
+            return new_specint
+        else: return spec_int
+
+
+# Video Settings
+def_rots = [(0, np.pi/2, 0) for _ in range(100)]
+spec_vidsettings = [("w", int64), ("h", int64), ("f", float64), ("tau_scale", float64),
+                    ("cam_worldline", Function.class_type.instance_type), ("rots", types.ListType(types.Tuple((float64, float64, float64))))
+                    ("fps", float64), ("frame_num", int64),
+                    ("t", float64[::1]), ("cam_pos", types.ListType(Vec.class_type.instance_type)), ("cam_vel", types.ListType(Vec.class_type.instance_type))
+                    ("cam_dir", types.ListType(Vec.class_type.instance_type)), ("cam_u", types.ListType(Vec.class_type.instance_type)), ("cam_v", types.ListType(Vec.class_type.instance_type))
+                    ("scene", types.ListType(Hittable.class_type.instance_type)),
+                    ("background", float64[:,:,::1]), ("bg_rad", float64), ("col_converter", ColConverter.class_type.instance_type),
+                    ("gas", Function.class_type.instance_type), ("grav_field", GravField.class_type.instance_type)]
+@jitclass(spec_vidsettings)
+class VidSettings:
+    def __init__(self, w:int=800, h:int=600, f:float=1, tau_scale:float=1,
+                 cam_worldline:Function=Function(), rots:list[tuple[float]]=def_rots, # Camera worldline parametrized by proper time
+                 fps:float=30, frame_num=100, scene:list[Hittable]=def_scene, background:np.ndarray=np.zeros((1,1,3), dtype=np.float64),
+                 bg_rad:float=20, col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
+        
+        if len(rots) != frame_num: raise ValueError("rots must have the same number of entries as frame numbers.")
+        
+        self.w = w
+        self.h = h
+        self.f = f
+        self.tau_scale = tau_scale
+        self.cam_worldline = cam_worldline
+        self.rots = List(rots)
+        self.fps = fps
+        self.frame_num = frame_num
+        self.scene = List(scene)
+        self.background = background
+        self.bg_rad = bg_rad
+        self.col_converter = col_converter
+        self.gas = gas
+        self.grav_field = grav_field
+
+        self.aspect = self.w / self.h
+        self.t, self.cam_pos, self.cam_vel = self.get_frame_param()
+        self.cam_dir, self.cam_u, self.cam_v = self.get_viewport_bases()
+
+    def get_frame_param(self) -> tuple[np.ndarray[float], list[Vec], list[Vec]]:
+        delta_tau = (1 / self.tau_scale) / self.fps
+        taus = np.arange(0, delta_tau*self.frame_num, delta_tau, dtype=np.float64)
+        cam_four_pos = self.cam_worldline.interp(taus.reshape(self.frame_num, 1))
+        ts = cam_four_pos[:,0]; pos = []; vel = []
+        for i in range(self.frame_num):
+            pos.append(Vec(cam_four_pos[i,1], cam_four_pos[i,2], cam_four_pos[i,3]))
+            vel.append(Vec(cam_four_pos[i,5], cam_four_pos[i,6], cam_four_pos[i,7]))
+        return ts, List(pos), List(vel)
+    
+    def get_viewport_bases(self) -> tuple[list[Vec], list[Vec], list[Vec]]:
+        cam_dir, cam_u, cam_v = [], [], []
+        for i in range(self.frame_num):
+            phi, theta, xi = self.rots[i]
+            cam_dir.append(Vec(np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta)))
+            X = Vec(np.sin(phi), -np.cos(phi), 0)
+            Y = cam_dir[-1].cross(X)
+            cam_u.append(np.cos(xi) * X + np.sin(xi) * Y)
+            cam_v.append(-Y)
+        return List(cam_dir), List(cam_u), List(cam_v)
+    
+    def look_to_origin(self) -> None:
+        for i in range(self.frame_num):
+            cam_dir = -self.frame_pos[i].normal()
+            theta = np.arccos(cam_dir.z); phi = np.arctan2(cam_dir.y, cam_dir.x)
+            self.rots[i] = (phi, theta, 0)
+    
+    def ray_dir_px(self, x:int, y:int, frame_num:int) -> Vec:
+        """Returns the three-direction of the light ray corresponding to a pixel on the final rendered image."""
+
+        cam_dir, cam_u, cam_v = self.cam_dir[frame_num], self.cam_u[frame_num], self.cam_v[frame_num]
+        cam_vel = self.cam_vel[frame_num]
+
+        u = (2*(x+0.5)/self.w - 1) * self.aspect # Viewport coordinates, varies from -aspect to +aspect
+        v = 1 - 2*(y+0.5)/self.h # varies from -1 to +1
+        ray_dir_p = (self.f*cam_dir + u*cam_u + v*cam_v).normal() # p stands for primed (in the moving camera's frame)
+        beta = cam_vel.length(); gamma = 1 / np.sqrt(1-beta**2)
+        if np.abs(beta) < 1e-4: return ray_dir_p
+
+        n_vel = cam_vel.normal()
+        Y = (ray_dir_p - ray_dir_p.dot(n_vel)*n_vel).normal()
+        theta_p = np.arccos(ray_dir_p.dot(n_vel))
+        theta = np.atan2(np.sin(theta_p), gamma*(np.cos(theta_p)-beta)) # Relativistic aberration
+        ray_dir = np.cos(theta)*n_vel + np.sin(theta)*Y
+        return ray_dir.normal()
+
+    def sample_bg(self, theta:float, phi:float) -> Function:
+        """Returns the spectral radiance corresponding to the color of the background at a specific angular coordinate."""
+
+        u, v = (phi+np.pi)/(2*np.pi), theta/np.pi
+        h, w, _ = self.background.shape
+        x, y = int(u*(w-1)), int(v*(h-1)) # Pixel coordinate on the image
+        spec_int = self.col_converter.get_spec_int(self.background[y,x])
+        return spec_int
+    
+    def doppler_spec(self, spec_int:Function, x_src:np.ndarray, k_src:np.ndarray, k_obs:np.ndarray, frame_num:int) -> Function:
+        """Returns the Doppler-shifted spectrum emitted by a stationary object received by an observer.
+        
+        spec_int: The emitted spectral intensity.
+        
+        x_src: The four-position of the source in Minkowski coordinates.
+        
+        k_src, k_obs: The four-velocities of the geodesic at the source and observer."""
+
+        J = self.grav_field.jacobian(x_src); g = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
+        g = (g @ J) @ J
+        D_src = (g @ k_src) @ np.array([1,0,0,0], dtype=np.float64)
+        D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel[frame_num], self.cam_pos[frame_num].four_vec(self.t[frame_num]))
+        if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
+        else: D = D_src / D_obs
+
+        spectrum = self.col_converter.grid.pts
+        spec_min = np.min(spectrum); spec_max = np.max(spectrum)
+        shift_spec = np.where((spectrum / D >= spec_min) & (spectrum / D <= spec_max), spec_int.interp(spectrum / D), 0)
+        shift_spec /= D**5
+        new_specint = Function(self.col_converter.grid, np.ascontiguousarray(shift_spec))
+        return new_specint
+    
+    def rel_aberr(self, spec_int:Function, k_obs:np.ndarray, frame_num:int):
+        """Returns the spectral radiance received by an observer due to Doppler beaming along a geodesic.
+        
+        spec_int: The spectral radiance of the light ray at the end of the geodesic.
+        
+        k_obs: The four-velocity of the geodesic at the position of the observer."""
+
+        if self.cam_vel.length() > 1e-16:
+            ray_dir = -Vec(k_obs[1], k_obs[2], k_obs[3]).normal()
+            theta = np.arccos(ray_dir.dot(self.cam_vel[frame_num].normal()))
+            beta = self.cam_vel[frame_num].length(); gamma = 1 / np.sqrt(1-beta**2)
             aberr = (gamma * (1+beta*np.cos(theta))) / (np.sin(theta)**2 + gamma**2*(np.cos(theta)+beta)**2)**1.5
             spec_vals = spec_int.vals / aberr
             new_specint = Function(spec_int.grid, np.ascontiguousarray(spec_vals))

@@ -103,32 +103,30 @@ spec_hittable = [# For all Hittables
                  ("shape", Shape.class_type.instance_type), ("tag", int64),
 
                  # For Blackbody
-                 ("temp", float64), ("specint_grid", Grid.class_type.instance_type),
+                 ("temp", float64), ("col", float64[::1]),
                  
                  # For Checkerboard
-                 ("spec_int1", Function.class_type.instance_type), ("spec_int2", Function.class_type.instance_type),
-                 ("n", int64)]
+                 ("col1", float64[::1]), ("col2", float64[::1]), ("n", int64)]
 @jitclass(spec_hittable)
 class Hittable:
     def __init__(self, shape:Shape, tag:int,
-                 temp:float=0.,
-                 col1:np.ndarray=np.zeros(3, dtype=np.float64), col2:np.ndarray=np.zeros(3, dtype=np.float64), n:int=10,
-                 col_converter:ColConverter=def_cc):
+                 temp:float=0., col_converter:ColConverter=def_cc,
+                 col1:np.ndarray=np.zeros(3, dtype=np.float64), col2:np.ndarray=np.zeros(3, dtype=np.float64), n:int=10):
         self.shape = shape
         self.tag = tag
 
         if self.tag == HITTABLE_NULL: HittableNull.init(self)
         if self.tag == HITTABLE_BLACKBODY: Blackbody.init(self, temp, col_converter)
-        if self.tag == HITTABLE_CHECKERBOARD: Checkerboard.init(self, col1, col2, n, col_converter)
+        if self.tag == HITTABLE_CHECKERBOARD: Checkerboard.init(self, col1, col2, n)
 
-    def spec_int(self, pt) -> Function:
+    def get_col(self, pt) -> Function:
         """Returns the spectral intensity emitted by the Hittable at a pt."""
 
         if not self.shape.on_surface(pt): raise ValueError("Expected a point on the surface of the shape.")
 
-        if self.tag == HITTABLE_NULL: return HittableNull.spec_int(self, pt)
-        if self.tag == HITTABLE_BLACKBODY: return Blackbody.spec_int(self, pt)
-        if self.tag == HITTABLE_CHECKERBOARD: return Checkerboard.spec_int(self, pt)
+        if self.tag == HITTABLE_NULL: return HittableNull.get_col(self, pt)
+        if self.tag == HITTABLE_BLACKBODY: return Blackbody.get_col(self, pt)
+        if self.tag == HITTABLE_CHECKERBOARD: return Checkerboard.get_col(self, pt)
 
 
 
@@ -245,7 +243,7 @@ class GravField:
         Returns the timelike vector (norm=-1) at x in metric coordinates whose spatial components are the transformed components of vec."""
 
         J = self.jacobian(x); g = self.sample_g(self.coord_pos(x))
-        k = (g @ J) @ J
+        k = J.T @ g @ J
         v = np.ascontiguousarray(np.array([0, V.x, V.y, V.z]))
         a = k[0,0]; b = 2 * (k[0,1:] @ v[1:]); c = (k[1:,1:] @ v[1:]) @ v[1:] + 1
         disc = b**2 - 4*a*c
@@ -260,15 +258,15 @@ class GravField:
         Returns the normed vector (norm=0) at x in metric coordinates whose spatial components are the transformed components of vec."""
 
         J = self.jacobian(x); g = self.sample_g(self.coord_pos(x))
-        k = (g @ J) @ J
+        k = J.T @ g @ J
         v = np.ascontiguousarray(np.array([0, V.x, V.y, V.z]))
         a = k[0,0]; b = 2 * (k[0,1:] @ v[1:]); c = (k[1:,1:] @ v[1:]) @ v[1:]
         disc = b**2 - 4*a*c
         v[0] = min((-b-np.sqrt(disc))/(2*a), (-b+np.sqrt(disc))/(2*a))
-        return self.coord_vel(v, x)    
+        return self.coord_vel(v, x)
 
 
-# Gases
+# Initialize default gas
 null_4d_grid = Grid(Patch([np.zeros(1, dtype=np.float64),
                            np.zeros(1, dtype=np.float64),
                            np.zeros(1, dtype=np.float64),

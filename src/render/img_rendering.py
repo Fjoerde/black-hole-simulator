@@ -1,15 +1,13 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import PowerNorm
 from PIL import Image
 from numba import njit, prange
-from numba_progress import ProgressBar
-import io
+import time
 
 from Classes.math import *
 from Classes.tags import *
 from Classes.physics import *
 from Classes.int_and_settings import *
+from plots import *
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -26,12 +24,11 @@ def trace_geodesic(integrator:Integrator, y0:np.ndarray, bg_rad:float) -> Functi
     
     if integrator.tag != INTEGRATOR_GEODESICEQ: raise ValueError("Invalid tag for integrator.")
     geodesic = integrator.solve(0, y0, bg_rad/50, bg_rad*3)
-    gdsic_vals = np.empty((len(geodesic.grid.pts), 9), dtype=np.float64)
+    gdsic_vals = np.empty((len(geodesic.grid.pts), 8), dtype=np.float64)
     for i in range(len(geodesic.grid.pts)):
         x0 = geodesic.vals[i,:4]
         gdsic_vals[i,:4] = integrator.grav_field.mink_pos(x0)
-        gdsic_vals[i,4:8] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:8], x0)
-        gdsic_vals[i,8] = geodesic.vals[i,8]
+        gdsic_vals[i,4:8] = -integrator.grav_field.mink_vel(geodesic.vals[i,4:], x0)
     gdsic_vals = np.ascontiguousarray(np.flipud(gdsic_vals))
     grid_pts = geodesic.grid.pts.reshape(len(geodesic.grid.pts))
     grid_pts = np.ascontiguousarray(np.flip(np.max(grid_pts) - grid_pts))
@@ -39,50 +36,48 @@ def trace_geodesic(integrator:Integrator, y0:np.ndarray, bg_rad:float) -> Functi
     return geodesic
 
 @njit(parallel=True, fastmath=True)
-def get_geodesics(integrator:Integrator, geodesics:list[Function], settings:RenderSettings, pbar:ProgressBar) -> list[Function]:
+def get_geodesics(integrator:Integrator, geodesics:list[Function], settings:RenderSettings) -> list[Function]:
     """Returns the paths of the light ray over each pixel in the image."""
 
-    x0 = np.ascontiguousarray(np.array([0, settings.cam_pos.x, settings.cam_pos.y, settings.cam_pos.z]))
+    x0 = settings.cam_pos.four_vec(settings.t)
     X0 = settings.grav_field.coord_pos(x0)
     for i in prange(settings.w * settings.h):
         y, x = i//settings.w, i%settings.w
         ray_dir = settings.ray_dir_px(x, y)
         V0 = settings.grav_field.null_cond(ray_dir, x0)
-        y0 = np.concatenate((X0, V0, np.array([0], dtype=np.float64)))
+        y0 = np.concatenate((X0, V0))
         geodesics[i] = trace_geodesic(integrator, y0, settings.bg_rad)
-        pbar.update(1)
     return geodesics
 
 @njit(parallel=True, fastmath=True)
-def get_gas_vals(geodesics:list[Function], gas:Function, n:int, pbar:ProgressBar) -> list[Function]:
+def get_gas_vals(geodesics:list[Function], gas:Function, gas_vals:list[Function], n:int) -> list[Function]:
     """Returns the list of gas values along the geodesic."""
 
-    gas_vals = geodesics.copy()
     for i in prange(len(geodesics)):
         geodesic = geodesics[i]
         max_t = np.max(geodesic.grid.pts)
         grid = Grid(Patch([np.linspace(0, max_t, n)]))
         xs = geodesic.interp(grid.pts)[:,:4]
         gas_vals[i] = Function(grid, gas.interp(xs))
-        pbar.update(1)
     return gas_vals
 
 @njit(parallel=True, fastmath=True)
-def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar) -> np.ndarray:
+def get_colors(geodesics:list[Function], gas_vals:list[Function], settings:RenderSettings, spec_ints:list[Function]) -> tuple[Function, np.ndarray]:
     """Returns the spectral intensity values over a given grid for every given geodesic.
     
     geodesics: A list of functions that give the four-positions, tangent vectors (in the future direction), and
     extinction coefficients along the geodesic."""
 
-    if integrator.tag != INTEGRATOR_SPECINT: raise ValueError("Invalid tag for integrator.")
-
-    n = len(integrator.geodesics)
+    n = settings.w * settings.h
     cols = np.zeros((n, 3), dtype=np.float64)
     for i in prange(n):
+        integrator = Integrator(INTEGRATOR_SPECINT, settings.grav_field, settings.scene, settings.cam_pos, settings.bg_rad,
+                                settings.col_converter.grid, geodesics[i], gas_vals[i],
+                                settings.grav_field.timelike_cond(settings.cam_vel, settings.cam_pos.four_vec(settings.t)))
         spec_int0 = np.zeros(len(integrator.specint_grid.pts), dtype=np.float64)
-        geodesic = integrator.geodesics[i]
+        geodesic = geodesics[i]
         x0 = geodesic.vals[0,:4]; pos = Vec(x0[1], x0[2], x0[3])
-        k0 = geodesic.vals[0,4:8]; k1 = geodesic.vals[-1,4:8]
+        k0 = geodesic.vals[0,4:]; k1 = geodesic.vals[-1,4:]
         # Find which object the light ray hits
         if (pos - settings.cam_pos).length() >= settings.bg_rad: # If light ray hits the background
             theta = np.acos(pos.z / pos.length()); phi = np.atan2(pos.y, pos.x)
@@ -92,71 +87,52 @@ def get_colors(integrator:Integrator, settings:RenderSettings, pbar:ProgressBar)
         else: # Find which object the light ray hits
             for obj in settings.scene:
                 if obj.shape.on_surface(pos):
-                    spec_int0 = obj.spec_int(pos)
+                    spec_int0 = settings.col_converter.get_spec_int(obj.get_col(pos))
                     spec_int0 = settings.doppler_spec(spec_int0, x0, k0, k1).vals
                     spec_int0 = spec_int0.reshape(len(spec_int0))
                     break
-        integrator.solve_idx = i; max_t = np.max(geodesic.grid.pts)
-        spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 1e-4)
+        max_t = np.max(geodesic.grid.pts)
+        spec_int = integrator.solve(0, spec_int0, max_t/50, max_t, 10)
         spec_int = spec_int.vals[-1]; spec_int = spec_int.reshape(len(spec_int), 1)
         spec_int = settings.rel_aberr(Function(integrator.specint_grid, spec_int), k1)
-        cols[i] = settings.col_converter.get_rgb(spec_int) * 255.
-        pbar.update(1)
-    return cols
+        spec_ints[i] = spec_int; cols[i] = settings.col_converter.get_rgb(spec_int) * 255.
+    return spec_ints, cols
 
-
-# Functions outside of nopython mode
-def plot_deviation(geodesics:list[Function], settings:RenderSettings) -> Image:
-    """Plots the angular deviation of the light rays across the image."""
-
-    n_px = settings.w * settings.h
-    if len(geodesics) != n_px: raise ValueError("Number of geodesics not equal to the number of pixels in the image.")
-    if len(geodesics) < 4: return Image.fromarray(np.zeros((1,1,3), dtype=np.uint8))
-    deviations = np.empty(n_px, dtype=np.float64)
-    for i in range(n_px): deviations[i] = geodesics[i].vals[0,8]
-    deviations = deviations.reshape(settings.h, settings.w)
-
-    fig, ax = plt.subplots()
-    X = np.arange(settings.w); Y = np.flip(settings.h-1 - np.arange(settings.h))
-    xx, yy = np.meshgrid(X, Y)
-    contourf = ax.contourf(xx, yy, deviations, levels=50, cmap="viridis",
-                           norm=PowerNorm(gamma=0.3, vmin=0, vmax=np.max(deviations)))
-    fig.colorbar(contourf, ax=ax, label=r"$\theta_{d}~/~\mathrm{rad}$")
-    ax.set_title("Angular Deviation")
-    ax.set_aspect(settings.h / settings.w)
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=200, bbox_inches="tight")
-    buf.seek(0)
-    img = Image.open(buf)
-    plt.close(fig)
-    img.show()
-    return img
-
-def render_seq(settings:RenderSettings) -> Image:
+def render_img(settings:RenderSettings) -> tuple[Image.Image, Image.Image, Image.Image]:
     """Call to perform the rendering sequence."""
 
     print("Calculating geodesics...")
-    integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene,
+    t1 = time.perf_counter()
+    gdsic_int = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene,
                             cam_pos=settings.cam_pos, bg_rad=settings.bg_rad)
-    geodesics = [Function() for _ in range(settings.w * settings.h)]
-    with ProgressBar(total=settings.w*settings.h) as pbar:
-        geodesics = get_geodesics(integrator, geodesics, settings, pbar)
+    geodesics_ = [Function() for _ in range(settings.w * settings.h)]
+    gas_vals_ = geodesics_.copy(); spec_ints_ = geodesics_.copy()
+    geodesics = get_geodesics(gdsic_int, geodesics_, settings)
+    del gdsic_int
 
+    t2 = time.perf_counter()
+    print(f"Geodesics calculated in {(t2-t1)/60:.4f} min\n")
     print("Plotting angular deviations...")
-    ang_dev_img = plot_deviation(geodesics, settings)
+    ang_dev_img = deviation(geodesics, settings)
 
+    t3 = time.perf_counter()
+    print(f"Angular deviations plotted in {t3-t2:.4f} s\n")
     print("Finding gas values along geodesics...")
-    with ProgressBar(total=settings.w*settings.h) as pbar:
-        gas_vals = get_gas_vals(geodesics, settings.gas, 50, pbar)
+    gas_vals = get_gas_vals(geodesics, settings.gas, gas_vals_, 50)
 
+    t4 = time.perf_counter()
+    print(f"Gas values calculated in {(t4-t3)/60:.4f} min\n")
     print("Calculating colors...")
-    x0 = np.array([0, settings.cam_pos.x, settings.cam_pos.y, settings.cam_pos.z])
-    integrator = Integrator(tag=INTEGRATOR_SPECINT, specint_grid=settings.col_converter.grid,
-                            geodesics=geodesics, gas_vals=gas_vals, grav_field=settings.grav_field,
-                            obs_vel=settings.grav_field.timelike_cond(settings.cam_vel, x0))
-    with ProgressBar(total=settings.w*settings.h) as pbar:
-        cols = get_colors(integrator, settings, pbar)
+    spec_ints, cols = get_colors(geodesics, gas_vals, settings, spec_ints_)
     render_img = Image.fromarray(cols.reshape(settings.h, settings.w, 3).astype(np.uint8))
     render_img.show()
-    return render_img, ang_dev_img
+    del geodesics, gas_vals
+
+    t5 = time.perf_counter()
+    print(f"Colors calculated in {(t5-t4)/60:.4f} min\n")
+    print("Plotting the total spectral intensity...")
+    tot_specint_img = tot_specint(spec_ints, settings)
+
+    t6 = time.perf_counter()
+    print(f"Total spectral intensity plotted in {t6-t5:.4f} s\n")
+    return render_img, ang_dev_img, tot_specint_img

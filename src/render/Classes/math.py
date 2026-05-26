@@ -32,10 +32,11 @@ class Vec:
         return self / len_
     def dot(self, vec): return (self.x*vec.x + self.y*vec.y + self.z*vec.z)
     def cross(self, vec): return Vec(self.y*vec.z-vec.y*self.z, self.z*vec.x-self.x*vec.z, self.x*vec.y-self.y*vec.x)
-    def np_array(self): return np.array([self.x, self.y, self.z]) # Turn Vec into numpy array
+    def np_array(self): return np.array([self.x, self.y, self.z], dtype=np.float64) # Turn Vec into numpy array
 
     def is_normal(self):
-        if (self.length() - 1.0) > 1e-6: raise ValueError("Expected normalized vector.")
+        if np.abs(self.length() - 1.) > 1e-6: raise ValueError("Expected normalized vector.")
+    def four_vec(self, t): return np.ascontiguousarray(np.array([t, self.x, self.y, self.z], dtype=np.float64))
 
 @overload(operator.mul)
 def vec_mul(v1, v2):
@@ -45,8 +46,8 @@ def vec_mul(v1, v2):
 
 
 # Patches
-spec_patch = [("arr", types.ListType(float64[::1])), ("dim", int64),
-              ("parent_idx", int64), ("child_idx", types.ListType(int64)), ("pts", float64[:,::1]),
+spec_patch = [("arr", types.ListType(float64[::1])), ("arr_lens", int64[::1]), ("dim", int64),
+              ("parent_idx", int64), ("child_idx", types.ListType(int64)), ("pts", float64[:,::1]), ("n_pts", int64),
               ("mins", float64[::1]), ("maxs", float64[::1]), ("corners", float64[:,::1])]
 @jitclass(spec_patch)
 class Patch:
@@ -59,6 +60,8 @@ class Patch:
         self.dim = len(arr)
         self.parent_idx = -1
         self.child_idx:list[int] = List.empty_list(int64)
+        self.arr_lens = self.get_arr_lens()
+        self.n_pts = np.prod(self.arr_lens)
         self.pts = self.get_pts()
         self.mins, self.maxs = self.get_extrema()
         self.corners = self.get_corners()
@@ -67,18 +70,22 @@ class Patch:
         for i in arr:
             if len(i) == 0: raise ValueError("Dimension of the grid must be at least 1 in each dimension.")
 
-    def get_pts(self) -> np.ndarray[float]:
-        """Returns the Cartesian product of all 1D arrays in arr."""
+    def get_arr_lens(self) -> np.ndarray[int]:
+        """Returns the lengths of the 1D arrays that form the patch."""
 
         lens = np.zeros(self.dim, dtype=np.int64)
         for i in range(self.dim): lens[i] = len(self.arr[i])
-        n_tot = np.prod(lens)
-        all_pts = np.empty((n_tot, self.dim), dtype=np.float64)
-        for i in range(n_tot):
+        return lens
+
+    def get_pts(self) -> np.ndarray[float]:
+        """Returns the Cartesian product of all 1D arrays in arr."""
+
+        all_pts = np.empty((self.n_pts, self.dim), dtype=np.float64)
+        for i in range(self.n_pts):
             idx = i
             for col in range(self.dim-1, -1, -1):
-                all_pts[i,col] = self.arr[col][idx % lens[col]]
-                idx //= lens[col]
+                all_pts[i,col] = self.arr[col][idx % self.arr_lens[col]]
+                idx //= self.arr_lens[col]
         return all_pts
 
     def get_extrema(self) -> tuple[np.ndarray[float]]:
@@ -135,28 +142,43 @@ class Patch:
                 on_bdary = True
         return on_bdary
     
-    def adj_pt(self, pt:np.ndarray, dim:int) -> np.ndarray[float]:
+    def adj_pt(self, pts:np.ndarray, dim:int) -> np.ndarray[float]:
         """Returns the patch point adjacent to pt in the direction of dim.
         
         dim: Integer between 1 and dim. The dimension specifying which adjacent point is desired. 
         Negative indicates the adjacent point in the negative direction."""
 
-        if not self.is_patch_pt(pt): raise ValueError("pt must be a patch point.")
         if not (1 <= np.abs(dim) <= self.dim): raise ValueError("Invalid value for dim.")
 
-        multi_idx = np.zeros(self.dim, dtype=np.int64)
-        for i in range(self.dim): multi_idx[i]  = np.where(self.arr[i] == pt[i])[0][0]
-        addend = np.zeros(self.dim, dtype=np.int64); addend[np.abs(dim)-1] = np.sign(dim)
-        adj_multi_idx = multi_idx + addend
-        new_pt = np.empty(self.dim, dtype=np.float64)
-        for i in range(self.dim):
-            if 0 <= adj_multi_idx[i] < len(self.arr[i]): new_pt[i] = self.arr[i][adj_multi_idx[i]]
-            else: new_pt[i] = pt[i]
-        return new_pt
+        N = len(pts)
+        multi_idx = np.zeros((N, self.dim), dtype=np.int64)
+        for i in range(N):
+            for j in range(self.dim): multi_idx[i,j] = np.where(self.arr[j] == pts[i,j])[0][0]
+        addend = np.zeros((N, self.dim), dtype=np.int64)
+        addend[:, np.abs(dim)-1] = np.zeros(N, dtype=np.int64) + np.sign(dim)
+        adj_multi_idx = np.clip(multi_idx + addend, 0, (self.arr_lens - 1).repeat(N).reshape(self.dim, N).T)
+        new_pts = np.empty((N, self.dim), dtype=np.float64)
+        for i in range(N):
+            for j in range(self.dim): new_pts[i,j] = self.arr[j][adj_multi_idx[i,j]]
+        return new_pts
+
+    def get_idx(self, pts:np.ndarray) -> np.ndarray[int]:
+        """Returns the linearized index of a patch point."""
+
+        multi_idx = np.zeros((len(pts), self.dim), dtype=np.int64)
+        for i in range(len(pts)):
+            for j in range(self.dim):
+                entry = np.where(self.arr[j] == pts[i,j])[0]
+                if len(entry) == 0: raise ValueError("At least one point in pts is not a grid point.")
+                multi_idx[i,j] = entry[0]
+        lin_idx = np.zeros(len(pts), dtype=np.int64)
+        for i in range(self.dim): lin_idx += multi_idx[:,i] * np.prod(self.arr_lens[i+1:])
+        return lin_idx
 
 
 # Grids
 spec_grid = [("patches", types.ListType(Patch.class_type.instance_type)), ("patch_idx", int64[::1]),
+             ("n_patch_pts", int64[::1]), ("del_idx", types.ListType(int64[::1])), ("n_del_pts", int64[::1]),
              ("pts", float64[:,::1]), ("dim", int64)]
 @jitclass(spec_grid)
 class Grid:
@@ -167,13 +189,95 @@ class Grid:
         self.patches:list[Patch] = List([patch])
         self.pts = np.ascontiguousarray(patch.pts)
         self.patch_idx:np.ndarray[int] = np.zeros(len(patch.pts), dtype=np.int64)
+        self.n_patch_pts = np.array([patch.n_pts], dtype=np.int64)
+        self.del_idx:list[np.ndarray] = List([-np.ones(1, dtype=np.int64)])
+        self.n_del_pts = np.zeros(1, dtype=np.int64)
         self.dim = patch.dim
-    
+
+    def finest_patch(self, pts:np.ndarray, min_corner:bool=False, is_patch_pt:bool=False) -> np.ndarray[int]:
+        """Returns the smallest child among the hierarchies of patches the pt is in. If a pt does not belong to any patch,
+        return the root patch.
+        
+        min_corner: Consider also if there exists a cell within that child in which pt is a minimum
+        corner of.
+        
+        is_patch_pt: Consider also if the pt is a patch point of the probed patch."""
+
+        if pts.shape[1] != self.dim: raise ValueError("pt must have the same dimensions as the grid.")
+        patch_idxs = np.empty(len(pts), dtype=np.int64)
+        for i in range(len(pts)):
+            pt = pts[i]; idx = 0
+            while len(self.patches[idx].child_idx) != 0:
+                in_child = False; patch = self.patches[idx]
+                for j in patch.child_idx:
+                    child = self.patches[j]
+                    if child.in_patch(pt):
+                        valid = True
+                        if min_corner and (not child.on_bdary(pt, pos=False)): valid = False
+                        if is_patch_pt and (not child.is_patch_pt(pt)): valid = False
+                        if valid: in_child = True; idx = j; break
+                if not in_child: break
+            patch_idxs[i] = idx
+        return patch_idxs
+
+    def get_idx(self, pts:np.ndarray) -> np.ndarray[int]:
+        """Returns the indices of an array of grid pts."""
+
+        patch_sort_lst = []; idx_lst = []
+        for _ in range(len(self.patches)):
+            patch_sort_lst.append(np.empty((1, self.dim), dtype=np.float64))
+            idx_lst.append(np.empty(1, dtype=np.int64))
+        patch_idxs = self.finest_patch(pts, is_patch_pt=True)
+        for i in range(len(pts)):
+            patch_idx = patch_idxs[i]
+            patch_arr = patch_sort_lst[patch_idx]; idx_arr = idx_lst[patch_idx]
+            patch_sort_lst[patch_idx] = np.vstack((patch_arr, pts[i].reshape(1, self.dim)))
+            idx_lst[patch_idx] = np.append(idx_arr, i)
+        indices = np.empty(len(pts), dtype=np.int64)
+        for i in range(len(self.patches)):
+            if len(patch_sort_lst[i]) == 1: continue
+            patch_sort_lst[i] = patch_sort_lst[i][1:] # Remove placeholder
+            idx_lst[i] = idx_lst[i][1:] # Remove placeholder
+            patch = self.patches[i]
+            patch_idxs = patch.get_idx(patch_sort_lst[i])
+            patch_idxs += np.sum(self.n_patch_pts[:i] - self.n_del_pts[:i])
+            del_pts = self.del_idx[i]
+            for j in range(len(patch_idxs)):
+                if del_pts[0] == -1: grid_idx = patch_idxs[j]
+                else: grid_idx = patch_idxs[j] - len(del_pts[del_pts < patch_idxs[j]])
+                indices[idx_lst[i][j]] = grid_idx
+        return indices
+
+    def adj_pt(self, pts:np.ndarray, dim:int) -> np.ndarray:
+        """Returns the adjacent points of an array of grid points in direction specified by dim."""
+
+        patch_sort_lst = []; idx_lst = []
+        for _ in range(len(self.patches)):
+            patch_sort_lst.append(np.empty((1, self.dim), dtype=np.float64))
+            idx_lst.append(np.empty(1, dtype=np.int64))
+        patch_idxs = self.finest_patch(pts)
+        for i in range(len(pts)):
+            patch_idx = patch_idxs[i]
+            patch_arr = patch_sort_lst[patch_idx]; idx_arr = idx_lst[patch_idx]
+            patch_sort_lst[patch_idx] = np.vstack((patch_arr, pts[i].reshape(1, self.dim)))
+            idx_lst[patch_idx] = np.append(idx_arr, i)
+        adj_pts = np.empty((len(pts), self.dim), dtype=np.float64)
+        for i in range(len(self.patches)):
+            if len(patch_sort_lst[i]) == 1: continue
+            patch_sort_lst[i] = patch_sort_lst[i][1:] # Remove placeholder
+            idx_lst[i] = idx_lst[i][1:] # Remove placeholder
+            patch = self.patches[i]
+            adj_pt_patch = patch.adj_pt(patch_sort_lst[i], dim)
+            for j in range(len(adj_pt_patch)):
+                adj_pts[idx_lst[i][j]] = adj_pt_patch[j]
+        return adj_pts
+
     def add_patch(self, patch:Patch, parent_idx:int=0):
         """Add a patch to the grid.
         
         parent_idx: The index of the parent patch. Default is 0, which indicates the root patch."""
 
+        # Check validity
         parent = self.patches[parent_idx]
         if patch.dim != parent.dim: raise ValueError("The dimensions of the patch must be the same as its parent.")
         patch.parent_idx = parent_idx
@@ -186,60 +290,36 @@ class Grid:
             for i in parent.child_idx:
                 if self.patches[i].in_patch(corner, on_bdary=False):
                     raise ValueError("The patch must not overlap with any other children of the same parent.")
-            # Remove redundant points
-            mask = np.zeros(len(self.pts), dtype=np.bool_)
-            for i in range(len(self.pts)):
-                pt = self.pts[i]
-                mask[i] = not (patch.in_patch(pt, on_bdary=False) or (patch.in_patch(pt) and patch.is_patch_pt(pt)))
-            keep_idx = np.where(mask)
-            self.pts = self.pts[keep_idx]; self.patch_idx = self.patch_idx[keep_idx]
-            # Update
-            new_patch_idx = np.zeros(len(patch.pts), dtype=np.int64) + len(self.patches)
-            self.pts = np.vstack((self.pts, patch.pts))
-            self.patch_idx = np.concatenate((self.patch_idx, new_patch_idx))
-            parent.child_idx.append(len(self.patches))
-            self.patches.append(patch)
-        return self
     
-    def is_grid_pt(self, pt:np.ndarray) -> bool:
-        """Returns if a given pt is a grid point."""
-
+        # Remove redundant points
+        del_patch_idx = np.empty(1, dtype=np.int64)
+        del_pts = np.empty((1, self.dim), dtype=np.float64)
+        for i in range(parent.n_pts):
+            pt = parent.pts[i]
+            if (patch.in_patch(pt, on_bdary=False) or (patch.in_patch(pt) and patch.is_patch_pt(pt))):
+                del_patch_idx = np.append(del_patch_idx, i)
+                del_pts = np.vstack((del_pts, pt.reshape(1, self.dim)))
+        del_patch_idx = del_patch_idx[1:]; del_pts = del_pts[1:] # Remove placeholder
+        del_idx = self.get_idx(del_pts)
+        mask = np.ones(len(self.pts), dtype=np.bool_)
         for i in range(len(self.pts)):
-            if np.max(np.abs(self.pts[i] - pt)) <= 1e-16: return True
-        return False
+            if i in del_idx: mask[i] = 0
+        self.pts = self.pts[mask]; self.patch_idx = self.patch_idx[mask]
+        if self.del_idx[parent_idx][0] == -1: self.del_idx[parent_idx] = del_patch_idx
+        else: self.del_idx[parent_idx] = np.concatenate((self.del_idx[parent_idx], del_patch_idx))
+        self.n_del_pts[parent_idx] += len(del_patch_idx)
 
-    def finest_patch(self, pt:np.ndarray, min_corner:bool=False) -> Patch:
-        """Returns the smallest child among the hierarchies of patches the pt is in.
-        
-        min_corner: Consider also if there exists a cell within that child in which pt is a minimum
-        corner of."""
-
-        if pt.shape[0] != self.dim: raise ValueError("pt must have the same dimensions as the grid.")
-        
-        patch = self.patches[0]
-        while len(patch.child_idx) != 0:
-            in_child = False
-            for i in patch.child_idx:
-                child = self.patches[i]
-                if child.in_patch(pt):
-                    if (not min_corner) or (min_corner and child.on_bdary(pt, pos=False)): 
-                        in_child = True; patch = child; break
-            if not in_child: return patch
-        return patch
-
-    def get_idx(self, pts:np.ndarray) -> np.ndarray[int]:
-        """Returns the index of an array of patch pts."""
-
-        indices = np.empty(len(pts), dtype=np.int64); not_found = np.arange(len(pts), dtype=np.int64)
-        for i in range(len(self.pts)):
-            mask = np.ones(len(not_found), dtype=np.bool_)
-            for j in range(len(not_found)):
-                if np.max(np.abs(self.pts[i] - pts[not_found[j]])) <= 1e-16:
-                    indices[not_found[j]] = i; mask[j] = 0
-            not_found = not_found[mask]
-            if len(not_found) == 0: return indices
-        raise ValueError("pt must be a grid point.")
-    
+        # Update
+        new_patch_idx = np.zeros(len(patch.pts), dtype=np.int64) + len(self.patches)
+        self.patch_idx = np.concatenate((self.patch_idx, new_patch_idx))
+        self.pts = np.vstack((self.pts, patch.pts))
+        self.n_patch_pts = np.append(self.n_patch_pts, patch.n_pts)
+        self.del_idx.append(-np.ones(1, dtype=np.int64))
+        self.n_del_pts = np.append(self.n_del_pts, 0)
+        parent.child_idx.append(len(self.patches))
+        self.patches.append(patch)
+        return self   
+ 
     def get_cell(self, pts:np.ndarray) -> tuple[np.ndarray[float]]:
         """Returns the cell in the finest patch the pt is in.
         If pt is outside the grid, return the closest cell.
@@ -249,8 +329,9 @@ class Grid:
         
         min_cell = np.empty((len(pts), self.dim), dtype=np.float64)
         max_cell = np.empty((len(pts), self.dim), dtype=np.float64)
+        patch_idxs = self.finest_patch(pts, min_corner=True)
         for i in range(len(pts)):
-            patch = self.finest_patch(pts[i], min_corner=True)
+            patch = self.patches[patch_idxs[i]]
             pt = np.clip(pts[i], patch.mins, patch.maxs) # Assume vanishing partial derivative outside the grid
             for j in range(self.dim):
                 idx = np.where(patch.arr[j] <= pt[j])[0][-1]
@@ -295,21 +376,21 @@ class Function:
             self.dvals[i] = dval
     
     def diff_vals(self, vals:np.ndarray, dim:int) -> np.ndarray[float]:
-        """Returns the derivative of the function over the grid given by vals with respect to the dimension."""
+        """Returns the derivative of the function over the grid given by vals with respect to the dimension.
         
+        vals: The value corresponding to every point within the grid."""
+        
+        if vals.shape[0] != len(self.grid.pts): raise ValueError("Number of values not equal to the number of grid points.")
         if not (0 <= dim <= self.dim-1): raise ValueError("Invalid value for dim.")
 
-        derivs = np.empty((len(self.grid.pts), self.entries), dtype=np.float64)
-        for i in range(len(self.grid.pts)):
-            patch:Patch = self.grid.patches[self.grid.patch_idx[i]]
-            pt = self.grid.pts[i]
-            adj_p = patch.adj_pt(pt, dim+1); adj_m = patch.adj_pt(pt, -(dim+1))
-            if not self.grid.is_grid_pt(adj_p): adj_p = pt
-            if not self.grid.is_grid_pt(adj_m): adj_m = pt
-            idx_p, idx_m = self.grid.get_idx(np.vstack((adj_p, adj_m)))
-            h = (adj_p - adj_m)[dim]; delta = vals[idx_p] - vals[idx_m]
-            if h == 0: derivs[i] = np.zeros(self.entries, dtype=np.float64)
-            else: derivs[i] = delta / h
+        N = len(self.grid.pts)
+        adj_p = self.grid.adj_pt(self.grid.pts, dim+1)
+        adj_m = self.grid.adj_pt(self.grid.pts, -(dim+1))
+        indices = self.grid.get_idx(np.vstack((adj_p, adj_m)))
+        idx_p = indices[:N]; idx_m = indices[N:]
+        h = (adj_p - adj_m)[:,dim].repeat(self.entries).reshape(N, self.entries)
+        delta = vals[idx_p] - vals[idx_m]
+        derivs = np.where(h > 0, delta / h, 0)
         return derivs
 
     def interp(self, pts:np.ndarray) -> np.ndarray[float]:
@@ -418,8 +499,8 @@ class Function:
 
 
 # Color Converters
-spec_colconvert = [("grid", Grid.class_type.instance_type), ("sorted_wvls", float64[::1]), ("A_W", float64[:,::1]),
-                   ("D", float64[:,::1]), ("norm_scal", float64), ("norm_lux", float64)]
+spec_colconvert = [("grid", Grid.class_type.instance_type), ("sorted_wvls", float64[::1]), ("vis_wvls", float64[::1]),
+                   ("A_W", float64[:,::1]), ("D", float64[:,::1]), ("norm_scal", float64), ("norm_lux", float64)]
 @jitclass(spec_colconvert)
 class ColConverter:
     """Calculate the spectral intensity (in W m^-2 nm^-1) and RGB values for a given color.
@@ -430,10 +511,17 @@ class ColConverter:
     norm_lux: A reference luminous intensity, equal to that of bright daylight (blackbody spectrum at 6504 K).
     Every conversion scales accordingly (so bright white gives back the blackbody spectrum)."""
 
-    def __init__(self, norm_lux:float=1e5):
+    def __init__(self, grid:Grid, norm_lux:float=1e5):
+        if grid.dim != 1: raise ValueError("grid must have dimension 1.")
+        if np.min(grid.pts) > 380 or np.max(grid.pts) < 780:
+            raise ValueError("Grid must contain the entirety of the visible spectrum, from 380 to 780 nm.")
+
         self.norm_lux = norm_lux
-        self.grid = Grid(Patch([np.linspace(380, 780, 41)]))
+        self.grid = grid
         self.sorted_wvls = np.sort(np.ascontiguousarray(self.grid.pts).reshape(len(self.grid.pts)))
+        self.vis_wvls = self.sorted_wvls[(self.sorted_wvls >= 380) & (self.sorted_wvls <= 780)]
+        if len(self.vis_wvls) == 1: raise ValueError("There must be at least two grid points inside the visible spectrum.")
+
         self.norm_scal = self.get_norm_scal()
         self.A_W = self.get_A_W()
         self.D = self.get_D()
@@ -475,7 +563,7 @@ class ColConverter:
     def get_A_W(self) -> np.ndarray:
         """The matrix used for the constraint equation on reflectance."""
 
-        wvls = self.sorted_wvls
+        wvls = self.vis_wvls
         col_bases = self.get_col_bases(wvls).T
         W = self.d65(wvls).repeat(3).reshape((len(wvls), 3)) * self.norm_scal
         diff_wvls = np.diff(wvls); diff_wvls = np.append(diff_wvls, diff_wvls[-1])
@@ -486,9 +574,9 @@ class ColConverter:
     def get_D(self) -> np.ndarray:
         """The difference matrix that penalizes big changes in slopes."""
 
-        N = len(self.grid.pts)
+        N = len(self.vis_wvls)
         D = np.zeros((N, N), dtype=np.float64)
-        h = np.diff(self.sorted_wvls)
+        h = np.diff(self.vis_wvls)
         for i in range(N-1):
             inv_h = 1 / h[i]
             D[i,i] += inv_h; D[i+1,i+1] += inv_h
@@ -498,7 +586,7 @@ class ColConverter:
     def lhtss_iter(self, z:np.ndarray, tst_vals:np.ndarray) -> np.ndarray: # Newton's method for solving a non-linear system of eqs
         """An iteration of the LHTSS method."""
         
-        N = len(self.grid.pts)
+        N = len(self.vis_wvls)
         R = (np.tanh(z) + 1) / 2
         dR = np.diag((1 - np.tanh(z)**2) / 2)
         tst_vals_cur = self.A_W.T @ R
@@ -512,14 +600,19 @@ class ColConverter:
         """Calculates the reflectance for a given triplet of tristimulus values by solving for the
         least-hyperbolic-tangent-squared-slope (LHTSS) graph (so that it stays between 0 and 1)."""
 
-        z = np.zeros(len(self.grid.pts), dtype=np.float64) # Initial guess, R = 0.5 everywhere
+        z = np.zeros(len(self.vis_wvls), dtype=np.float64) # Initial guess, R = 0.5 everywhere
         last_dz = np.inf # To check if sequence is converging
         for _ in range(50):
             dz = self.lhtss_iter(z, tst_vals); z += dz
             max_dz = np.max(np.abs(dz))
             if max_dz <= 1e-4 or max_dz >= last_dz: break # End loop if change is small or if diverging
             last_dz = max_dz
-        return (np.tanh(z) + 1) / 2
+        R = (np.tanh(z) + 1) / 2
+        R_m = np.zeros(len(np.where(self.sorted_wvls < 380)[0]), dtype=np.float64)
+        R_p = np.zeros(len(np.where(self.sorted_wvls > 780)[0]), dtype=np.float64)
+        if len(R_m) != 0: R = np.concatenate((R_m, R))
+        if len(R_p) != 0: R = np.concatenate((R, R_p))
+        return R
 
     def get_tst_vals(self, spec_int:Function) -> np.ndarray:
         """Computes the tristimulus values for a given spectral intensity function."""
@@ -566,4 +659,4 @@ class ColConverter:
         rgb = np.clip(np.where(rgb_lin <= 0.0031308, rgb_lin*12.92, 1.055*(rgb_lin)**(1/2.4) - 0.055), 0, 1)
         return rgb
 
-def_cc = ColConverter() # Initialize default color converter
+def_cc = ColConverter(Grid(Patch([np.linspace(380, 780, 41)]))) # Initialize default color converter
