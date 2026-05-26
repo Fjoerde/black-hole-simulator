@@ -7,7 +7,7 @@ from Classes.math import *
 from Classes.tags import *
 from Classes.physics import GravField
 from Classes.int_and_settings import Integrator, RenderSettings
-from rendering import *
+from render.img_rendering import *
 
 
 def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray:

@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 from Classes.math import *
 from Classes.int_and_settings import RenderSettings
-from rendering import *
+from render.img_rendering import *
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))

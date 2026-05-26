@@ -9,7 +9,7 @@ from Classes.math import *
 from Classes.physics import GravField
 from Classes.int_and_settings import RenderSettings
 from Classes.tags import *
-from rendering import render_img
+from img_rendering import render_img
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -22,8 +22,8 @@ def get_gas(pts):
     x, y, z = pts[:,1], pts[:,2], pts[:,3]
     s = np.sqrt(x**2 + y**2) - 5
     d = np.sqrt(s**2 + z**2)
-    temp = 2e4 * np.exp(-d**2/5)
-    ext_coeff = 0.125 * np.exp(-d**2/5)
+    temp = 2e4 * np.exp(-d**2/4)
+    ext_coeff = 0.125 * np.exp(-d**2/4)
     gas_params = np.zeros((len(pts), 6), dtype=np.float64); gas_params[:,0] += 1
     gas_params[:,4] = temp; gas_params[:,5] = ext_coeff
     return gas_params
@@ -50,7 +50,7 @@ rendered_img, ang_dev_img, specint_img = render_img(settings)
 rendered_filename = "test23.png"
 angdev_filename = "ang_dev1.png"
 specint_filename = "spec_int1.png"
-render_img.save(f"Images/{rendered_filename}") 
+rendered_img.save(f"Images/{rendered_filename}") 
 ang_dev_img.save(f"Images/{angdev_filename}")
 specint_img.save(f"Images/{specint_filename}")
   

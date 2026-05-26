@@ -127,7 +127,7 @@ class Integrator:
 
 
 # Render Settings
-spec_settings = [("w", int64), ("h", int64), ("f", float64), ("aspect", float64),
+spec_settings = [("w", int64), ("h", int64), ("f", float64), ("t", float64), ("aspect", float64),
                  ("cam_pos", Vec.class_type.instance_type), ("cam_dir", Vec.class_type.instance_type), ("cam_vel", Vec.class_type.instance_type),
                  ("cam_u", Vec.class_type.instance_type), ("cam_v", Vec.class_type.instance_type),
                  ("scene", types.ListType(Hittable.class_type.instance_type)),
@@ -144,7 +144,7 @@ class RenderSettings:
     bg_rad: Radius of the background box."""
 
     def __init__(self, w:int=800, h:int=600, f:float=1, # Width, height of image, focal length of camera
-                 cam_pos:Vec=Vec(0,0,0), cam_vel:Vec=Vec(0,0,0), # Position and velocity of camera
+                 cam_pos:Vec=Vec(0,0,0), cam_vel:Vec=Vec(0,0,0), t:float=0, # Position and velocity of camera, t-coordinate
                  rot:tuple[float,float,float]=(0,np.pi/2,0), # Yaw, pitch, and roll
                  scene:list[Hittable]=def_scene, background:np.ndarray=np.zeros((1,1,3), dtype=np.float64), bg_rad:float=20, 
                  col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
@@ -159,6 +159,7 @@ class RenderSettings:
         self.w = w
         self.h = h
         self.f = f
+        self.t = t
         self.cam_pos = cam_pos
         self.cam_dir = Vec(np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta))
         self.cam_vel = cam_vel
@@ -176,8 +177,7 @@ class RenderSettings:
         phi, _, xi = rot
         cam_u = Vec(np.sin(phi), -np.cos(phi), 0)
         X = cam_u; Y = self.cam_dir.cross(X)
-        cam_u = np.cos(xi) * X + np.sin(xi) * Y
-        cam_v = cam_u.cross(self.cam_dir)
+        cam_u = np.cos(xi) * X + np.sin(xi) * Y; cam_v = -Y
         return cam_u, cam_v
 
     def ray_dir_px(self, x:int, y:int) -> Vec:
@@ -215,7 +215,7 @@ class RenderSettings:
         J = self.grav_field.jacobian(x_src); g = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
         g = (g @ J) @ J
         D_src = (g @ k_src) @ np.array([1,0,0,0], dtype=np.float64)
-        D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel, self.cam_pos.four_vec(0))
+        D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel, self.cam_pos.four_vec(self.t))
         if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
         else: D = D_src / D_obs
 
@@ -242,3 +242,53 @@ class RenderSettings:
             new_specint = Function(spec_int.grid, np.ascontiguousarray(spec_vals))
             return new_specint
         else: return spec_int
+
+
+# Video Settings
+spec_vidsettings = [("w", int64), ("h", int64), ("f", float64), ("tau_scale", float64),
+                    ("cam_worldline", Function.class_type.instance_type), ("fps", float64), ("frame_num", int64),
+                    ("scene", types.ListType(Hittable.class_type.instance_type)),
+                    ("background", float64[:,:,::1]), ("bg_rad", float64), ("col_converter", ColConverter.class_type.instance_type),
+                    ("gas", Function.class_type.instance_type), ("grav_field", GravField.class_type.instance_type)]
+@jitclass(spec_vidsettings)
+class VidSettings:
+    def __init__(self, w:int=800, h:int=600, f:float=1, tau_scale:float=1,
+                 cam_worldline:Function=Function(), fps:float=30, frame_num=100, # Camera worldline parametrized by proper time
+                 scene:list[Hittable]=def_scene, background:np.ndarray=np.zeros((1,1,3), dtype=np.float64), bg_rad:float=20, 
+                 col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
+        self.w = w
+        self.h = h
+        self.f = f
+        self.tau_scale = tau_scale
+        self.cam_worldline = cam_worldline
+        self.fps = fps
+        self.frame_num = frame_num
+        self.scene = List(scene)
+        self.background = background
+        self.bg_rad = bg_rad
+        self.col_converter = col_converter
+        self.gas = gas
+        self.grav_field = grav_field
+
+        self.aspect = self.w / self.h
+        self.frame_t, self.frame_pos, self.frame_vel = self.get_frame_param()
+
+    def viewport_basis(self, rot) -> tuple[Vec, Vec, Vec]:
+        phi, theta, xi = rot
+        cam_dir = Vec(np.cos(phi)*np.sin(theta), np.sin(phi)*np.sin(theta), np.cos(theta))
+        cam_u = Vec(np.sin(phi), -np.cos(phi), 0)
+        X = cam_u; Y = self.cam_dir(rot).cross(X)
+        cam_u = np.cos(xi) * X + np.sin(xi) * Y; cam_v = -Y
+        return cam_dir, cam_u, cam_v
+
+    def get_frame_param(self) -> tuple[np.ndarray[float], list[Vec], list[Vec]]:
+        delta_tau = (1 / self.tau_scale) / self.fps
+        taus = np.arange(0, delta_tau*self.frame_num, delta_tau, dtype=np.float64)
+        cam_four_pos = self.cam_worldline.interp(taus.reshape(self.frame_num, 1))
+        ts = cam_four_pos[:,0]; pos = []; vel = []
+        for i in range(self.frame_num):
+            pos.append(Vec(cam_four_pos[i,1], cam_four_pos[i,2], cam_four_pos[i,3]))
+            vel.append(Vec(cam_four_pos[i,5], cam_four_pos[i,6], cam_four_pos[i,7]))
+        return ts, pos, vel
+
+    
