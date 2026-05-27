@@ -119,7 +119,7 @@ static double comp_L0K(double r, double M, double a, double Q) {
 static double torus_pot (const metriccomp& mc, double l, double W_in) {
     double utsq = comp_utsq(mc,l);
     if(std::abs(utsq)<=1e-14) return -1e30; // degeneracy if outside region 
-    return 0.5*std::log(std::abs(utsq));
+    return 0.5*std::log(utsq);
 }
 
 // torus initialisation
@@ -129,26 +129,49 @@ void init::fm_init(amrtree& tree) {
     double a = tree.mtr.a;
     double Q = tree.mtr.Q;
     double Gamma = tree.stt.gamma;
-    double r_max = 12*M;
+    const double r_max = 30.0*M; // <-- <-- FREE PARAMETER
+    const double r_in = 10.0*M;
     double l0 = comp_L0K(r_max,M,a,Q);
     // rotation parameters for isco
     // double Z1 = 1.0+pow(1.0-(a/M)*(a/M),1.0/3.0)*(pow(1+a/M,1.0/3.0)+pow(1-a/M,1.0/3.0));
     // double Z2 = std::sqrt(3*(a/M)*(a/M)+Z1*Z1);
     // inner and outer torus limits
     double r_H = tree.mtr.M*(1.0+std::sqrt(1.0-(tree.mtr.a/tree.mtr.M)*(tree.mtr.a/tree.mtr.M)-(tree.mtr.Q/tree.mtr.M)*(tree.mtr.Q/tree.mtr.M)));
-    double rl = 1.25*r_H;
-    double rh = r_max-1e-4*r_H;
+    
     // solve for inner torus radius by bisection
     metriccomp mcmax = tree.mtr.comp(r_max,M_PI/2.0);
-    double W_max = 0.5*std::log(std::abs(comp_utsq(mcmax,l0)));
-    for(int i=0; i<1000; i++) {
-        const double rm = 0.5*(rl+rh);
-        const metriccomp mcm = tree.mtr.comp(rm,M_PI/2.0);
-        const double W_mid = 0.5*std::log(std::abs(comp_utsq(mcm,l0)));
-        (W_mid<W_max)? rl = rm : rh = rm;
-        if(rh-rl<1e-10*M) break;
+    const double utsq_max = comp_utsq(mcmax,l0);
+    if(utsq_max<=0.0 || !std::isfinite(utsq_max)) {
+        std::cerr << "init::fm_init threw up an error: u_{t}^2 is nonpositive at r_max! Check r_max or L_0.\n";
+        return;
     }
-    const double r_in = 0.5*(rl+rh);
+    
+    // double W_max = 0.5*std::log(utsq_max);
+    // double WFmin = W_max;
+    // double rFmin = r_max;
+    // for(double rsc=1.05*r_H; rsc<r_max; rsc+=0.05*M) {
+    //     const metriccomp mcs = tree.mtr.comp(rsc,M_PI/2.0);
+    //     const double utsq_s = comp_utsq(mcs,l0);
+    //     if(utsq_s<=0.0 || !std::isfinite(utsq_s)) continue;
+    //     const double Ws = 0.5*std::log(utsq_s);
+    //     if(Ws<WFmin) {
+    //         WFmin = Ws;
+    //         rFmin = rsc;
+    //     }
+    // }
+    // double rl = rFmin;
+    // double rh = r_max-1e-6*r_H;
+    // for(int i=0; i<1000; i++) {
+    //     const double rm = 0.5*(rl+rh);
+    //     const metriccomp mcm = tree.mtr.comp(rm,M_PI/2.0);
+    //     double utsq_mid = comp_utsq(mcm,l0);
+    //     if(utsq_mid<=0.0) {rl=rm; continue;}
+    //     const double W_mid = 0.5*std::log(utsq_mid);
+    //     (W_mid<W_max)? rl = rm : rh = rm;
+    //     if(rh-rl<1e-10*M) break;
+    // }
+    // const double r_in = 0.5*(rl+rh);
+    // const double W_in = W_max;
     // double r_in = 2.5*M*(3.0+Z2-std::sqrt((3.0-Z1)*(3.0+Z1+2.0*Z2)));
     // density scale so that \rho_{max}=1 in code units
     double K = 0.01*pow(M,Gamma-1.0);
@@ -240,11 +263,11 @@ void init::fm_init(amrtree& tree) {
     // inner radius potential
     metriccomp mc_in = tree.mtr.comp(r_in,M_PI/2.0);
     double utsq_in = comp_utsq(mc_in,l0);
-    // if(utsq_in<=0.0) {
-    //     std::cerr << "Fishbone-Moncrief torus initialisation threw back an error at inner edge: u_t^2 is nonpositive! Check inner radius.\n";
-    //     return;
-    // }
-    double W_in = 0.5*std::log(std::abs(utsq_in));
+    if(utsq_in<=0.0) {
+        std::cerr << "Fishbone-Moncrief torus initialisation threw back an error at inner edge: u_t^2 is nonpositive! Check maximum radius.\n";
+        return;
+    }
+    double W_in = 0.5*std::log(comp_utsq(mc_in,l0));
     std::cout << "Initialisation diagnostic at inner radius: g_{tt} = " << mc_in.g[0][0] << "\n";
     std::cout << "Initialisation diagnostic at inner radius: g_{tphi} = " << mc_in.g[0][3] << "\n";
     std::cout << "Initialisation diagnostic at inner radius: g_{phiphi} = " << mc_in.g[3][3] << "\n";
@@ -264,10 +287,11 @@ void init::fm_init(amrtree& tree) {
                     if(r<1.05*tree.mtr.M || std::abs(std::sin(th))<0.01) continue;
                     metriccomp mc = tree.mtr.comp(r,th);
                     double W = torus_pot(mc,l0,W_in);
-                    double h = std::exp(W-W_in);
-                    std::cout << "init::fm_init diagnostic for h: " << h << "\n";
+                    double DelW = W-W_in;
+                    double h = std::exp(2*DelW);
+                    // std::cout << "init::fm_init diagnostic for h: " << h << "\n";
                     // std::cout << "init::fm_init diagnostic for torus potential: " << W_in << "\n";
-                    if(W>W_in && std::isfinite(W)) {
+                    if(DelW>0.0 && std::isfinite(W)) {
                         double rho = pow((Gamma-1.0)*(h-1)/(Gamma*K),1.0/(Gamma-1.0));
                         if(std::isfinite(rho)) rho_max = std::max(rho_max,rho);
                         // std::cout << "init::fm_init diagnostic for density: " << rho << "\n";
@@ -301,9 +325,9 @@ void init::fm_init(amrtree& tree) {
                     double W_pot = torus_pot(mc,l0,W_in);
                     double DelW = W_pot-W_in;
                     // values inside torus
-                    if(W_pot>W_in) {
+                    if(DelW>0.0) {
                         // density and energy
-                        double h = std::exp(W_pot-W_in);
+                        double h = std::exp(2*DelW);
                         double rho = rho_scal*pow((Gamma-1.0)*(h-1)/(Gamma*K),1.0/(Gamma-1.0));
                         double prs = K*pow(rho,Gamma);
                         double eps = prs/((Gamma-1.0)*rho);

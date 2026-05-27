@@ -16,7 +16,7 @@ namespace integ {class rk2integrator;}
 
 namespace grid {
 // sizing constants
-static constexpr int block = 8; // active cells per patch per dimension
+static constexpr int block = 16; // active cells per patch per dimension
 static constexpr int ghost = 2; // ghost halo width (= RK order)
 static constexpr int cpn = block + 2*ghost;
 
