@@ -80,15 +80,19 @@ namespace params {
     constexpr double max_steps = 1000; // step count hard limit (this is now frames)
 }
 using namespace params;
+// import all namespaces
+using torus::init;
+using grid::patch;
+using grid::amrtree;
 
 // main function
 int main() {
     std::cout << "Initialising grid...\n";
     // construct the amr tree
-    std::array<double,3> dom_l = {params::dom_lo,params::dom_lo,params::dom_lo};
-    std::array<double,3> dom_h = {params::dom_hi,params::dom_hi,params::dom_hi};
-    amrtree tree(dom_l,dom_h,params::nqlt,params::M,params::a,params::Q,params::Gamma);
-    std::cout << params::nqlt*params::nqlt*params::nqlt << " patches have been instantiated.\n";
+    std::array<double,3> dom_l = {dom_lo,dom_lo,dom_lo};
+    std::array<double,3> dom_h = {dom_hi,dom_hi,dom_hi};
+    amrtree tree(dom_l,dom_h,nqlt,M,a,Q,Gamma);
+    std::cout << nqlt*nqlt*nqlt << " patches have been instantiated.\n";
     // initalise torus
     std::cout << "Initialising torus...\n";
     init::fm_init(tree);
@@ -152,7 +156,7 @@ int main() {
         }
     }
     // set up runge-kutta integrator and time loop
-    integ::rk2integrator rk(params::cfl);
+    rk2integrator rk(params::cfl);
     double t = 0.0;
     int step = 0;
     // bool ok = true;
