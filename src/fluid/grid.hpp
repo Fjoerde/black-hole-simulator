@@ -137,8 +137,8 @@ public:
 
     // floor states for when reconstruction of primitives fails
     prim pvfs(double r, double th);
-    static constexpr double rho_floor_r0 = 1e-7; // REDEFINE
-    static constexpr double eps_floor_r0 = 1e-5; // REDEFINE
+    static constexpr double rho_floor_r0 = 1e-4; // REDEFINE
+    static constexpr double eps_floor_r0 = 1e-4; // REDEFINE
     static constexpr double r_floor_ref = 1.0; // REDEFINE
     static constexpr double T_floor = 0.001; // REDEFINE
 };

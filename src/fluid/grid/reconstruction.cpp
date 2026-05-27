@@ -88,7 +88,7 @@ facestate reconfp(const patch& p, int i, int j, int k, int dim, limiter lim) {
             // no normal component reconstruction; overwrite later
             fs.L.B[i] = Wc.B[i]; fs.R.B[i] = Wp.B[i];
         } else {
-            std::array<double,2> JRE = recon_scal(Wm.v[i],Wc.v[i],Wp.v[i],Wpp.v[i],lim);
+            std::array<double,2> JRE = recon_scal(Wm.B[i],Wc.B[i],Wp.B[i],Wpp.B[i],lim);
             fs.L.B[i] = JRE[0]; fs.R.B[i] = JRE[1];
         }
     }

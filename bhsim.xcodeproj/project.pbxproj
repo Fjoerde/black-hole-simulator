@@ -169,6 +169,7 @@
 		E41E247A2FC0CF4900605CD2 /* diagnostics.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = diagnostics.py; sourceTree = "<group>"; };
 		E41E247B2FC0CF4900605CD2 /* rendering.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = rendering.py; sourceTree = "<group>"; };
 		E41E247C2FC0CF4900605CD2 /* test.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test.py; sourceTree = "<group>"; };
+		E45D831C2FC50732007642BF /* analysis.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = analysis.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -232,9 +233,11 @@
 		E41E24012FC0CF4900605CD2 /* fluid */ = {
 			isa = PBXGroup;
 			children = (
+				E45D831D2FC5073E007642BF /* data */,
 				E41E23E92FC0CF4900605CD2 /* grid */,
 				E41E23EE2FC0CF4900605CD2 /* physics */,
 				E41E23F22FC0CF4900605CD2 /* solver */,
+				E45D831C2FC50732007642BF /* analysis.hpp */,
 				E41E23F32FC0CF4900605CD2 /* build.sh */,
 				E41E23F42FC0CF4900605CD2 /* cell.hpp */,
 				E41E23F52FC0CF4900605CD2 /* cons.hpp */,
@@ -474,6 +477,13 @@
 				E41E247D2FC0CF4900605CD2 /* render */,
 			);
 			path = src;
+			sourceTree = "<group>";
+		};
+		E45D831D2FC5073E007642BF /* data */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = data;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

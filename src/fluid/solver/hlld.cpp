@@ -41,6 +41,7 @@ static double fastspeed(double rho, double h, double b2, double cs2) {
 static void magcomp(const prim& W, const metriccomp& mc, int dim, double& b2, double& pt, double& Bn, double& Bt1, double& Bt2, double& vn, double& vt1, double& vt2, double& v2, double& ltz, double& ltz2) {
     int t1 = (dim+1)%3, t2 = (dim+2)%3;
     // velocity and lorentz factor
+    v2 = 0.0;
     double vlow[3] = {}, Blow[3] = {};
     for(int i=0; i<3; i++) {
         for(int j=0; j<3; j++) {
@@ -185,8 +186,14 @@ static void alfstar_stt(const cons_stt& UxL, const cons_stt& UxR, const side& L,
     UxxL.Bt1 = Bt1xx; UxxR.Bt1 = Bt1xx;
     UxxL.Bt2 = Bt2xx; UxxR.Bt2 = Bt2xx;
     UxxL.Sn = UxL.D*SM; UxxR.Sn = UxR.D*SM;
-    UxxL.tau = UxL.tau-sq_DL*sgnBn*(UxL.St1/(UxL.D*UxL.Bt1)+UxL.St2/(UxL.D*UxL.Bt2)-vt1xx*Bt1xx-vt2xx*Bt2xx)-UxL.D;
-    UxxR.tau = UxR.tau-sq_DR*sgnBn*(UxR.St1/(UxR.D*UxR.Bt1)+UxR.St2/(UxR.D*UxR.Bt2)-vt1xx*Bt1xx-vt2xx*Bt2xx)-UxR.D;
+    const double vt1xL = UxL.St1 / UxL.D;
+    const double vt2xL = UxL.St2 / UxL.D;
+    const double vt1xR = UxR.St1 / UxR.D;
+    const double vt2xR = UxR.St2 / UxR.D;
+    UxxL.tau = UxL.tau-sq_DL*sgnBn*(vt1xx*Bt1xx+vt2xx*Bt2xx-vt1xL*UxL.Bt1-vt2xL*UxL.Bt2);
+    UxxR.tau = UxR.tau+sq_DR*sgnBn*(vt1xx*Bt1xx+vt2xx*Bt2xx-vt1xR*UxR.Bt1-vt2xR*UxR.Bt2);
+    // UxxL.tau = UxL.tau-sq_DL*sgnBn*(UxL.St1/(UxL.D*UxL.Bt1)+UxL.St2/(UxL.D*UxL.Bt2)-vt1xx*Bt1xx-vt2xx*Bt2xx)-UxL.D;
+    // UxxR.tau = UxR.tau-sq_DR*sgnBn*(UxR.St1/(UxR.D*UxR.Bt1)+UxR.St2/(UxR.D*UxR.Bt2)-vt1xx*Bt1xx-vt2xx*Bt2xx)-UxR.D;
 }
 // intermediate state flux
 static cons_stt interflux(const cons_stt& F_K, double SK, const cons_stt& Ux, const side& s_K) {
@@ -226,8 +233,8 @@ hlldflux hlld(const prim& WL, const prim& WR, const cons& UL, const cons& UR, co
     side R = side_(WR,UR,mc,stt,sg,dim);
 
     // wave speeds estimates and fluxes
-    double SL = std::min(L.vn-L.cf,R.vn-R.cf);
-    double SR = std::max(L.vn+L.cf,R.vn+R.cf);
+    double SL = std::min(mc.alpha*(L.vn-L.cf)-mc.beta[dim],mc.alpha*(R.vn-R.cf)-mc.beta[dim]);
+    double SR = std::max(mc.alpha*(L.vn+L.cf)-mc.beta[dim],mc.alpha*(R.vn+R.cf)-mc.beta[dim]);
     cons_stt FL = physflux(L,mc,dim); cons_stt FR = physflux(R,mc,dim);
     fx.ctspeed = std::max(std::abs(SL),std::abs(SR));
     if(SR-SL<1e-12) {
@@ -293,7 +300,8 @@ hlldflux hlld(const prim& WL, const prim& WR, const cons& UL, const cons& UR, co
         fx.F = flux(hll_flux(L,R,FL,FR,SL,SR),sg,dim);
     }
     if(fx.ctspeed>1.0) {
-        fx.ctspeed = 1.0;
+        fx.F = flux(hll_flux(L,R,FL,FR,SL,SR),sg,dim);
+        fx.ctspeed = std::min(fx.ctspeed,1.0);
     }
 
     return fx;

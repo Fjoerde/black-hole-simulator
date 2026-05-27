@@ -19,6 +19,7 @@
 #include "initial.hpp"
 #include "ct.hpp"
 #include "data.hpp"
+#include "analysis.hpp"
 
 // this is the main document for the fluid side of the project, and
 // contains the iteration loop. this document is most heavily
@@ -32,6 +33,26 @@
 using namespace grid;
 using namespace torus;
 using namespace integ;
+
+// operation parameters
+// DO NOT SET ALL THREE EQUAL TO true SIMULTANEOUSLY!
+// when set to true, grid data is written to a binary file. usually
+// set to false when running tests to improve run speed. DO NOT SET
+// TO TRUE WHEN RUNNING ON THE HPC EXCEPT FOR DATA COLLECTION RUNS!
+bool data_write = false;
+// when set to true, the full detailed analysis of the data is done
+// over the entire length of the simulation, printing values at the
+// end of the simulation run. otherwise, a small selection of simpler
+// quantitative values are output at the start of the simulation.
+// usually set to false when running tests to improve run speed.
+bool analyse_full = false;
+// when set to true, all quantitative results are printed after the
+// integrator has fully finished, all in one large bundle. otherwise,
+// quantitative results are printed after every timestep of the
+// integrator. usually set to false when running diagnostic tests.
+// RECOMMENDED: avoid setting this false if analyse_full = true,
+// except for when absolutely necessary for physical tests.
+bool results_bundle = true;
 
 // simulation parameters
 // note: units are a complete mess, ah well it's fine, geometrised
@@ -103,17 +124,18 @@ int main() {
                 }
             }
         }
-        // std::cout << "Torus cells in patch " << p << ": " << torc << "\nMaximum density: " << rhcheck << "\n";
-        // if(torc==0) {
-        //    std::cerr << "Fishbone-Moncrief torus initialisation threw back an error: no torus cells initialised!\n";
-        //    return 1;
-        // }
+    }
+    std::cout << "Torus cells in grid: " << ": " << torc << "\nMaximum density: " << rhcheck << "\n";
+    if(torc==0) {
+       std::cerr << "Fishbone-Moncrief torus initialisation threw back an error: no torus cells initialised!\n";
+       return 1;
     }
     std::cout << "Maximum density across the entire grid: " << rho_max << "\n";
     // initialise magnetic field
     std::cout << "Initialising magnetic field...\n";
     for(const auto& p : tree.quilt) {
         init::B_pot_init(*p,tree.mtr,rho_max);
+        std::cout << "Initial density diagnostic : " << p->cell_(3,3,3).W.rho << "\n";
     }
     // convert primitives to conserveds in all cells
     std::cout << "Converting primitive variables to conserved variables...\n";
@@ -124,6 +146,7 @@ int main() {
                     cell& c = p->cell_(i,j,k);
                     c.U = tree.cnsv.ptoc(c.W,c.r,c.th);
                     // std::cout << "hi" << c.U.D << "\n"; // credit to vincent for the absolutely goated "hi" method of debugging
+                    // std::cout << "Reconstructed density diagnostic: " << c.W.rho << "\n";
                 }
             }
         }
@@ -141,6 +164,9 @@ int main() {
         t += dt;
         step++;
         std::cout << "Integrating at time: t = " << t << ", with timestep: dt = " << dt << "\n";
+        // for(auto& p : tree.quilt) {
+        //     std::cout << "Evolution density diagnostic: " << p->cell_(4,4,4).W.rho << "    " << p->cell_(4,4,4).U.D << "\n";
+        // }
     }
     std::cout << "Integrator finished with coordinate time " << t << " in " << step << " steps." << "\n";
     return 0;

@@ -173,6 +173,7 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
     for(int i=0; i<maxiter; i++) {
         double dF;
         double F = f_df(xi, Ssq, Bsq, SB, D, tau, dF);
+        if(std::abs(F)<tol) break; // convergence check
         if(std::abs(dF)<1e-30) {
             nr_ok_la = false;
             break;
@@ -187,7 +188,8 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
     // use brent if newton-raphson fails
     if(!nr_ok_la) {
         double xib;
-        if(!cp_bd(xi_l,xi_h,Ssq,Bsq,SB,D,tau,xib,1e-10)) return false;
+        if(!cp_bd(xi_l,xi_h,Ssq,Bsq,SB,D,tau,xib,tol)) return false;
+        xi = xib;
     }
     // reconstruct primitives
     double xpQ = xi+Bsq;

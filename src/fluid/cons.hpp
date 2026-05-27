@@ -72,8 +72,8 @@ public:
 
     // conserved to primitive reconstruction
     // false returned when root solver fails and diverges
-    bool ctop(const cons& cv, double r, double th, prim& pv_out, int maxiter=50, double tol=1e-8) const;
-    bool cp_bd(double xa, double xb, double Ssq, double Bsq, double SB, double D, double tau, double& root, double tol=1e-12) const;
+    bool ctop(const cons& cv, double r, double th, prim& pv_out, int maxiter=500, double tol=1e-10) const;
+    bool cp_bd(double xa, double xb, double Ssq, double Bsq, double SB, double D, double tau, double& root, double tol=1e-10) const;
 
 private:
     // residual and derivative
