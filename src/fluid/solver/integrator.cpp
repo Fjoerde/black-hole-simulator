@@ -26,10 +26,10 @@ cons rk2integrator::div_flux(const grid::patch& p, int i, int j, int k) {
     const cons& FzL = p.get_Fz(i,j,k-1);
     // compute divergences in each conserved variable
     cons dU;
-    dU.D = -((FxR.D-FxL.D)/dx+(FyR.D-FyL.D)/dy+(FzR.D-FzL.D)/dz);
-    dU.tau = -((FxR.tau-FxL.tau)/dx+(FyR.tau-FyL.tau)/dy+(FzR.tau-FzL.tau)/dz);
+    dU.D = -((FxR.D-FxL.D)/dx+(FyR.D-FyL.D)/dy+(FzR.D-FzL.D)/dz)/sg;
+    dU.tau = -((FxR.tau-FxL.tau)/dx+(FyR.tau-FyL.tau)/dy+(FzR.tau-FzL.tau)/dz)/sg;
     for(int i=0; i<3; i++) {
-        dU.S[i] = -((FxR.S[i]-FxL.S[i])/dx+(FyR.S[i]-FyL.S[i])/dy+(FzR.S[i]-FzL.S[i])/dz);
+        dU.S[i] = -((FxR.S[i]-FxL.S[i])/dx+(FyR.S[i]-FyL.S[i])/dy+(FzR.S[i]-FzL.S[i])/dz)/sg;
         dU.B[i] = 0.0; // div B = 0 ^^
     }
 
@@ -70,7 +70,7 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
         Bv += Blow[i]*c.W.v[i];
         Bsq += Blow[i]*c.W.B[i];
     }
-    double b2 = Bv*Bv+Bsq/ltz2;
+    double b2 = Bv*Bv+Bsq/ltz;
     // thermodynamic state quantities
     double rho = c.W.rho;
     double eps = c.W.eps;
@@ -115,7 +115,7 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
     for(int m=0; m<4; m++) {
         for(int n=0; n<4; n++) {
             for(int s=0; s<4; s++) {
-                T4_4[m][n] = mc.g[n][s]*T44[m][s];
+                T4_4[m][n] += mc.g[n][s]*T44[m][s];
             }
         }
     }
@@ -159,7 +159,7 @@ double rk2integrator::dtcomp(const amrtree& tree, double cfl) {
         // only iterate over leaves (highest-level refinement cells)
         if(!p->leaf) continue;
         double dx = std::min({p->dx(),p->dy(),p->dz()});
-        double v_max = 0.0;
+        const double ds[3] = {p->dx(),p->dy(),p->dz()};
         // maximum signal speed in every cell
         for(int i=0; i<block; i++) {
             for(int j=0; j<block; j++) {
@@ -167,13 +167,18 @@ double rk2integrator::dtcomp(const amrtree& tree, double cfl) {
                     const cell& c = p->cell_(i,j,k);
                     double cs2 = stt.cs2(c.W.rho,c.W.eps);
                     double cs = std::sqrt(cs2);
-                    double vmag = std::sqrt(c.W.v[0]*c.W.v[0]+c.W.v[1]*c.W.v[1]+c.W.v[2]*c.W.v[2]);
-                    v_max = std::max(v_max,vmag+cs);
+                    for(int d=0; d<3; d++) {
+                        double ld_p = std::abs(c.mtr.comp(c.r,c.th).alpha*(c.W.v[d]+cs)-c.mtr.comp(c.r,c.th).beta[d]);
+                        double ld_m = std::abs(c.mtr.comp(c.r,c.th).alpha*(c.W.v[d]-cs)-c.mtr.comp(c.r,c.th).beta[d]);
+                        double vmax = std::max(ld_p,ld_m);
+                        if(vmax>1e-14) {
+                            dt_min = std::min(dt_min,cfl*ds[d]/vmax);
+                        }
+                    }
+                    // double vmag = std::sqrt(c.W.v[0]*c.W.v[0]+c.W.v[1]*c.W.v[1]+c.W.v[2]*c.W.v[2]);
+                    // v_max = std::max(v_max,vmag+cs);
                 }
             }
-        }
-        if(v_max>1e-14) {
-            dt_min = std::min(dt_min,cfl*dx/v_max);
         }
     }
     return dt_min;
@@ -187,6 +192,7 @@ void rk2integrator::rkstg(amrtree& tree, double dt, int stage) {
     }
     // reconstruct primitives everywhere
     for(auto& p : tree.quilt) {
+        if(!p->leaf) continue;
         for(int i=-ghost; i<block+ghost; i++) {
             for(int j=-ghost; j<block+ghost; j++) {
                 for(int k=-ghost; k<block+ghost; k++) {

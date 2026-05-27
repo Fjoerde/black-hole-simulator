@@ -25,10 +25,10 @@ void constrans::emfcomp(patch& p) {
                 double Fz_Bx_ip = p.get_Fz_B(0,i+1,j,k);
                 p.EMFy[p.EMFy_idx(i,j,k)] = (Fz_Bx_i+Fz_Bx_ip-Fx_Bz_k-Fx_Bz_kp)/4;
                 // get z-component of emf
-                double Fx_By_j = p.get_Fy_B(1,i,j,k);
-                double Fx_By_jp = p.get_Fy_B(1,i,j+1,k);
-                double Fy_Bx_i = p.get_Fz_B(0,i,j,k);
-                double Fy_Bx_ip = p.get_Fz_B(0,i+1,j,k);
+                double Fx_By_j = p.get_Fx_B(1,i,j,k);
+                double Fx_By_jp = p.get_Fx_B(1,i,j+1,k);
+                double Fy_Bx_i = p.get_Fy_B(0,i,j,k);
+                double Fy_Bx_ip = p.get_Fy_B(0,i+1,j,k);
                 p.EMFz[p.EMFz_idx(i,j,k)] = (Fx_By_j+Fx_By_jp-Fy_Bx_i-Fy_Bx_ip)/4;
             }
         }

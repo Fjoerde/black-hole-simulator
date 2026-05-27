@@ -2,6 +2,7 @@
 #include <cmath>
 #include <vector>
 #include <array>
+#include <functional>
 #include "cell.hpp"
 #include "grid.hpp"
 
@@ -19,7 +20,9 @@ struct bundle {
     // plasmatic quantities
 };
 
-// class analysis {
-// public:
-//     double lumin(amrtree);
-// };
+class analysis {
+public:
+    double vol_int(const grid::amrtree& tree, const std::function<double(const cell&, double)> f);
+    double surf_int(const grid::amrtree tree, const double r_surf, std::function<double(const cell&, double)> f);
+    bundle results();
+};

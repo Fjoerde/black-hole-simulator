@@ -135,12 +135,12 @@ prim amrtree::pvfs(double r, double th) {
     prim& WW = W;
     double rfscal = 1.0/pow(std::sqrt(std::max(r,1e-10)/r_floor_ref),3.0);
     WW.rho = rho_floor_r0*rfscal;
-    // std::cout << "amrtree::pvfs diagnostic: " << WW.rho << "    " << rfscal << "\n";
+    // std::cout << "amrtree::pvfs : " << WW.rho << "    " << rfscal << "\n";
     WW.eps = eps_floor_r0*rfscal;
     WW.p = this->stt.press(WW.rho,WW.eps);
     WW.h = this->stt.enth(WW.rho,WW.eps);
-    WW.v[0] = WW.v[1] = WW.v[2] = 0.01;
-    WW.B[0] = WW.B[1] = WW.B[2] = 0.01;
+    WW.v[0] = WW.v[1] = WW.v[2] = 0.0;
+    WW.B[0] = WW.B[1] = WW.B[2] = 0.0;
     WW.T = T_floor;
     return WW;
 }
@@ -191,12 +191,12 @@ amrtree::amrtree(std::array<double,3> dom_l, std::array<double,3> dom_h, int nql
     // set global maximum density for initialisation
     double glmx_rho = 0.0;
     for(auto& p : this->quilt) {
-        p->cell_init();
-        for(int i=0; i<block; i++) {
-            for(int j=0; j<block; j++) {
-                for(int k=0; k<block; k++) {
+        for(int i=-ghost; i<block+ghost; i++) {
+            for(int j=-ghost; j<block+ghost; j++) {
+                for(int k=-ghost; k<block+ghost; k++) {
                     cell& c = p->cell_(i,j,k);
                     c.W = this->pvfs(c.r,c.th);
+                    c.U = this->cnsv.ptoc(c.W,c.r,c.th);
                     // std::cout << "amrtree::amrtree diagnostic: " << c.W.rho << "    " << c.W.eps << "    " << c.W.p << "\n";
                     glmx_rho = std::max(glmx_rho,c.W.rho);
                 }
@@ -348,8 +348,10 @@ void patch::floors(amrtree& tree, patch& p, const state& stt, const metric& mtr)
                 // if unphysical, apply floors
                 if(bhl || c.W.rho<tree.rho_floor_r0) {
                     prim fl = tree.pvfs(c.r,c.th);
-                    fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
-                    c.W = fl;
+                    if(bhl || c.W.rho<=fl.rho) {
+                        fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
+                        c.W = fl;
+                    }
                     c.U = tree.cnsv.ptoc(c.W,c.r,c.th);
                 }
             }
