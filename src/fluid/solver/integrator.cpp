@@ -8,6 +8,7 @@
 #include "ct.hpp"
 #include "grid.hpp"
 #include "rk2.hpp"
+#include <omp.h>
 
 // this document contains the methods relating to integration.
 using namespace integ;
@@ -155,28 +156,31 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
 double rk2integrator::dtcomp(const amrtree& tree, double cfl) {
     state stt = tree.stt;
     double dt_min = std::numeric_limits<double>::max();
-    for(const auto& p : tree.quilt) {
-        // only iterate over leaves (highest-level refinement cells)
-        if(!p->leaf) continue;
-        double dx = std::min({p->dx(),p->dy(),p->dz()});
-        const double ds[3] = {p->dx(),p->dy(),p->dz()};
-        // maximum signal speed in every cell
-        for(int i=0; i<block; i++) {
-            for(int j=0; j<block; j++) {
-                for(int k=0; k<block; k++) {
-                    const cell& c = p->cell_(i,j,k);
-                    double cs2 = stt.cs2(c.W.rho,c.W.eps);
-                    double cs = std::sqrt(cs2);
-                    for(int d=0; d<3; d++) {
-                        double ld_p = std::abs(c.mtr.comp(c.r,c.th).alpha*(c.W.v[d]+cs)-c.mtr.comp(c.r,c.th).beta[d]);
-                        double ld_m = std::abs(c.mtr.comp(c.r,c.th).alpha*(c.W.v[d]-cs)-c.mtr.comp(c.r,c.th).beta[d]);
-                        double vmax = std::max(ld_p,ld_m);
-                        if(vmax>1e-14) {
-                            dt_min = std::min(dt_min,cfl*ds[d]/vmax);
+#pragma omp parallel for
+    {
+        for(const auto& p : tree.quilt) {
+            // only iterate over leaves (highest-level refinement cells)
+            if(!p->leaf) continue;
+            double dx = std::min({p->dx(),p->dy(),p->dz()});
+            const double ds[3] = {p->dx(),p->dy(),p->dz()};
+            // maximum signal speed in every cell
+            for(int i=0; i<block; i++) {
+                for(int j=0; j<block; j++) {
+                    for(int k=0; k<block; k++) {
+                        const cell& c = p->cell_(i,j,k);
+                        double cs2 = stt.cs2(c.W.rho,c.W.eps);
+                        double cs = std::sqrt(cs2);
+                        for(int d=0; d<3; d++) {
+                            double ld_p = std::abs(c.mtr.comp(c.r,c.th).alpha*(c.W.v[d]+cs)-c.mtr.comp(c.r,c.th).beta[d]);
+                            double ld_m = std::abs(c.mtr.comp(c.r,c.th).alpha*(c.W.v[d]-cs)-c.mtr.comp(c.r,c.th).beta[d]);
+                            double vmax = std::max(ld_p,ld_m);
+                            if(vmax>1e-14) {
+                                dt_min = std::min(dt_min,cfl*ds[d]/vmax);
+                            }
                         }
+                        // double vmag = std::sqrt(c.W.v[0]*c.W.v[0]+c.W.v[1]*c.W.v[1]+c.W.v[2]*c.W.v[2]);
+                        // v_max = std::max(v_max,vmag+cs);
                     }
-                    // double vmag = std::sqrt(c.W.v[0]*c.W.v[0]+c.W.v[1]*c.W.v[1]+c.W.v[2]*c.W.v[2]);
-                    // v_max = std::max(v_max,vmag+cs);
                 }
             }
         }
@@ -186,58 +190,73 @@ double rk2integrator::dtcomp(const amrtree& tree, double cfl) {
 // runge-kutta stages
 void rk2integrator::rkstg(amrtree& tree, double dt, int stage) {
     // fill ghosts
-    for(auto& p : tree.quilt) {
-        if(!p->leaf) continue;
-        tree.ghosts(p.get());
+#pragma omp parallel for
+    {
+        for(auto& p : tree.quilt) {
+            if(!p->leaf) continue;
+            tree.ghosts(p.get());
+        }
     }
     // reconstruct primitives everywhere
-    for(auto& p : tree.quilt) {
-        if(!p->leaf) continue;
-        for(int i=-ghost; i<block+ghost; i++) {
-            for(int j=-ghost; j<block+ghost; j++) {
-                for(int k=-ghost; k<block+ghost; k++) {
-                    cell& c = p->cell_(i,j,k);
-                    prim pv;
-                    prim& PV = pv;
-                    bool ok = tree.cnsv.ctop(c.U,c.r,c.th,PV);
-                    if(ok) c.W = PV;
-                    else {
-                        prim fl = tree.pvfs(c.r,c.th);
-                        fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
-                        c.W = fl;
-                        c.U = tree.cnsv.ptoc(c.W,c.r,c.th);
+#pragma omp parallel for
+    {
+        for(auto& p : tree.quilt) {
+            if(!p->leaf) continue;
+            for(int i=-ghost; i<block+ghost; i++) {
+                for(int j=-ghost; j<block+ghost; j++) {
+                    for(int k=-ghost; k<block+ghost; k++) {
+                        cell& c = p->cell_(i,j,k);
+                        prim pv;
+                        prim& PV = pv;
+                        bool ok = tree.cnsv.ctop(c.U,c.r,c.th,PV);
+                        if(ok) c.W = PV;
+                        else {
+                            prim fl = tree.pvfs(c.r,c.th);
+                            fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
+                            c.W = fl;
+                            c.U = tree.cnsv.ptoc(c.W,c.r,c.th);
+                        }
                     }
                 }
             }
         }
     }
     // compute fluxes
-    for(auto& p : tree.quilt) {
-        p->fluxcomp(tree.mtr,tree.stt);
+#pragma omp parallel for
+    {
+        for(auto& p : tree.quilt) {
+            p->fluxcomp(tree.mtr,tree.stt);
+        }
     }
     // emfs and magnetic field
-    for(auto& p : tree.quilt) {
-        constrans::emfcomp(*p);
-        constrans::Bfupdate(*p,dt);
-        constrans::f2cB(*p);
+#pragma omp parallel for
+    {
+        for(auto& p : tree.quilt) {
+            constrans::emfcomp(*p);
+            constrans::Bfupdate(*p,dt);
+            constrans::f2cB(*p);
+        }
     }
     // conserved variable update
-    for(auto& p : tree.quilt) {
-        for(int i=0; i<block; i++) {
-            for(int j=0; j<block; j++) {
-                for(int k=0; k<block; k++) {
-                    cell& c = p->cell_(i,j,k);
-                    cons dU = rk2integrator::div_flux(*p,i,j,k)+rk2integrator::source(*p,i,j,k,tree.mtr,tree.stt);
-                    if(stage==0) {
-                        c.dU = c.U; // update accumulator
-                        c.U = c.U+dt*dU;
-                    } else {
-                        c.U = (c.dU+c.U+dt*dU)*0.5;
+#pragma omp parallel for
+    {
+        for(auto& p : tree.quilt) {
+            for(int i=0; i<block; i++) {
+                for(int j=0; j<block; j++) {
+                    for(int k=0; k<block; k++) {
+                        cell& c = p->cell_(i,j,k);
+                        cons dU = rk2integrator::div_flux(*p,i,j,k)+rk2integrator::source(*p,i,j,k,tree.mtr,tree.stt);
+                        if(stage==0) {
+                            c.dU = c.U; // update accumulator
+                            c.U = c.U+dt*dU;
+                        } else {
+                            c.U = (c.dU+c.U+dt*dU)*0.5;
+                        }
+                        metriccomp mc = c.mtr.comp(c.r,c.th);
+                        c.U.B[0] = mc.sqrtdetg*c.W.B[0];
+                        c.U.B[1] = mc.sqrtdetg*c.W.B[1];
+                        c.U.B[2] = mc.sqrtdetg*c.W.B[2];
                     }
-                    metriccomp mc = c.mtr.comp(c.r,c.th);
-                    c.U.B[0] = mc.sqrtdetg*c.W.B[0];
-                    c.U.B[1] = mc.sqrtdetg*c.W.B[1];
-                    c.U.B[2] = mc.sqrtdetg*c.W.B[2];
                 }
             }
         }
@@ -250,8 +269,11 @@ double rk2integrator::step(amrtree& tree) {
     rkstg(tree,dt,0);
     rkstg(tree,dt,1);
     // enforce floors
-    for(auto& p : tree.quilt) {
-        p->floors(tree,*p,tree.stt,tree.mtr);
+#pragma omp parallel for 
+    {
+        for(auto& p : tree.quilt) {
+            p->floors(tree,*p,tree.stt,tree.mtr);
+        }
     }
     return dt;
 }

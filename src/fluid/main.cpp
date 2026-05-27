@@ -67,8 +67,8 @@ namespace params {
     constexpr double Gamma = 5.0/3.0; // adiabatic index
     // domain
     const double r_horizon = 1.0+std::sqrt(1.0-a*a); // horizon radius 1.0
-    constexpr double dom_lo = -50.0*M; // lower corner of domain
-    constexpr double dom_hi = 50.0*M; // upper corner of domain
+    constexpr double dom_lo = -25.0*M; // lower corner of domain
+    constexpr double dom_hi = 25.0*M; // upper corner of domain
     constexpr int nqlt = 8; // number of root patches per dimension
     // floors
     constexpr double rho_floor = 1e-5; // density floor

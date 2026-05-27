@@ -129,8 +129,8 @@ void init::fm_init(amrtree& tree) {
     double a = tree.mtr.a;
     double Q = tree.mtr.Q;
     double Gamma = tree.stt.gamma;
-    const double r_max = 30.0*M; // <-- <-- FREE PARAMETER
-    const double r_in = 10.0*M;
+    const double r_max = 20.0*M; // <-- <-- FREE PARAMETER
+    const double r_in = 6.0*M; // <-- <-- FREE PARAMETER
     double l0 = comp_L0K(r_max,M,a,Q);
     // rotation parameters for isco
     // double Z1 = 1.0+pow(1.0-(a/M)*(a/M),1.0/3.0)*(pow(1+a/M,1.0/3.0)+pow(1-a/M,1.0/3.0));
