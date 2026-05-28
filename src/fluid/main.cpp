@@ -33,6 +33,7 @@
 using namespace grid;
 using namespace torus;
 using namespace integ;
+using namespace analysis;
 
 // operation parameters
 // DO NOT SET ALL THREE EQUAL TO true SIMULTANEOUSLY!
@@ -40,19 +41,18 @@ using namespace integ;
 // set to false when running tests to improve run speed. DO NOT SET
 // TO TRUE WHEN RUNNING ON THE HPC EXCEPT FOR DATA COLLECTION RUNS!
 bool data_write = false;
+// when set to true, the analyser runs and gets quantitative results.
+// usually set to true for testing purposes. RECOMMENDED: Set this to
+// false when executing data collection runs on the HPC in order to
+// not clog up the logs (as results are printed after each timestep),
+// and to speed up the code.
+bool enable_analyser = true;
 // when set to true, the full detailed analysis of the data is done
-// over the entire length of the simulation, printing values at the
-// end of the simulation run. otherwise, a small selection of simpler
-// quantitative values are output at the start of the simulation.
-// usually set to false when running tests to improve run speed.
+// and results are printed after each integration step. usually set
+// to false except for analysis runs. RECOMMENDED: Likely to slow
+// down code significantly, so do not set to true while data_write is
+// set to true unless absolutely necessary. 
 bool analyse_full = false;
-// when set to true, all quantitative results are printed after the
-// integrator has fully finished, all in one large bundle. otherwise,
-// quantitative results are printed after every timestep of the
-// integrator. usually set to false when running diagnostic tests.
-// RECOMMENDED: avoid setting this false if analyse_full = true,
-// except for when absolutely necessary for physical tests.
-bool results_bundle = true;
 
 // simulation parameters
 // note: units are a complete mess, ah well it's fine, geometrised
@@ -66,7 +66,7 @@ namespace params {
     // thermodynamic state
     constexpr double Gamma = 5.0/3.0; // adiabatic index
     // domain
-    const double r_horizon = 1.0+std::sqrt(1.0-a*a); // horizon radius 1.0
+    const double r_horizon = M+std::sqrt(M*M-a*a-Q*Q); // horizon radius
     constexpr double dom_lo = -25.0*M; // lower corner of domain
     constexpr double dom_hi = 25.0*M; // upper corner of domain
     constexpr int nqlt = 8; // number of root patches per dimension
@@ -76,14 +76,14 @@ namespace params {
     constexpr double r_floor_ref = 1.0; // reference radius for scaling
     // integration
     constexpr double cfl = 0.4; // courant-friedrichs-lewy number
-    constexpr double t_end = 1000.0; // end time in geometrised units, NOT FRAMES!!
+    constexpr double t_end = 200.0; // end time in geometrised units, NOT FRAMES!!
     constexpr double max_steps = 1000; // step count hard limit (this is now frames)
 }
+// import namespaces
 using namespace params;
-// import all namespaces
 using torus::init;
-using grid::patch;
-using grid::amrtree;
+// using grid::patch;
+// using grid::amrtree;
 
 // main function
 int main() {
