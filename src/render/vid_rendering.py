@@ -1,5 +1,6 @@
 import numpy as np
 from PIL import Image
+import cv2
 from numba import njit, prange
 import time
 
@@ -38,7 +39,7 @@ def trace_geodesic(integrator:Integrator, y0:np.ndarray, bg_rad:float) -> Functi
 def get_geodesics(integrator:Integrator, geodesics:list[Function], frame_num:int, settings:VidSettings) -> list[Function]:
     """Returns the paths of the light ray over each pixel in the image."""
 
-    x0 = settings.cam_pos.four_vec(settings.t[frame_num])
+    x0 = settings.cam_pos[frame_num].four_vec(settings.t[frame_num])
     X0 = settings.grav_field.coord_pos(x0)
     for i in prange(settings.w * settings.h):
         y, x = i//settings.w, i%settings.w
@@ -70,15 +71,15 @@ def get_colors(geodesics:list[Function], gas_vals:list[Function], frame_num:int,
     n = settings.w * settings.h
     cols = np.zeros((n, 3), dtype=np.float64)
     for i in prange(n):
-        integrator = Integrator(INTEGRATOR_SPECINT, settings.grav_field, settings.scene, settings.cam_pos, settings.bg_rad,
+        integrator = Integrator(INTEGRATOR_SPECINT, settings.grav_field, settings.scene, settings.cam_pos[frame_num], settings.bg_rad,
                                 settings.col_converter.grid, geodesics[i], gas_vals[i],
-                                settings.grav_field.timelike_cond(settings.cam_vel, settings.cam_pos.four_vec(settings.t[frame_num])))
+                                settings.grav_field.timelike_cond(settings.cam_vel[frame_num], settings.cam_pos[frame_num].four_vec(settings.t[frame_num])))
         spec_int0 = np.zeros(len(integrator.specint_grid.pts), dtype=np.float64)
         geodesic = geodesics[i]
         x0 = geodesic.vals[0,:4]; pos = Vec(x0[1], x0[2], x0[3])
         k0 = geodesic.vals[0,4:]; k1 = geodesic.vals[-1,4:]
         # Find which object the light ray hits
-        if (pos - settings.cam_pos).length() >= settings.bg_rad: # If light ray hits the background
+        if (pos - settings.cam_pos[frame_num]).length() >= settings.bg_rad: # If light ray hits the background
             theta = np.acos(pos.z / pos.length()); phi = np.atan2(pos.y, pos.x)
             spec_int0 = settings.sample_bg(theta, phi)
             spec_int0 = settings.doppler_spec(spec_int0, x0, k0, k1, frame_num).vals
@@ -97,7 +98,7 @@ def get_colors(geodesics:list[Function], gas_vals:list[Function], frame_num:int,
         cols[i] = settings.col_converter.get_rgb(spec_int) * 255.
     return cols
 
-def render_vid(settings:VidSettings) -> list[Image.Image]:
+def render_vid(settings:VidSettings, save_frames=None):
     """Call to render a video."""
 
     frames = []
@@ -108,9 +109,18 @@ def render_vid(settings:VidSettings) -> list[Image.Image]:
                                cam_pos=settings.cam_pos[i], bg_rad=settings.bg_rad)
         geodesics = get_geodesics(gdsic_int, geodesics_, i, settings)
         gas_vals = get_gas_vals(geodesics, settings.gas, gas_vals_, 50)
-        _, cols = get_colors(geodesics, gas_vals, i, settings)
-        frames.append(Image.fromarray(cols.reshape(settings.h, settings.w, 3).astype(np.uint8)))
+        cols = get_colors(geodesics, gas_vals, i, settings)
+        frame = cols.reshape(settings.h, settings.w, 3).astype(np.uint8)
+        frames.append(frame)
+        if save_frames != None: Image.fromarray(frame).save(f"{save_frames}/frame{i}.png")
         t_f = time.perf_counter()
         print(f"Frame {i} rendered in {(t_f-t_i)/60:4f} min")
         del gdsic_int, geodesics, gas_vals, cols
-    return frames
+
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(settings.output_path, fourcc, settings.fps, (settings.w,settings.h))
+    for i, frame in enumerate(frames):
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        out.write(frame)
+    out.release()
+    print(f"Saved video '{settings.output_path}'")
