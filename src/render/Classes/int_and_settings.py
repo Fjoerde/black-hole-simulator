@@ -9,6 +9,7 @@ from Classes.tags import *
 
 import Classes.Integrators.geodesiceq as GeodesicEq
 import Classes.Integrators.specint as SpecInt
+import Classes.Integrators.obj_path as ObjPath
 
 # Integrator
 def_scene = [Hittable(tag=HITTABLE_NULL,
@@ -52,12 +53,14 @@ class Integrator:
         self.tag = tag
         if self.tag == INTEGRATOR_GEODESICEQ: GeodesicEq.init(self, grav_field, scene, cam_pos, bg_rad)
         if self.tag == INTEGRATOR_SPECINT: SpecInt.init(self, specint_grid, geodesic, gas_val, grav_field, obs_vel)
+        if self.tag == INTEGRATOR_OBJPATH: ObjPath.init(self, grav_field)
 
     def derivative(self, t:float, y:np.ndarray) -> np.ndarray:
         """Returns the derivative of the state vector y."""
 
         if self.tag == INTEGRATOR_GEODESICEQ: return GeodesicEq.derivative(self, t, y)
         elif self.tag == INTEGRATOR_SPECINT: return SpecInt.derivative(self, t, y)
+        elif self.tag == INTEGRATOR_OBJPATH: return ObjPath.derivative(self, t, y)
         else: return np.zeros(1, dtype=np.float64)
 
     def rk4_step(self, t:float, y:np.ndarray, h:float) -> np.ndarray:
@@ -74,6 +77,7 @@ class Integrator:
 
         if self.tag == INTEGRATOR_GEODESICEQ: return GeodesicEq.term_cond(self, t, y, h)
         elif self.tag == INTEGRATOR_SPECINT: return SpecInt.term_cond(self, t, y, h)
+        elif self.tag == INTEGRATOR_OBJPATH: return ObjPath.term_cond(self, t, y, h)
         else: return False
     
     def max_step(self, t:float, y:np.ndarray, h:float) -> float:
@@ -81,6 +85,7 @@ class Integrator:
 
         if self.tag == INTEGRATOR_GEODESICEQ: return GeodesicEq.max_step(self, t, y, h)
         elif self.tag == INTEGRATOR_SPECINT: return SpecInt.max_step(self, t, y, h)
+        elif self.tag == INTEGRATOR_OBJPATH: return ObjPath.max_step(self, t, y, h)
         else: return np.inf
 
     def adapt_stepsize(self, h:float, error:float, tol:float) -> float:
@@ -215,7 +220,7 @@ class RenderSettings:
         k_src, k_obs: The four-velocities of the geodesic at the source and observer."""
 
         J = self.grav_field.jacobian(x_src); g = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
-        g = (g @ J) @ J
+        g = J.T @ g @ J
         D_src = (g @ k_src) @ np.array([1,0,0,0], dtype=np.float64)
         D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel, self.cam_pos.four_vec(self.t))
         if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
@@ -247,54 +252,68 @@ class RenderSettings:
 
 
 # Video Settings
-def_rots = [(0, np.pi/2, 0) for _ in range(100)]
-spec_vidsettings = [("w", int64), ("h", int64), ("f", float64), ("tau_scale", float64),
-                    ("cam_worldline", Function.class_type.instance_type), ("rots", types.ListType(types.Tuple((float64, float64, float64))))
-                    ("fps", float64), ("frame_num", int64),
-                    ("t", float64[::1]), ("cam_pos", types.ListType(Vec.class_type.instance_type)), ("cam_vel", types.ListType(Vec.class_type.instance_type))
-                    ("cam_dir", types.ListType(Vec.class_type.instance_type)), ("cam_u", types.ListType(Vec.class_type.instance_type)), ("cam_v", types.ListType(Vec.class_type.instance_type))
-                    ("scene", types.ListType(Hittable.class_type.instance_type)),
+def_worldline = Function(Grid(Patch([np.array([0], dtype=np.float64)])), np.array([[0, 0, 0, 0, 1, 0, 0, 0]], dtype=np.float64))
+def_rots = np.zeros((100, 3), dtype=np.float64); def_rots[:,1] = np.pi / 2
+spec_vidsettings = [("w", int64), ("h", int64), ("f", float64), ("aspect", float64), ("tau_scale", float64),
+                    ("cam_worldline", Function.class_type.instance_type), ("rots", float64[:,::1]),
+                    ("fps", float64), ("frame_num", int64), ("output_path", types.unicode_type),
+                    ("t", float64[::1]), ("cam_pos", types.ListType(Vec.class_type.instance_type)), ("cam_vel", types.ListType(Vec.class_type.instance_type)),
+                    ("cam_dir", types.ListType(Vec.class_type.instance_type)), ("cam_u", types.ListType(Vec.class_type.instance_type)),
+                    ("cam_v", types.ListType(Vec.class_type.instance_type)), ("scene", types.ListType(Hittable.class_type.instance_type)),
                     ("background", float64[:,:,::1]), ("bg_rad", float64), ("col_converter", ColConverter.class_type.instance_type),
                     ("gas", Function.class_type.instance_type), ("grav_field", GravField.class_type.instance_type)]
 @jitclass(spec_vidsettings)
 class VidSettings:
-    def __init__(self, w:int=800, h:int=600, f:float=1, tau_scale:float=1,
-                 cam_worldline:Function=Function(), rots:list[tuple[float]]=def_rots, # Camera worldline parametrized by proper time
-                 fps:float=30, frame_num=100, scene:list[Hittable]=def_scene, background:np.ndarray=np.zeros((1,1,3), dtype=np.float64),
+    def __init__(self, w:int=800, h:int=600, f:float=1, tau_scale:float=1, # 1 unit of proper time corresponds to how many seconds
+                 cam_worldline:Function=def_worldline, rots:np.ndarray=def_rots, # Camera worldline parametrized by proper time
+                 fps:float=30, frame_num:int=100, output_path:str="Images/video.mp4",
+                 scene:list[Hittable]=def_scene, background:np.ndarray=np.zeros((1,1,3), dtype=np.float64),
                  bg_rad:float=20, col_converter:ColConverter=def_cc, gas:Function=def_gas, grav_field:GravField=GravField(tag=GRAVFIELD_MINKOWSKI)):
         
         if len(rots) != frame_num: raise ValueError("rots must have the same number of entries as frame numbers.")
-        
+        if rots.shape[1] != 3: raise ValueError("Invalid shape for rots.")
+        if tau_scale <= 0: raise ValueError("tau_scale must be a positive number.")
+        if fps <= 0: raise ValueError("fps must be a positive number.")
+        if gas.entries != 6: raise ValueError("Invalid number of entries for the gas.")
+        if (background > 1).any(): raise ValueError("Encountered invalid background colors.")
+        if cam_worldline.vals.shape[1] != 8: raise ValueError("Invalid number of entries for the camera's worldline.")
+
         self.w = w
         self.h = h
         self.f = f
         self.tau_scale = tau_scale
         self.cam_worldline = cam_worldline
-        self.rots = List(rots)
+        self.rots = np.ascontiguousarray(rots)
         self.fps = fps
         self.frame_num = frame_num
+        self.output_path = output_path
         self.scene = List(scene)
         self.background = background
         self.bg_rad = bg_rad
         self.col_converter = col_converter
         self.gas = gas
         self.grav_field = grav_field
-
+        
         self.aspect = self.w / self.h
         self.t, self.cam_pos, self.cam_vel = self.get_frame_param()
         self.cam_dir, self.cam_u, self.cam_v = self.get_viewport_bases()
 
     def get_frame_param(self) -> tuple[np.ndarray[float], list[Vec], list[Vec]]:
+        """Calculate the t-coordinates, positions, and velocities of the camera at each rendered frame."""
+
         delta_tau = (1 / self.tau_scale) / self.fps
-        taus = np.arange(0, delta_tau*self.frame_num, delta_tau, dtype=np.float64)
+        taus = np.ascontiguousarray(np.arange(0, delta_tau*self.frame_num, delta_tau, dtype=np.float64))
         cam_four_pos = self.cam_worldline.interp(taus.reshape(self.frame_num, 1))
         ts = cam_four_pos[:,0]; pos = []; vel = []
         for i in range(self.frame_num):
             pos.append(Vec(cam_four_pos[i,1], cam_four_pos[i,2], cam_four_pos[i,3]))
-            vel.append(Vec(cam_four_pos[i,5], cam_four_pos[i,6], cam_four_pos[i,7]))
-        return ts, List(pos), List(vel)
+            cam_vel = cam_four_pos[i,5:] / cam_four_pos[i,4] # Transform back to ordinary velocity
+            vel.append(Vec(cam_vel[0], cam_vel[1], cam_vel[2]))
+        return np.ascontiguousarray(ts), List(pos), List(vel)
     
     def get_viewport_bases(self) -> tuple[list[Vec], list[Vec], list[Vec]]:
+        """Calculate the camera direction and viewport basis vectors for each frame."""
+
         cam_dir, cam_u, cam_v = [], [], []
         for i in range(self.frame_num):
             phi, theta, xi = self.rots[i]
@@ -305,18 +324,12 @@ class VidSettings:
             cam_v.append(-Y)
         return List(cam_dir), List(cam_u), List(cam_v)
     
-    def look_to_origin(self) -> None:
-        for i in range(self.frame_num):
-            cam_dir = -self.frame_pos[i].normal()
-            theta = np.arccos(cam_dir.z); phi = np.arctan2(cam_dir.y, cam_dir.x)
-            self.rots[i] = (phi, theta, 0)
-    
     def ray_dir_px(self, x:int, y:int, frame_num:int) -> Vec:
         """Returns the three-direction of the light ray corresponding to a pixel on the final rendered image."""
 
         cam_dir, cam_u, cam_v = self.cam_dir[frame_num], self.cam_u[frame_num], self.cam_v[frame_num]
         cam_vel = self.cam_vel[frame_num]
-
+        print(cam_dir.np_array()); print(cam_vel.np_array())
         u = (2*(x+0.5)/self.w - 1) * self.aspect # Viewport coordinates, varies from -aspect to +aspect
         v = 1 - 2*(y+0.5)/self.h # varies from -1 to +1
         ray_dir_p = (self.f*cam_dir + u*cam_u + v*cam_v).normal() # p stands for primed (in the moving camera's frame)
@@ -349,7 +362,7 @@ class VidSettings:
         k_src, k_obs: The four-velocities of the geodesic at the source and observer."""
 
         J = self.grav_field.jacobian(x_src); g = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
-        g = (g @ J) @ J
+        g = J.T @ g @ J
         D_src = (g @ k_src) @ np.array([1,0,0,0], dtype=np.float64)
         D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel[frame_num], self.cam_pos[frame_num].four_vec(self.t[frame_num]))
         if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
@@ -369,7 +382,7 @@ class VidSettings:
         
         k_obs: The four-velocity of the geodesic at the position of the observer."""
 
-        if self.cam_vel.length() > 1e-16:
+        if self.cam_vel[frame_num].length() > 1e-16:
             ray_dir = -Vec(k_obs[1], k_obs[2], k_obs[3]).normal()
             theta = np.arccos(ray_dir.dot(self.cam_vel[frame_num].normal()))
             beta = self.cam_vel[frame_num].length(); gamma = 1 / np.sqrt(1-beta**2)

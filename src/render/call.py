@@ -2,14 +2,17 @@
 import numpy as np
 from PIL import Image
 import time
+from numba import config, set_num_threads
+set_num_threads(config.NUMBA_DEFAULT_NUM_THREADS)
 
 print("Importing and lowering code...")
 t1 = time.perf_counter()
 from Classes.math import *
 from Classes.physics import GravField
-from Classes.int_and_settings import RenderSettings
+from Classes.int_and_settings import *
 from Classes.tags import *
-from img_rendering import render_img
+from motion_helper import *
+from vid_rendering import render_vid
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -17,13 +20,12 @@ t2 = time.perf_counter()
 print(f"Lowering finished in {t2-t1:.4f} s\n")
 
 print("Initializing...")
-
 def get_gas(pts):
     x, y, z = pts[:,1], pts[:,2], pts[:,3]
     s = np.sqrt(x**2 + y**2) - 5
     d = np.sqrt(s**2 + z**2)
-    temp = 2e4 * np.exp(-d**2/4)
-    ext_coeff = 0.125 * np.exp(-d**2/4)
+    temp = 2e4 * np.exp(-d**2/5)
+    ext_coeff = 0.125 * np.exp(-d**2/5)
     gas_params = np.zeros((len(pts), 6), dtype=np.float64); gas_params[:,0] += 1
     gas_params[:,4] = temp; gas_params[:,5] = ext_coeff
     return gas_params
@@ -35,26 +37,22 @@ grid = grid.add_patch(Patch([np.array([0], dtype=np.float64),
                              np.linspace(-6, 6, 13, dtype=np.float64),
                              np.linspace(-6, 6, 13, dtype=np.float64),
                              np.linspace(-6, 6, 13, dtype=np.float64)]))
-gas_vals = get_gas(grid.pts)
 
-gas = Function(grid, gas_vals)
-kerr = GravField(tag=GRAVFIELD_KERR, pos=Vec(0,0,0), M=0.5, J=0.2, ax=Vec(0,0,1))
-col_conv = ColConverter(Grid(Patch([np.linspace(0, 1000, 101, dtype=np.float64)])))
-settings = RenderSettings(w=1280, h=720, cam_pos=Vec(-12.5,0,0), cam_vel=Vec(0,0,0), bg_rad=30, col_converter=col_conv, gas=gas, grav_field=kerr)
+gas = Function(grid, get_gas(grid.pts))
+bg = np.array(Image.open("Images/background1.jpg")).astype(np.float64) / 255.
+ss = GravField(tag=GRAVFIELD_SCHWARZSCHILD, pos=Vec(0,0,0), M=0.5)
+cam_worldline = get_obj_path(ss, Vec(-10,0,0), Vec(0,0.25,0.25)/np.sqrt(2), 0, 400)
+vid_length = 5 # in seconds
+tau_scale = vid_length / np.max(cam_worldline.grid.pts)
+rots = look_to_origin(cam_worldline, tau_scale, 24, 120)
+settings = VidSettings(w=800, h=600, cam_worldline=cam_worldline, tau_scale=tau_scale, frame_num=120, rots=rots, fps=24, background=bg, grav_field=ss, gas=gas)
 
 t3 = time.perf_counter()
 print(f"Initialization finished in {t3-t2:.4f} s\n")
 
 print("Rendering (ignore NumbaPerformanceWarning's)...")
-rendered_img, ang_dev_img, specint_img = render_img(settings)
-rendered_filename = "test23.png"
-angdev_filename = "ang_dev1.png"
-specint_filename = "spec_int1.png"
-rendered_img.save(f"Images/{rendered_filename}") 
-ang_dev_img.save(f"Images/{angdev_filename}")
-specint_img.save(f"Images/{specint_filename}")
-  
+render_vid(settings, save_frames="Video Frames")
+
 t4 = time.perf_counter()
 print(f"Rendering finished in {(t4-t3)/60:.4f} min\n")
-print(f"Saved '{rendered_filename}' and '{angdev_filename}'")
 

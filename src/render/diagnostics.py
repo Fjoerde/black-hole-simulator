@@ -7,7 +7,7 @@ from Classes.math import *
 from Classes.tags import *
 from Classes.physics import GravField
 from Classes.int_and_settings import Integrator, RenderSettings
-from render.img_rendering import *
+from img_rendering import *
 
 
 def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray:
@@ -31,7 +31,7 @@ def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray
     return diff
 
 
-def plot_func(func, min:np.ndarray, max:np.ndarray, label:str="Function"):
+def plot_func(func:Function, min:np.ndarray, max:np.ndarray, label:str="Function"):
     """Plot a function."""
 
     if func.dim not in [1,2]: raise ValueError("Function must only depend on 1 or 2 variables.")
@@ -120,11 +120,11 @@ def bb_specint(temp:float, grid=Grid(Patch([np.linspace(380, 780, 41)]))) -> Fun
     return spec_int
 
 
-def look_ray(ray_pos:Vec, ray_dir:Vec, settings:RenderSettings) -> Function:
+def look_ray(ray_pos:Vec, ray_dir:Vec, t:float, settings:RenderSettings) -> Function:
     """For plotting out the path of a light ray originating from ray_pos in the direction of ray_dir."""
 
     ray_dir.is_normal()
-    x0 = ray_pos.four_vec(0)
+    x0 = ray_pos.four_vec(t)
     X0 = settings.grav_field.coord_pos(x0)
     V0 = settings.grav_field.null_cond(ray_dir, x0)
     y0 = np.concatenate((X0, V0))
