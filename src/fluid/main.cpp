@@ -33,6 +33,7 @@
 using namespace grid;
 using namespace torus;
 using namespace integ;
+using namespace analysis;
 
 // operation parameters
 // DO NOT SET ALL THREE EQUAL TO true SIMULTANEOUSLY!
@@ -40,19 +41,18 @@ using namespace integ;
 // set to false when running tests to improve run speed. DO NOT SET
 // TO TRUE WHEN RUNNING ON THE HPC EXCEPT FOR DATA COLLECTION RUNS!
 bool data_write = false;
+// when set to true, the analyser runs and gets quantitative results.
+// usually set to true for testing purposes. RECOMMENDED: Set this to
+// false when executing data collection runs on the HPC in order to
+// not clog up the logs (as results are printed after each timestep),
+// and to speed up the code.
+bool enable_analyser = true;
 // when set to true, the full detailed analysis of the data is done
-// over the entire length of the simulation, printing values at the
-// end of the simulation run. otherwise, a small selection of simpler
-// quantitative values are output at the start of the simulation.
-// usually set to false when running tests to improve run speed.
+// and results are printed after each integration step. usually set
+// to false except for analysis runs. RECOMMENDED: Likely to slow
+// down code significantly, so do not set to true while data_write is
+// set to true unless absolutely necessary. 
 bool analyse_full = false;
-// when set to true, all quantitative results are printed after the
-// integrator has fully finished, all in one large bundle. otherwise,
-// quantitative results are printed after every timestep of the
-// integrator. usually set to false when running diagnostic tests.
-// RECOMMENDED: avoid setting this false if analyse_full = true,
-// except for when absolutely necessary for physical tests.
-bool results_bundle = true;
 
 // simulation parameters
 // note: units are a complete mess, ah well it's fine, geometrised
@@ -66,7 +66,7 @@ namespace params {
     // thermodynamic state
     constexpr double Gamma = 5.0/3.0; // adiabatic index
     // domain
-    const double r_horizon = 1.0+std::sqrt(1.0-a*a); // horizon radius 1.0
+    const double r_horizon = M+std::sqrt(M*M-a*a-Q*Q); // horizon radius
     constexpr double dom_lo = -25.0*M; // lower corner of domain
     constexpr double dom_hi = 25.0*M; // upper corner of domain
     constexpr int nqlt = 8; // number of root patches per dimension
@@ -76,11 +76,11 @@ namespace params {
     constexpr double r_floor_ref = 1.0; // reference radius for scaling
     // integration
     constexpr double cfl = 0.4; // courant-friedrichs-lewy number
-    constexpr double t_end = 1000.0; // end time in geometrised units, NOT FRAMES!!
+    constexpr double t_end = 200.0; // end time in geometrised units, NOT FRAMES!!
     constexpr double max_steps = 1000; // step count hard limit (this is now frames)
 }
+// import namespaces
 using namespace params;
-// import all namespaces
 using torus::init;
 using grid::patch;
 using grid::amrtree;
@@ -91,7 +91,7 @@ int main() {
     // construct the amr tree
     std::array<double,3> dom_l = {dom_lo,dom_lo,dom_lo};
     std::array<double,3> dom_h = {dom_hi,dom_hi,dom_hi};
-    amrtree tree(dom_l,dom_h,nqlt,M,a,Q,Gamma);
+    grid::amrtree tree(dom_l,dom_h,nqlt,M,a,Q,Gamma);
     std::cout << nqlt*nqlt*nqlt << " patches have been instantiated.\n";
     // initalise torus
     std::cout << "Initialising torus...\n";
@@ -163,6 +163,7 @@ int main() {
     // auto timer_start = std::chrono::steady_clock::now();
     // start integrator and god help your computer
     std::cout << "Starting integration...\n";
+    tree.regrid();
     while(t<params::t_end && step<params::max_steps) {
         double dt = rk.step(tree);
         t += dt;
@@ -171,6 +172,15 @@ int main() {
         // for(auto& p : tree.quilt) {
         //     std::cout << "Evolution density diagnostic: " << p->cell_(4,4,4).W.rho << "    " << p->cell_(4,4,4).U.D << "\n";
         // }
+        analysis::analyser anl;
+        if(enable_analyser) {
+            if(analyse_full) {
+                auto b = anl.batch_(tree,t);
+            } else {
+                auto b = anl.bundle_(tree,t);
+                std::cout << "~~~ ANALYSIS BUNDLE for timestep: t = " << t << "\nMass: " << b.mass << "\nMass accretion rate: " << b.Mdot << "\nMagnetically arrested disc (MAD) parameter: " << b.MAD << "\nBlandford-Znajek luminosity: " << b.L_BZ << "\nShakura-Sunyaev alpha parameter: " << b.alpha_ss << "\n";
+            }
+        }
     }
     std::cout << "Integrator finished with coordinate time " << t << " in " << step << " steps." << "\n";
     return 0;

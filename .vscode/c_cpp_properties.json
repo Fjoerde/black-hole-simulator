@@ -3,8 +3,8 @@
         {
             "name": "Mac",
             "includePath": [
-                "${workspaceFolder}/**",
-                "$opt/homebrew/Cellar/llvm/22.1.6/lib/"
+                "${workspaceFolder}/**"
+                // "$opt/homebrew/Cellar/llvm/22.1.6/lib/"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/g++",

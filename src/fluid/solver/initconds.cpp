@@ -118,7 +118,7 @@ static double comp_L0K(double r, double M, double a, double Q) {
 // torus effective potential
 static double torus_pot (const metriccomp& mc, double l, double W_in) {
     double utsq = comp_utsq(mc,l);
-    if(std::abs(utsq)<=1e-14) return -1e30; // degeneracy if outside region 
+    if(utsq<=1e-14) return -1e30; // degeneracy if outside region 
     return 0.5*std::log(utsq);
 }
 
@@ -129,8 +129,8 @@ void init::fm_init(amrtree& tree) {
     double a = tree.mtr.a;
     double Q = tree.mtr.Q;
     double Gamma = tree.stt.gamma;
-    const double r_max = 20.0*M; // <-- <-- FREE PARAMETER
-    const double r_in = 6.0*M; // <-- <-- FREE PARAMETER
+    const double r_max = 15.0*M; // <-- <-- FREE PARAMETER
+    const double r_in = 6.25*M; // <-- <-- FREE PARAMETER
     double l0 = comp_L0K(r_max,M,a,Q);
     // rotation parameters for isco
     // double Z1 = 1.0+pow(1.0-(a/M)*(a/M),1.0/3.0)*(pow(1+a/M,1.0/3.0)+pow(1-a/M,1.0/3.0));
@@ -174,7 +174,7 @@ void init::fm_init(amrtree& tree) {
     // const double W_in = W_max;
     // double r_in = 2.5*M*(3.0+Z2-std::sqrt((3.0-Z1)*(3.0+Z1+2.0*Z2)));
     // density scale so that \rho_{max}=1 in code units
-    double K = 0.01*pow(M,Gamma-1.0);
+    double K = 100.0*pow(M,Gamma-1.0);
     double rho_tgt = 1.0;
     // std::cout << "ISCO diagnostic: \nr_in = " << r_in << "\nr_max = " << r_max << "\n";
 

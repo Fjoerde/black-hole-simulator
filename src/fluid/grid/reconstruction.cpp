@@ -29,11 +29,11 @@ static std::array<double,2> recon_scal(double Wm, double Wc, double Wp, double W
     // left face
     double dLc = Wc-Wm; double dRc = Wp-Wc;
     double cslop = lim_(dLc,dRc,lim);
-    double faceL = Wc+cslop/2;
+    double faceL = Wc+cslop/2.0;
     // right face
     double dLp = Wp-Wc; double dRp = Wpp-Wp;
     double pslop = lim_(dLp,dRp,lim);
-    double faceR = Wp+pslop/2;
+    double faceR = Wp-pslop/2.0;
     return {faceL,faceR};
 }
 // reconstruction of face states of primitives
@@ -61,35 +61,35 @@ facestate reconfp(const patch& p, int i, int j, int k, int dim, limiter lim) {
     fs.L.eps = std::exp(JLR[0]); fs.R.eps = std::exp(JLR[1]);
 
     // velocity, reconstructed directly
-    for(int i=0; i<3; i++) {
-        std::array<double,2> JRW = recon_scal(Wm.v[i],Wc.v[i],Wp.v[i],Wpp.v[i],lim);
-        fs.L.v[i] = JRW[0]; fs.R.v[i] = JRW[1];
+    for(int d=0; d<3; d++) {
+        std::array<double,2> JRW = recon_scal(Wm.v[d],Wc.v[d],Wp.v[d],Wpp.v[d],lim);
+        fs.L.v[d] = JRW[0]; fs.R.v[d] = JRW[1];
     }
     // causality check that v < c
     auto causalv = [](prim& W, const cell& c) {
         double v2 = 0.0;
         metriccomp mc = c.mtr.comp(c.r,c.th);
-        for(int i=0; i<3; i++) {
-            for(int j=0; j<3; j++) {
-                v2 += mc.gam[i][j]*W.v[i]*W.v[j];
+        for(int m=0; m<3; m++) {
+            for(int n=0; n<3; n++) {
+                v2 += mc.gam[m][n]*W.v[m]*W.v[n];
             }
         }
         // if v > c, scale to just barely be causal velocity
         if(v2>=1.0) {
             double s = (1-1e-10)/std::sqrt(v2);
-            for(int i=0; i<3; i++) {W.v[i] *= s;};
+            for(int a=0; a<3; a++) {W.v[a] *= s;};
         }
     };
-    causalv(fs.L,p.cell_(i,j,k)); causalv(fs.R,p.cell_(i+1*(dim==0),j+1*(dim==1),k+1*(dim==2)));
+    causalv(fs.L,p.cell_(i,j,k)); causalv(fs.R,p.cell_(i+(dim==0),j+(dim==1),k+(dim==2)));
 
     // magnetic field reconstructed to maintain zero divergence
-    for(int i=0; i<3; i++) {
-        if(i==dim) {
+    for(int d=0; d<3; d++) {
+        if(d==dim) {
             // no normal component reconstruction; overwrite later
-            fs.L.B[i] = Wc.B[i]; fs.R.B[i] = Wp.B[i];
+            fs.L.B[d] = Wc.B[d]; fs.R.B[d] = Wp.B[d];
         } else {
-            std::array<double,2> JRE = recon_scal(Wm.B[i],Wc.B[i],Wp.B[i],Wpp.B[i],lim);
-            fs.L.B[i] = JRE[0]; fs.R.B[i] = JRE[1];
+            std::array<double,2> JRE = recon_scal(Wm.B[d],Wc.B[d],Wp.B[d],Wpp.B[d],lim);
+            fs.L.B[d] = JRE[0]; fs.R.B[d] = JRE[1];
         }
     }
 

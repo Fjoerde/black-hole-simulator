@@ -186,14 +186,18 @@ static void alfstar_stt(const cons_stt& UxL, const cons_stt& UxR, const side& L,
     UxxL.Bt1 = Bt1xx; UxxR.Bt1 = Bt1xx;
     UxxL.Bt2 = Bt2xx; UxxR.Bt2 = Bt2xx;
     UxxL.Sn = UxL.D*SM; UxxR.Sn = UxR.D*SM;
-    const double vt1xL = UxL.St1 / UxL.D;
-    const double vt2xL = UxL.St2 / UxL.D;
-    const double vt1xR = UxR.St1 / UxR.D;
-    const double vt2xR = UxR.St2 / UxR.D;
-    UxxL.tau = UxL.tau-sq_DL*sgnBn*(vt1xx*Bt1xx+vt2xx*Bt2xx-vt1xL*UxL.Bt1-vt2xL*UxL.Bt2);
-    UxxR.tau = UxR.tau+sq_DR*sgnBn*(vt1xx*Bt1xx+vt2xx*Bt2xx-vt1xR*UxR.Bt1-vt2xR*UxR.Bt2);
+    const double vt1xL = UxL.St1/UxL.D;
+    const double vt2xL = UxL.St2/UxL.D;
+    const double vt1xR = UxR.St1/UxR.D;
+    const double vt2xR = UxR.St2/UxR.D;
+    // UxxL.tau = UxL.tau-sq_DL*sgnBn*(vt1xx*Bt1xx+vt2xx*Bt2xx-vt1xL*UxL.Bt1-vt2xL*UxL.Bt2);
+    // UxxR.tau = UxR.tau+sq_DR*sgnBn*(vt1xx*Bt1xx+vt2xx*Bt2xx-vt1xR*UxR.Bt1-vt2xR*UxR.Bt2);
     // UxxL.tau = UxL.tau-sq_DL*sgnBn*(UxL.St1/(UxL.D*UxL.Bt1)+UxL.St2/(UxL.D*UxL.Bt2)-vt1xx*Bt1xx-vt2xx*Bt2xx)-UxL.D;
     // UxxR.tau = UxR.tau-sq_DR*sgnBn*(UxR.St1/(UxR.D*UxR.Bt1)+UxR.St2/(UxR.D*UxR.Bt2)-vt1xx*Bt1xx-vt2xx*Bt2xx)-UxR.D;
+    double dE_L = sq_DL*sgnBn*(vt1xx*Bt1xx+vt2xx*Bt2xx-vt1xL*UxL.Bt1-vt2xL*UxL.Bt2);
+    double dE_R = sq_DR*sgnBn*(vt1xx*Bt1xx+vt2xx*Bt2xx-vt1xR*UxR.Bt1-vt2xR*UxR.Bt2);
+    UxxL.tau = UxL.tau - dE_L;
+    UxxR.tau = UxR.tau + dE_R;
 }
 // intermediate state flux
 static cons_stt interflux(const cons_stt& F_K, double SK, const cons_stt& Ux, const side& s_K) {

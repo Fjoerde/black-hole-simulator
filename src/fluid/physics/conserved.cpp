@@ -221,7 +221,7 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
             Bv += Blow[i]*mc.gam[i][j]*pv_out.v[j];
         }
     }
-    pv_out.b2 = (Bv*Bv+Bsq)/ltz;
+    pv_out.b2 = (Bv*Bv+Bsq)/ltz2;
     // sanity check for density
     if(pv_out.rho<=0.0 || pv_out.eps<=0.0 || pv_out.p <=0.0) {
         return false;

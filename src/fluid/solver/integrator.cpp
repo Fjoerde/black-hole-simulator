@@ -29,9 +29,9 @@ cons rk2integrator::div_flux(const grid::patch& p, int i, int j, int k) {
     cons dU;
     dU.D = -((FxR.D-FxL.D)/dx+(FyR.D-FyL.D)/dy+(FzR.D-FzL.D)/dz)/sg;
     dU.tau = -((FxR.tau-FxL.tau)/dx+(FyR.tau-FyL.tau)/dy+(FzR.tau-FzL.tau)/dz)/sg;
-    for(int i=0; i<3; i++) {
-        dU.S[i] = -((FxR.S[i]-FxL.S[i])/dx+(FyR.S[i]-FyL.S[i])/dy+(FzR.S[i]-FzL.S[i])/dz)/sg;
-        dU.B[i] = 0.0; // div B = 0 ^^
+    for(int d=0; d<3; d++) {
+        dU.S[d] = -((FxR.S[d]-FxL.S[d])/dx+(FyR.S[d]-FyL.S[d])/dy+(FzR.S[d]-FzL.S[d])/dz)/sg;
+        dU.B[d] = 0.0; // div B = 0 ^^
     }
 
     return dU;
@@ -45,33 +45,33 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
     metriccomp mc = c.mtr.comp(r,th);
     // christoffel symbols
     double Gam[4][4][4];
-    for(int i=0; i<4; i++) {
-        for(int j=0; j<4; j++) {
-            for(int k=0; k<4; k++) {
-                Gam[i][j][k] = mc.Gamma[i][j][k];
+    for(int m=0; m<4; m++) {
+        for(int n=0; n<4; n++) {
+            for(int l=0; l<4; l++) {
+                Gam[m][n][l] = mc.Gamma[m][n][l];
             }
         }
     }
     // construct some useful quantities
     double v2 = 0.0;
     double vlow[3] = {}, Blow[3] = {};
-    for(int i=0; i<3; i++) {
-        for(int j=0; j<3; j++) {
-            vlow[i] += mc.gam[i][j]*c.W.v[j];
-            Blow[i] += mc.gam[i][j]*c.W.B[j];
+    for(int m=0; m<3; m++) {
+        for(int n=0; n<3; n++) {
+            vlow[m] += mc.gam[m][n]*c.W.v[n];
+            Blow[m] += mc.gam[m][n]*c.W.B[n];
         }
-        v2 += vlow[i]*c.W.v[i];
+        v2 += vlow[m]*c.W.v[m];
     }
     v2 = std::min(v2,1-1e-10);
     double ltz2 = 1.0/(1.0-v2);
     double ltz = std::sqrt(ltz2);
     // magnetic things
     double Bv = 0.0, Bsq = 0.0;
-    for(int i=0; i<3; i++) {
-        Bv += Blow[i]*c.W.v[i];
-        Bsq += Blow[i]*c.W.B[i];
+    for(int m=0; m<3; m++) {
+        Bv += Blow[m]*c.W.v[m];
+        Bsq += Blow[m]*c.W.B[m];
     }
-    double b2 = Bv*Bv+Bsq/ltz;
+    double b2 = Bv*Bv+Bsq/ltz2;
     // thermodynamic state quantities
     double rho = c.W.rho;
     double eps = c.W.eps;
@@ -81,25 +81,25 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
     // 4-velocity (contravariant and covariant)
     double u4[4];
     u4[0] = ltz/mc.alpha;
-    for(int i=0; i<3; i++) {
-        u4[i+1] = ltz*(c.W.v[i]-mc.beta[i]/mc.alpha);
+    for(int m=0; m<3; m++) {
+        u4[m+1] = ltz*(c.W.v[m]-mc.beta[m]/mc.alpha);
     }
     double u_4[4] = {0.0,0.0,0.0,0.0};
-    for(int i=0; i<4; i++) {
-        for(int j=0; j<4; j++) {
-            u_4[i] += mc.g[i][j]*u4[j];
+    for(int m=0; m<4; m++) {
+        for(int n=0; n<4; n++) {
+            u_4[m] += mc.g[m][n]*u4[n];
         }
     }
     // magnetic 4-vector
     double b4[4];
     b4[0] = ltz*Bv/mc.alpha;
-    for(int i=0; i<3; i++) {
-        b4[i+1] = (c.W.B[i]+mc.alpha*b4[0]*u4[i+1])/ltz;
+    for(int m=0; m<3; m++) {
+        b4[m+1] = (c.W.B[m]+mc.alpha*b4[0]*u4[m+1])/ltz;
     }
     double b_4[4] = {0.0,0.0,0.0,0.0};
-    for(int i=0; i<4; i++) {
-        for(int j=0; j<4; j++) {
-            b_4[i] += mc.g[i][j]*b4[j];
+    for(int m=0; m<4; m++) {
+        for(int n=0; n<4; n++) {
+            b_4[m] += mc.g[m][n]*b4[n];
         }
     }
 
@@ -123,10 +123,10 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
     // lowered christoffels
     double Gam_[4][4][4] = {};
     for(int n=0; n<4; n++) {
-        for(int k=0; k<4; k++) {
+        for(int z=0; z<4; z++) {
             for(int l=0; l<4; l++) {
                 for(int s=0; s<4; s++) {
-                    Gam_[n][k][l] += mc.g[n][s]*Gam[s][k][l];
+                    Gam_[n][z][l] += mc.g[n][s]*Gam[s][z][l];
                 }
             }
         }
@@ -164,10 +164,10 @@ double rk2integrator::dtcomp(const amrtree& tree, double cfl) {
             double dx = std::min({p->dx(),p->dy(),p->dz()});
             const double ds[3] = {p->dx(),p->dy(),p->dz()};
             // maximum signal speed in every cell
-            for(int i=0; i<block; i++) {
-                for(int j=0; j<block; j++) {
-                    for(int k=0; k<block; k++) {
-                        const cell& c = p->cell_(i,j,k);
+            for(int m=0; m<block; m++) {
+                for(int n=0; n<block; n++) {
+                    for(int l=0; l<block; l++) {
+                        const cell& c = p->cell_(m,n,l);
                         double cs2 = stt.cs2(c.W.rho,c.W.eps);
                         double cs = std::sqrt(cs2);
                         for(int d=0; d<3; d++) {
@@ -202,10 +202,10 @@ void rk2integrator::rkstg(amrtree& tree, double dt, int stage) {
     {
         for(auto& p : tree.quilt) {
             if(!p->leaf) continue;
-            for(int i=-ghost; i<block+ghost; i++) {
-                for(int j=-ghost; j<block+ghost; j++) {
-                    for(int k=-ghost; k<block+ghost; k++) {
-                        cell& c = p->cell_(i,j,k);
+            for(int m=-ghost; m<block+ghost; m++) {
+                for(int n=-ghost; n<block+ghost; n++) {
+                    for(int l=-ghost; l<block+ghost; l++) {
+                        cell& c = p->cell_(m,n,l);
                         prim pv;
                         prim& PV = pv;
                         bool ok = tree.cnsv.ctop(c.U,c.r,c.th,PV);
