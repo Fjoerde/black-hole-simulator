@@ -9,6 +9,7 @@
 // this document contains the structures and classes relating to the
 // quantitative analysis of the gas.
 
+using namespace grid;
 namespace analysis {
 
 // quantitative results bundle

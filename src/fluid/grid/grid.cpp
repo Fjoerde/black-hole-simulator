@@ -346,12 +346,10 @@ void patch::floors(amrtree& tree, patch& p, const state& stt, const metric& mtr)
                     }
                 }
                 // if unphysical, apply floors
-                if(bhl || c.W.rho<tree.rho_floor_r0) {
-                    prim fl = tree.pvfs(c.r,c.th);
-                    if(bhl || c.W.rho<=fl.rho) {
-                        fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
-                        c.W = fl;
-                    }
+                prim fl = tree.pvfs(c.r,c.th);
+                if(bhl || c.W.rho<=fl.rho) {
+                    fl.B[0] = c.W.B[0]; fl.B[1] = c.W.B[1]; fl.B[2] = c.W.B[2];
+                    c.W = fl;
                     c.U = tree.cnsv.ptoc(c.W,c.r,c.th);
                 }
             }

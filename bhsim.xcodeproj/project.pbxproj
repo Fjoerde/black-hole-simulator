@@ -18,8 +18,8 @@
 		E41E24872FC0CF4900605CD2 /* initconds.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23F02FC0CF4900605CD2 /* initconds.cpp */; };
 		E41E24882FC0CF4900605CD2 /* thermo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23ED2FC0CF4900605CD2 /* thermo.cpp */; };
 		E41E24892FC0CF4900605CD2 /* conserved.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E41E23EA2FC0CF4900605CD2 /* conserved.cpp */; };
+		E440B6272FC9073000076B0C /* quantitatives.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E440B6262FC9073000076B0C /* quantitatives.cpp */; };
 		E45D83202FC752D1007642BF /* libomp.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E45D831F2FC752D1007642BF /* libomp.dylib */; };
-		E45D83242FC871A5007642BF /* quantitatives.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E45D83232FC871A5007642BF /* quantitatives.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -171,9 +171,9 @@
 		E41E247A2FC0CF4900605CD2 /* diagnostics.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = diagnostics.py; sourceTree = "<group>"; };
 		E41E247B2FC0CF4900605CD2 /* rendering.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = rendering.py; sourceTree = "<group>"; };
 		E41E247C2FC0CF4900605CD2 /* test.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test.py; sourceTree = "<group>"; };
+		E440B6262FC9073000076B0C /* quantitatives.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = quantitatives.cpp; sourceTree = "<group>"; };
 		E45D831C2FC50732007642BF /* analysis.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = analysis.hpp; sourceTree = "<group>"; };
 		E45D831F2FC752D1007642BF /* libomp.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libomp.dylib; path = ../../../../../opt/homebrew/Cellar/llvm/22.1.6/lib/libomp.dylib; sourceTree = "<group>"; };
-		E45D83232FC871A5007642BF /* quantitatives.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = quantitatives.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -488,7 +488,7 @@
 		E45D831D2FC5073E007642BF /* data */ = {
 			isa = PBXGroup;
 			children = (
-				E45D83232FC871A5007642BF /* quantitatives.cpp */,
+				E440B6262FC9073000076B0C /* quantitatives.cpp */,
 			);
 			path = data;
 			sourceTree = "<group>";
@@ -565,7 +565,7 @@
 				E41E24802FC0CF4900605CD2 /* spacetime.cpp in Sources */,
 				E41E24812FC0CF4900605CD2 /* transport.cpp in Sources */,
 				E41E24822FC0CF4900605CD2 /* main.cpp in Sources */,
-				E45D83242FC871A5007642BF /* quantitatives.cpp in Sources */,
+				E440B6272FC9073000076B0C /* quantitatives.cpp in Sources */,
 				E41E24832FC0CF4900605CD2 /* reconstruction.cpp in Sources */,
 				E41E24842FC0CF4900605CD2 /* hlld.cpp in Sources */,
 				E41E24852FC0CF4900605CD2 /* primitive.cpp in Sources */,

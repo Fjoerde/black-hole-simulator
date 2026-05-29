@@ -82,8 +82,8 @@ namespace params {
 // import namespaces
 using namespace params;
 using torus::init;
-// using grid::patch;
-// using grid::amrtree;
+using grid::patch;
+using grid::amrtree;
 
 // main function
 int main() {
@@ -91,7 +91,7 @@ int main() {
     // construct the amr tree
     std::array<double,3> dom_l = {dom_lo,dom_lo,dom_lo};
     std::array<double,3> dom_h = {dom_hi,dom_hi,dom_hi};
-    amrtree tree(dom_l,dom_h,nqlt,M,a,Q,Gamma);
+    grid::amrtree tree(dom_l,dom_h,nqlt,M,a,Q,Gamma);
     std::cout << nqlt*nqlt*nqlt << " patches have been instantiated.\n";
     // initalise torus
     std::cout << "Initialising torus...\n";
@@ -163,6 +163,7 @@ int main() {
     // auto timer_start = std::chrono::steady_clock::now();
     // start integrator and god help your computer
     std::cout << "Starting integration...\n";
+    tree.regrid();
     while(t<params::t_end && step<params::max_steps) {
         double dt = rk.step(tree);
         t += dt;
@@ -171,6 +172,15 @@ int main() {
         // for(auto& p : tree.quilt) {
         //     std::cout << "Evolution density diagnostic: " << p->cell_(4,4,4).W.rho << "    " << p->cell_(4,4,4).U.D << "\n";
         // }
+        analysis::analyser anl;
+        if(enable_analyser) {
+            if(analyse_full) {
+                auto b = anl.batch_(tree,t);
+            } else {
+                auto b = anl.bundle_(tree,t);
+                std::cout << "~~~ ANALYSIS BUNDLE for timestep: t = " << t << "\nMass: " << b.mass << "\nMass accretion rate: " << b.Mdot << "\nMagnetically arrested disc (MAD) parameter: " << b.MAD << "\nBlandford-Znajek luminosity: " << b.L_BZ << "\nShakura-Sunyaev alpha parameter: " << b.alpha_ss << "\n";
+            }
+        }
     }
     std::cout << "Integrator finished with coordinate time " << t << " in " << step << " steps." << "\n";
     return 0;

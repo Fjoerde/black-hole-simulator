@@ -2,15 +2,18 @@
 #include <vector>
 #include <array>
 #include <functional>
-#include "../grid.hpp"
-#include "../cell.hpp"
 #include "../analysis.hpp"
+#include "../cell.hpp"
+#include "../grid.hpp"
 
 // this document contains the methods relating to quantitative
 // analysis of the black hole and accretion disc.
 
 using namespace analysis;
 using namespace grid;
+using grid::amrtree;
+using grid::patch;
+
 // helpers
 // horizon radius
 static double r_horizon(const grid::amrtree& tree) {
@@ -49,8 +52,7 @@ double analyser::vol_int(const grid::amrtree& tree, std::function<double(const c
             for(int j=0; j<grid::block; j++) {
                 for(int k=0; k<grid::block; k++) {
                     const cell& c = p->cell_(i,j,k);
-                    double sqrtdetg = c.vol/c.pvol;
-                    integral += f(c,sqrtdetg)*c.vol;
+                    integral += f(c,c.mtr.comp(c.r,c.th).sqrtdetg)*c.vol;
                 }
             }
         }
@@ -67,7 +69,7 @@ double analyser::surf_int(const grid::amrtree& tree, const double r_surf, std::f
             for(int j=0; j<grid::block; j++) {
                 for(int k=0; k<grid::block; k++) {
                     const cell& c = p->cell_(i,j,k);
-                    double shell = 0.5*std::sqrt(c.dx*c.dx+c.dy*c.dy+c.dz*c.dz);
+                    double shell = std::sqrt(c.dx*c.dx+c.dy*c.dy+c.dz*c.dz);
                     if(std::abs(c.r-r_surf)>shell) continue;
                     double sqrtdetg = c.vol/c.pvol;
                     integral += f(c,sqrtdetg)*c.vol;
@@ -117,7 +119,7 @@ double analyser::Phi_B(const grid::amrtree& tree, double hrz) {
     });
 }
 double analyser::MAD(const grid::amrtree& tree, double hrz) {
-    if(std::abs(Mdot(tree,hrz))<1e-15) return 0.0;
+    if(std::abs(Mdot(tree,hrz))<1e-30) return 0.0;
     return Phi_B(tree,hrz)/Mdot(tree,hrz);
 }
 // thermal quantities
@@ -153,7 +155,7 @@ double analyser::L_BZ(const grid::amrtree& tree, double hrz) {
     });
 }
 double analyser::eta_BZ(const grid::amrtree& tree, double hrz) {
-    double hrz = r_horizon(tree);
+    hrz = r_horizon(tree);
     double LBZ = L_BZ(tree,hrz);
     double md = std::abs(Mdot(tree,hrz));
     return (md>1e-25)? LBZ/md : 0.0;
@@ -171,7 +173,7 @@ double analyser::Pbeta(const grid::amrtree& tree) {
 double analyser::alpha_ss(const grid::amrtree& tree, double rho_min) {
     double stress = vol_int(tree,[&](const cell& c, double sg) {
         if(c.W.rho<rho_min) return 0.0;
-        return (c.W.rho*c.W.h+c.W.b2*c.W.lor*c.W.lor*val_vr(c)*val_vphi(c)-val_Br(c)*val_Bphi(c))*sg;
+        return (c.W.rho*c.W.h*val_vr(c)*val_vphi(c)-val_Br(c)*val_Bphi(c))*sg;
     });
     double pressure = vol_int(tree,[&](const cell& c, double sg){
         if(c.W.rho<rho_min) return 0.0;
@@ -188,7 +190,7 @@ double analyser::maxreyn(const grid::amrtree& tree, double rho_min) {
         if(c.W.rho<rho_min) return 0.0;
         return c.W.rho*c.W.h*c.W.lor*c.W.lor*val_vr(c)*val_vphi(c)*sg;
     });
-    return (std::abs(reyn) > 1e-30) ? max/reyn : 0.0;
+    return (std::abs(reyn)>1e-30) ? max/reyn : 0.0;
 }
 double analyser::Hscal(const grid::amrtree& tree, double rs) {
     double num = surf_int(tree,rs,[](const cell& c, double sg) {
@@ -197,12 +199,12 @@ double analyser::Hscal(const grid::amrtree& tree, double rs) {
     double den = surf_int(tree,rs,[](const cell& c, double sg) {
         return c.W.rho*sg;
     });
-    return (den<1e-20)? (num/den)/rs : 0.0;
+    return (den>1e-20)? (num/den)/rs : 0.0;
 }
 
 using namespace analysis;
 // results bundling
-bundle analyser::bundle_(const amrtree& tree, double t) {
+bundle analyser::bundle_(const grid::amrtree& tree, double t) {
     bundle b;
     double M = tree.mtr.M;
     double hrz = r_horizon(tree);
@@ -212,11 +214,11 @@ bundle analyser::bundle_(const amrtree& tree, double t) {
     b.Mdot = Mdot(tree,hrz);
     b.MAD = MAD(tree,hrz);
     b.L_BZ = L_BZ(tree,hrz);
-    b.alpha_ss = alpha_ss(tree,0.01);
+    b.alpha_ss = alpha_ss(tree,0.005);
 
     return b;
 }
-batch analyser::batch_(const amrtree& tree, double t) {
+batch analyser::batch_(const grid::amrtree& tree, double t) {
     batch b;
     double M = tree.mtr.M;
     double hrz = r_horizon(tree);
@@ -238,7 +240,9 @@ batch analyser::batch_(const amrtree& tree, double t) {
     b.eta_BZ = eta_BZ(tree,hrz);
 
     b.Pbeta = Pbeta(tree);
-    b.alpha_ss = alpha_ss(tree,0.01);
-    b.maxreyn = maxreyn(tree,0.01);
+    b.alpha_ss = alpha_ss(tree,0.005);
+    b.maxreyn = maxreyn(tree,0.005);
     b.Hscal = Hscal(tree,10.0*M);
+
+    return b;
 }
