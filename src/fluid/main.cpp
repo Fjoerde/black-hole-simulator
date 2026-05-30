@@ -52,7 +52,7 @@ bool enable_analyser = true;
 // to false except for analysis runs. RECOMMENDED: Likely to slow
 // down code significantly, so do not set to true while data_write is
 // set to true unless absolutely necessary. 
-bool analyse_full = false;
+bool analyse_full = true;
 
 // simulation parameters
 // note: units are a complete mess, ah well it's fine, geometrised
@@ -67,8 +67,8 @@ namespace params {
     constexpr double Gamma = 5.0/3.0; // adiabatic index
     // domain
     const double r_horizon = M+std::sqrt(M*M-a*a-Q*Q); // horizon radius
-    constexpr double dom_lo = -25.0*M; // lower corner of domain
-    constexpr double dom_hi = 25.0*M; // upper corner of domain
+    constexpr double dom_lo = -50.0*M; // lower corner of domain
+    constexpr double dom_hi = 50.0*M; // upper corner of domain
     constexpr int nqlt = 8; // number of root patches per dimension
     // floors
     constexpr double rho_floor = 1e-5; // density floor
@@ -113,33 +113,35 @@ int main() {
         std::cerr << "Density initialisation threw back an error: rho_max is zero after Fishbone-Moncrief torus initialisation attempt!";
         return 1;
     }
-    // diagnostic to check torus was created properly
-    int torc = 0;
-    double rhcheck = 0.0;
-    for(const auto& p : tree.quilt) {
-        for(int i=0; i<block; i++) {
-            for(int j=0; j<block; j++) {
-                for(int k=0; k<block; k++) {
-                    double rh = p->cell_(i,j,k).W.rho;
-                    if(rh > tree.rho_floor_r0) {
-                        torc++;
-                        rhcheck = std::max(rhcheck,rh);
-                    }
-                }
-            }
-        }
-    }
-    std::cout << "Torus cells in grid: " << ": " << torc << "\nMaximum density: " << rhcheck << "\n";
-    if(torc==0) {
-       std::cerr << "Fishbone-Moncrief torus initialisation threw back an error: no torus cells initialised!\n";
-       return 1;
-    }
+    // // diagnostic to check torus was created properly
+    // int torc = 0;
+    // double rhcheck = 0.0;
+    // for(const auto& p : tree.quilt) {
+    //     for(int i=0; i<block; i++) {
+    //         for(int j=0; j<block; j++) {
+    //             for(int k=0; k<block; k++) {
+    //                 const cell& c = p->cell_(i,j,k);
+    //                 const prim fl = tree.pvfs(c.r,c.th);
+    //                 if(c.W.rho>1000*fl.rho) {
+    //                     torc++;
+    //                     rhcheck = std::max(rhcheck,c.W.rho);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+    // std::cout << "Torus cells in grid: " << ": " << torc << "\nMaximum density: " << rhcheck << "\n";
+    // if(torc==0) {
+    //    std::cerr << "Fishbone-Moncrief torus initialisation threw back an error: no torus cells initialised!\n";
+    //    return 1;
+    // }
+    
     std::cout << "Maximum density across the entire grid: " << rho_max << "\n";
     // initialise magnetic field
     std::cout << "Initialising magnetic field...\n";
     for(const auto& p : tree.quilt) {
         init::B_pot_init(*p,tree.mtr,rho_max);
-        std::cout << "Initial density diagnostic : " << p->cell_(3,3,3).W.rho << "\n";
+        // std::cout << "Initial density diagnostic : " << p->cell_(3,3,3).W.rho << "\n";
     }
     // convert primitives to conserveds in all cells
     std::cout << "Converting primitive variables to conserved variables...\n";
@@ -176,6 +178,7 @@ int main() {
         if(enable_analyser) {
             if(analyse_full) {
                 auto b = anl.batch_(tree,t);
+                std::cout << "--- ANALYSIS BATCH for timestep: t = " << t << "\nMass: " << b.mass << "\nEnergy: " << b.energy << "\nPolar angular momentum: " << b.L_pol << "\nMass accretion rate: " << b.Mdot << "\nEnergy accretion rate: " << b.Edot << "\nMagnetic flux through horizon: " << b.Phi_B << "\nMagnetically arrested disc (MAD) parameter: " << b.MAD << "\nTotal magnetic energy: " << b.magE << "\nTotal thermal energy: " << b.thermE << "\nBlandford-Znajek power: " << b.L_BZ << "\nBlandford-Znajek eta (efficiency): " << b.eta_BZ << "\nPlasma beta parameter: " << b.Pbeta << "\nShakura-Sunyaev alpha parameter: " << b.alpha_ss << "\nMaxwell-Reynolds stress ratio: " << b.maxreyn << "\nScale height: " << b.Hscal << "\n";
             } else {
                 auto b = anl.bundle_(tree,t);
                 std::cout << "~~~ ANALYSIS BUNDLE for timestep: t = " << t << "\nMass: " << b.mass << "\nMass accretion rate: " << b.Mdot << "\nMagnetically arrested disc (MAD) parameter: " << b.MAD << "\nBlandford-Znajek luminosity: " << b.L_BZ << "\nShakura-Sunyaev alpha parameter: " << b.alpha_ss << "\n";

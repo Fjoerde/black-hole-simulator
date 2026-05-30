@@ -71,8 +71,7 @@ double analyser::surf_int(const grid::amrtree& tree, const double r_surf, std::f
                     const cell& c = p->cell_(i,j,k);
                     double shell = std::sqrt(c.dx*c.dx+c.dy*c.dy+c.dz*c.dz);
                     if(std::abs(c.r-r_surf)>shell) continue;
-                    double sqrtdetg = c.vol/c.pvol;
-                    integral += f(c,sqrtdetg)*c.vol;
+                    integral += f(c,c.mtr.comp(c.r,c.th).sqrtdetg)*c.vol;
                 }
             }
         }
@@ -240,8 +239,8 @@ batch analyser::batch_(const grid::amrtree& tree, double t) {
     b.eta_BZ = eta_BZ(tree,hrz);
 
     b.Pbeta = Pbeta(tree);
-    b.alpha_ss = alpha_ss(tree,0.005);
-    b.maxreyn = maxreyn(tree,0.005);
+    b.alpha_ss = alpha_ss(tree,0.0005);
+    b.maxreyn = maxreyn(tree,0.0005);
     b.Hscal = Hscal(tree,10.0*M);
 
     return b;

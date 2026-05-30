@@ -45,7 +45,7 @@ void metric::gcntr(double r, double th, double g_inv[4][4]) const {
     g_inv[1][1] = 1 - H(r,th);
     g_inv[2][2] = pow(Sigma(r,th),-1);
     g_inv[1][3] = g_inv[3][1] = a*pow(Sigma(r,th),-1);
-    g_inv[3][3] = pow(Sigma(r,th)*sin(th),-1);
+    g_inv[3][3] = pow(Sigma(r,th)*sin(th)*sin(th),-1);
 }
 
 // compute metric determinant
