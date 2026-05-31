@@ -77,7 +77,7 @@ namespace params {
     // integration
     constexpr double cfl = 0.4; // courant-friedrichs-lewy number
     constexpr double t_end = 200.0; // end time in geometrised units, NOT FRAMES!!
-    constexpr double max_steps = 1000; // step count hard limit (this is now frames)
+    constexpr double max_steps = 50; // step count hard limit (this is now frames)
 }
 // import namespaces
 using namespace params;

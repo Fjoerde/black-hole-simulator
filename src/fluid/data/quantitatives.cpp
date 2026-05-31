@@ -239,8 +239,8 @@ batch analyser::batch_(const grid::amrtree& tree, double t) {
     b.eta_BZ = eta_BZ(tree,hrz);
 
     b.Pbeta = Pbeta(tree);
-    b.alpha_ss = alpha_ss(tree,0.0005);
-    b.maxreyn = maxreyn(tree,0.0005);
+    b.alpha_ss = alpha_ss(tree,0.01);
+    b.maxreyn = maxreyn(tree,0.01);
     b.Hscal = Hscal(tree,10.0*M);
 
     return b;

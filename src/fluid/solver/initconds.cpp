@@ -232,7 +232,7 @@ void init::fm_init(amrtree& tree) {
     double Q = tree.mtr.Q;
     double Gamma = tree.stt.gamma;
     // useful radii
-    const double r_max = 20.0*M; // <-- <-- FREE PARAMETER
+    const double r_max = 12.0*M; // <-- <-- FREE PARAMETER
     const double r_in = 4.5*M; // <-- <-- FREE PARAMETER
     double r_H = M+std::sqrt(M*M-a*a-Q*Q);
     // double l0 = comp_L0K(r_max,M,a,Q);
