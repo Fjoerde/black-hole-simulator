@@ -155,7 +155,7 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
     double xi = tau+D;
 
     // bracket for lower and upper bounds on \xi
-    double xi_l = D+0.01;
+    double xi_l = D;
     double xi_h = tau+D+Bsq/2.0+1e3;
     // check that bracket is valid
     double fl = fres(xi_l, Ssq, Bsq, SB, D, tau);
