@@ -329,7 +329,6 @@ class VidSettings:
 
         cam_dir, cam_u, cam_v = self.cam_dir[frame_num], self.cam_u[frame_num], self.cam_v[frame_num]
         cam_vel = self.cam_vel[frame_num]
-        print(cam_dir.np_array()); print(cam_vel.np_array())
         u = (2*(x+0.5)/self.w - 1) * self.aspect # Viewport coordinates, varies from -aspect to +aspect
         v = 1 - 2*(y+0.5)/self.h # varies from -1 to +1
         ray_dir_p = (self.f*cam_dir + u*cam_u + v*cam_v).normal() # p stands for primed (in the moving camera's frame)

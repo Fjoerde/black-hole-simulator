@@ -52,3 +52,7 @@ def look_to_origin(cam_worldline:Function, tau_scale:float, fps:float, frame_num
         rots[i,0] = phi; rots[i,1] = theta
     return np.ascontiguousarray(rots)
 
+def zero_roll(pos:Vec) -> tuple[float, float, float]:
+    cam_dir = -pos.normal()
+    theta = np.arccos(cam_dir.z); phi = np.arctan2(cam_dir.y, cam_dir.x)
+    return (phi, theta, 0)

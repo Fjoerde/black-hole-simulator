@@ -158,8 +158,7 @@ class Patch:
         addend[:, np.abs(dim)-1] = np.zeros(N, dtype=np.int64) + np.sign(dim)
         adj_multi_idx = np.clip(multi_idx + addend, 0, (self.arr_lens - 1).repeat(N).reshape(self.dim, N).T)
         new_pts = np.empty((N, self.dim), dtype=np.float64)
-        for i in range(N):
-            for j in range(self.dim): new_pts[i,j] = self.arr[j][adj_multi_idx[i,j]]
+        for i in range(self.dim): new_pts[:,i] = self.arr[i][adj_multi_idx[:,i]] # Changed
         return new_pts
 
     def get_idx(self, pts:np.ndarray) -> np.ndarray[int]:
