@@ -13,7 +13,7 @@ using namespace grid;
 class constrans {
 public:
     static void emfcomp(patch& p);
-    static void Bfupdate(patch& p, double dt);
+    static void Bfupdate(patch& p, double dt, const std::vector<double>& Bfx_n, const std::vector<double>& Bfy_n, const std::vector<double>& Bfz_n, double kappa);
     static void f2cB(patch& p);
     static double maxdivB(const patch& p);
 };

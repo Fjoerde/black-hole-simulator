@@ -77,7 +77,7 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
     double eps = c.W.eps;
     double px = stt.press(rho,eps);
     double h = stt.enth(rho,eps);
-
+    double ptot = px+b2/2.0;
     // 4-velocity (contravariant and covariant)
     double u4[4];
     u4[0] = ltz/mc.alpha;
@@ -102,46 +102,44 @@ cons rk2integrator::source(const patch& p, int i, int j, int k, const metric& mt
             b_4[m] += mc.g[m][n]*b4[n];
         }
     }
-
     // stress-energy tensor
-    double T44[4][4];
+    double T44[4][4] = {};
     double rhohb2 = rho*h+b2;
     for(int m=0; m<4; m++) {
         for(int n=0; n<4; n++) {
-            T44[m][n] = rhohb2*u4[m]*u4[n]+px*mc.g_inv[m][n]-b4[m]*b4[n];
+            T44[m][n] += rhohb2*u4[m]*u4[n]+ptot*mc.g_inv[m][n]-b4[m]*b4[n];
         }
     }
-    // one index lowered
-    double T4_4[4][4] = {};
-    for(int m=0; m<4; m++) {
-        for(int n=0; n<4; n++) {
-            for(int s=0; s<4; s++) {
-                T4_4[m][n] += mc.g[n][s]*T44[m][s];
-            }
-        }
-    }
-    // lowered christoffels
-    double Gam_[4][4][4] = {};
-    for(int n=0; n<4; n++) {
-        for(int z=0; z<4; z++) {
-            for(int l=0; l<4; l++) {
-                for(int s=0; s<4; s++) {
-                    Gam_[n][z][l] += mc.g[n][s]*Gam[s][z][l];
-                }
-            }
-        }
-    }
+    // // one index lowered
+    // double T4_4[4][4] = {};
+    // for(int m=0; m<4; m++) {
+    //     for(int n=0; n<4; n++) {
+    //         for(int s=0; s<4; s++) {
+    //             T4_4[m][n] += mc.g[n][s]*T44[m][s];
+    //         }
+    //     }
+    // }
+    // // lowered christoffels
+    // double Gam_[4][4][4] = {};
+    // for(int n=0; n<4; n++) {
+    //     for(int z=0; z<4; z++) {
+    //         for(int l=0; l<4; l++) {
+    //             for(int s=0; s<4; s++) {
+    //                 Gam_[n][z][l] += mc.g[n][s]*Gam[s][z][l];
+    //             }
+    //         }
+    //     }
+    // }
     // source terms
     double src[4] = {};
     for(int m=0; m<4; m++) {
         for(int n=0; n<4; n++) {
             for(int l=0; l<4; l++) {
-                src[m] += T44[n][l]*Gam_[m][n][l];
+                src[m] += T44[n][l]*Gam[m][n][l];
             }
         }
         src[m] *= mc.sqrtdetg;
     }
-    
     // assign values
     cons S;
     S.D = 0.0; // no mass source
@@ -190,8 +188,9 @@ double rk2integrator::dtcomp(const amrtree& tree, double cfl) {
 // runge-kutta stages
 void rk2integrator::rkstg(amrtree& tree, double dt, int stage) {
     int patches = (int)tree.quilt.size();
+    double alpha = (stage==0)? 1.0 : 0.5;
     // fill ghosts
-// #pragma omp parallel for
+    // #pragma omp parallel for
     for(int pi=0; pi<patches; pi++) {
         patch* p = tree.quilt[pi].get();
         if(!p->leaf) continue;
@@ -202,6 +201,9 @@ void rk2integrator::rkstg(amrtree& tree, double dt, int stage) {
     for(int pi=0; pi<patches; pi++) {
         patch* p = tree.quilt[pi].get();
         if(!p->leaf) continue;
+        std::vector<double> Bfx_n = p->Bfx;
+        std::vector<double> Bfy_n = p->Bfy;
+        std::vector<double> Bfz_n = p->Bfz;
         for(int m=-ghost; m<block+ghost; m++) {
             for(int n=-ghost; n<block+ghost; n++) {
                 for(int l=-ghost; l<block+ghost; l++) {
@@ -219,21 +221,54 @@ void rk2integrator::rkstg(amrtree& tree, double dt, int stage) {
                 }
             }
         }
+        patch* pt = tree.quilt[pi].get();
+        constrans::emfcomp(*pt);
+        constrans::Bfupdate(*pt,dt,Bfx_n,Bfy_n,Bfz_n,alpha);
+        constrans::f2cB(*pt);
     }
-    // compute fluxes
-    #pragma omp parallel for schedule(dynamic)
+    // // compute fluxes
+    // #pragma omp parallel for schedule(dynamic)
+    // for(int pi=0; pi<patches; pi++) {
+    //     patch* p = tree.quilt[pi].get();
+    //     p->fluxcomp(tree.mtr,tree.stt);
+    // }
+    // serial flux copying
     for(int pi=0; pi<patches; pi++) {
         patch* p = tree.quilt[pi].get();
-        p->fluxcomp(tree.mtr,tree.stt);
+        if(!p->leaf) continue;
+        for(int dim=0; dim<3; dim++) {
+            for(int side : {-1,1}) {
+                patch* nb = tree.nbhd(p,dim,side);
+                if(!nb || !nb->leaf) continue;
+                tree.gh_copy_flux(p,nb,dim,side);
+            }
+        }
     }
-    // emfs and magnetic field
-    #pragma omp parallel for schedule(dynamic)
+    // // compute emfs
+    // #pragma omp parallel for schedule(dynamic)
+    // for(int pi=0; pi<patches; pi++) {
+    //     patch* p = tree.quilt[pi].get();
+    //     constrans::emfcomp(*p);
+    // }
+    // serial face updates
     for(int pi=0; pi<patches; pi++) {
         patch* p = tree.quilt[pi].get();
-        constrans::emfcomp(*p);
-        constrans::Bfupdate(*p,dt);
-        constrans::f2cB(*p);
+        if(!p->leaf) continue;
+        for(int dim=0; dim<3; dim++) {
+            for(int side : {-1,1}) {
+                patch* nb = tree.nbhd(p,dim,side);
+                if(!nb || !nb->leaf) continue;
+                tree.gh_copy_faces(p,nb,dim,side);
+            }
+        }
     }
+    // // compute magnetic fields
+    // #pragma omp parallel for schedule(dynamic)
+    // for(int pi=0; pi<patches; pi++) {
+    //     patch* p = tree.quilt[pi].get();
+    //     constrans::Bfupdate(*p,dt,Bfx_n,Bfy_n,Bfz_n,alpha);
+    //     constrans::f2cB(*p);
+    // }
     // conserved variable update
     #pragma omp parallel for schedule(dynamic)
     for(int pi=0; pi<patches; pi++) {

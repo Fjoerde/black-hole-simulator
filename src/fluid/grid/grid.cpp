@@ -8,6 +8,7 @@
 #include "initial.hpp"
 #include "hlld.hpp"
 #include "rk2.hpp"
+#include "ct.hpp"
 
 // this document contains the methods for dealing with the grid and
 // adaptive mesh refinement (amr). the grid is split up into a quilt
@@ -520,6 +521,67 @@ void amrtree::gh_bndy(patch* p, int dim, int side) {
         }
     }
 }
+// face values copying
+void amrtree::gh_copy_faces(patch* p, patch* nb, int dim, int side) {
+    int pstart = (side==1)? block : -ghost;
+    int nbstart = (side==1)? 0 : block-ghost;
+    for(int g=0; g<ghost; g++) {
+        for(int t1=-ghost; t1<block+ghost; t1++) {
+            for(int t2=-ghost; t2<block+ghost; t2++) {
+                int pi, pj, pk, ni, nj, nk;
+                if(dim==0) {
+                    pi = pstart+g; pj = t1; pk = t2;
+                    ni = nbstart+g; nj = t1; nk = t2;
+                } else if(dim==1) {
+                    pi = t1; pj = pstart+g; pk = t2;
+                    ni = t1; nj = nbstart+g; nk = t2;
+                } else {
+                    pi = t1; pj = t2; pk = pstart+g;
+                    ni = t1; nj = t2; nk = nbstart+g;
+                }
+                auto inbounds = [](int a, int b, int c){
+                    return a>=-ghost && a<block+ghost && b>=-ghost && b<block+ghost && c>=-ghost && c<block+ghost;
+                };
+                if(!inbounds(pi,pj,pk) || !inbounds(ni,nj,nk)) continue;
+                p->Bfx[p->Bfx_idx(pi,pj,pk)] = nb->Bfx[nb->Bfx_idx(ni,nj,nk)];
+                p->Bfy[p->Bfy_idx(pi,pj,pk)] = nb->Bfy[nb->Bfy_idx(ni,nj,nk)];
+                p->Bfz[p->Bfz_idx(pi,pj,pk)] = nb->Bfz[nb->Bfz_idx(ni,nj,nk)];
+            }
+        }
+    }
+}
+// flux copying
+void amrtree::gh_copy_flux(patch* p, patch* nb, int dim, int side) {
+    int pstart = (side==1)? block-1 : -1;
+    int nbstart = (side==1)? 0 : block-1;
+    for(int g=0; g<ghost; g++) {
+        for(int t1=-ghost; t1<block+ghost; t1++) {
+            for(int t2=-ghost; t2<block+ghost; t2++) {
+                int pi, pj, pk, ni, nj, nk;
+                int pn = (side==1)? block-1+g : -1-g;
+                int nn = (side==1)? g : block-1+g;
+                if(dim==0) {
+                    pi = pn; pj = t1; pk = t2;
+                    ni = nn; nj = t1; nk = t2;
+                } else if(dim==1) {
+                    pi = t1; pj = pn; pk = t2;
+                    ni = t1; nj = nn; nk = t2;
+                } else {
+                    pi = t1; pj = t2; pk = pn;
+                    ni = t1; nj = t2; nk = nn;
+                }
+                auto inbounds = [](int a, int b, int c) {
+                    return a>=-ghost && a<block+ghost && b>=-ghost && b<block+ghost && c>=-ghost && c<block+ghost;
+                };
+                if(!inbounds(pi,pj,pk) || !inbounds(ni,nj,nk)) continue;
+                p->get_Fx(pi,pj,pk) = nb->get_Fx(ni,nj,nk);
+                p->get_Fy(pi,pj,pk) = nb->get_Fy(ni,nj,nk);
+                p->get_Fz(pi,pj,pk) = nb->get_Fz(ni,nj,nk);
+    
+            }
+        }
+    }
+}
 // ghost processing for a given patch pointer p
 void amrtree::ghosts(patch* p) {
     for(int dim=0; dim<3; dim++) {
@@ -649,7 +711,38 @@ void amrtree::refine(patch* p) {
                 }
             }
         }
-        child->B_init();
+        // face updates for magnetic field
+        for(int i=-ghost; i<block+ghost; i++) {
+            for(int j=-ghost; j<block+ghost; j++) {
+                for(int k=-ghost; k<block+ghost; k++) {
+                    int pi = (i+ix*block)/2.0; int pj = (j+iy*block)/2.0; int pk = (k+iz*block)/2.0;
+                    // update x faces
+                    if(j>=-ghost && j<block+ghost && k>=-ghost && k<block+ghost) {
+                        if(i%2==0) {
+                            child->Bfx[child->Bfx_idx(i,j,k)] = p->Bfx[p->Bfx_idx(pi,pj,pk)];
+                        } else {
+                            child->Bfx[child->Bfx_idx(i,j,k)] = 0.5*(p->Bfx[p->Bfx_idx(pi,pj,pk)]+p->Bfx[p->Bfx_idx(pi+1,pj,pk)]);
+                        }
+                    }
+                    // update y faces
+                    if(i>=-ghost && i<block+ghost && k>=-ghost && k<block+ghost) {
+                        if(j%2==0) {
+                            child->Bfy[child->Bfy_idx(i,j,k)] = p->Bfy[p->Bfy_idx(pi,pj,pk)];
+                        } else {
+                            child->Bfy[child->Bfy_idx(i,j,k)] = 0.5*(p->Bfy[p->Bfy_idx(pi,pj,pk)]+p->Bfy[p->Bfy_idx(pi,pj+1,pk)]);
+                        }
+                    }
+                    // update z face
+                    if(i>=-ghost && i<block+ghost && j>=-ghost && j<block+ghost) {
+                        if(k%2==0) {
+                            child->Bfz[child->Bfz_idx(i,j,k)] = p->Bfz[p->Bfz_idx(pi,pj,pk)];
+                        } else {
+                            child->Bfz[child->Bfz_idx(i,j,k)] = 0.5*(p->Bfz[p->Bfz_idx(pi,pj,pk)]+p->Bfz[p->Bfz_idx(pi,pj,pk+1)]);
+                        }
+                    }
+                }
+            }
+        }
     }
     p->leaf = false;
 }
@@ -714,7 +807,48 @@ void amrtree::ccrstr(patch* p) {
         }
     }
     // initialise magnetic field
-    p->B_init();
+    for(int h=0; h<8; h++) {
+        patch* child = p->children[h];
+        if(!child) continue;
+        int ix = (h>>2)&1, iy = (h>>1)&1, iz = h&1;
+        int ioff = ix*block/2.0, joff = iy*block/2.0, koff = iz*block/2.0;
+        // left x face of child
+        for(int j=0; j<block/2.0; j++) {
+            for(int k=0; k<block/2.0; k++) {
+                p->Bfx[p->Bfx_idx(ioff,joff+j,koff+k)] = child->Bfx[child->Bfx_idx(0,j,k)];
+            }
+        }
+        // right x face of child
+        for(int j=0; j<block/2.0; j++) {
+            for(int k=0; k<block/2.0; k++) {
+                p->Bfx[p->Bfx_idx(ioff+block/2.0,joff+j,koff+k)] = child->Bfx[child->Bfx_idx(block,j,k)];
+            }
+        }
+        // left x face of child
+        for(int i=0; i<block/2.0; i++) {
+            for(int k=0; k<block/2.0; k++) {
+                p->Bfy[p->Bfy_idx(ioff+i,joff,koff+k)] = child->Bfy[child->Bfy_idx(i,0,k)];
+            }
+        }
+        // right x face of child
+        for(int i=0; i<block/2.0; i++) {
+            for(int k=0; k<block/2.0; k++) {
+                p->Bfy[p->Bfy_idx(ioff+i,joff+block/2.0,koff+k)] = child->Bfy[child->Bfy_idx(i,block,k)];
+            }
+        }
+        // left z face of child
+        for(int i=0; i<block/2.0; i++) {
+            for(int j=0; j<block/2.0; j++) {
+                p->Bfz[p->Bfz_idx(ioff+i,joff+j,koff)] = child->Bfz[child->Bfz_idx(i,j,0)];
+            }
+        }
+        // right z face of child
+        for(int i=0; i<block/2.0; i++) {
+            for(int j=0; j<block/2.0; j++) {
+                p->Bfz[p->Bfz_idx(ioff+i,joff+j,koff+block/2.0)] = child->Bfz[child->Bfz_idx(i,j,block)];
+            }
+        }
+    }
 }
 // flattening
 void amrtree::flatten(patch* p) {

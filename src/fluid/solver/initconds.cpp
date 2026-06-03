@@ -16,7 +16,7 @@ using namespace torus;
 // magnetic field initialised from curl of vector potential
 std::array<double,3> init::A_vpot(double x, double y, double z, double rho, double rho_max) {
     // torus initialisation, so only A_phi component nonzero
-    double Ap = std::max(rho/rho_max-0.2,0.0);
+    double Ap = std::max(rho/rho_max-0.02,0.0);
     double phi = atan2(y,x);
     double theta = std::acos(z/std::sqrt(x*x+y*y+z*z));
     return {-Ap*std::sin(phi)*std::sin(theta),Ap*std::cos(phi)*std::sin(theta),0.0};
@@ -344,7 +344,7 @@ void init::fm_init(amrtree& tree) {
     // double r_in = 2.5*M*(3.0+Z2-std::sqrt((3.0-Z1)*(3.0+Z1+2.0*Z2)));
     // density scale so that \rho_{max}=1 in code units
     double K = 0.001*pow(M,Gamma-1.0);
-    double rho_tgt = 1.0;
+    double rho_tgt = 1e-5;
     // std::cout << "ISCO diagnostic: \nr_in = " << r_in << "\nr_max = " << r_max << "\n";
 
     // angular momentum at pressure maximum
@@ -437,6 +437,7 @@ void init::fm_init(amrtree& tree) {
     // diagnostic: ensure ln(h) > 0 at r_max
     const metriccomp mc_max = tree.mtr.comp(r_max,M_PI/2.0);
     const double lnh_max = lnh_pot(mc_max,l0,W_in);
+    double lnh_min = 0.01*lnh_max;
     std::cout << "Initialisation diagnostic: at r = r_max, ln(h) = " << lnh_max << "\n";
     if(lnh_max<=0.0) {
         std::cerr << "Fishbone-Moncrief torus initialisation threw back an error in init::fm_init: ln(h) <= 0.0 at r = r_max! Check initialisation parameters r_in and r_max, as the torus cannot initialise.\n";
@@ -540,7 +541,7 @@ void init::fm_init(amrtree& tree) {
                     }
                     metriccomp mc = tree.mtr.comp(r,th);
                     const double lnH = lnh_pot(mc,l0,W_in);
-                    if(lnH<=0.0 || !std::isfinite(lnH)) {
+                    if(lnH<=0.0 || !std::isfinite(lnH) || lnH<=lnh_min) {
                         c.W = W_p; continue;
                     }
                     // double DelW = W_pot-W_in;

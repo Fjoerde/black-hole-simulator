@@ -109,7 +109,7 @@ double analyser::Edot(const grid::amrtree& tree, double hrz) {
 double analyser::Ldot(const grid::amrtree& tree, double hrz) {
     return surf_int(tree,hrz,[](const cell& c, double sg) {
         double w = c.W.rho*c.W.h+c.W.b2;
-        return (w*c.W.lor*c.W.lor*val_vr(c)*val_vphi(c)-val_Br(c)-val_Bphi(c))*sg;
+        return (w*c.W.lor*c.W.lor*val_vr(c)*val_vphi(c)-val_Br(c)*val_Bphi(c))*sg;
     });
 }
 double analyser::Phi_B(const grid::amrtree& tree, double hrz) {
@@ -138,7 +138,7 @@ double analyser::L_BZ(const grid::amrtree& tree, double hrz) {
         double Blow[3] = {};
         for(int i=0; i<3; i++) {
             for(int j=0; j<3; j++) {
-                Blow[i] = mc.gam[i][j]*c.W.B[j];
+                Blow[i] += mc.gam[i][j]*c.W.B[j];
             }
         }
         double Bv = 0.0;
@@ -154,9 +154,9 @@ double analyser::L_BZ(const grid::amrtree& tree, double hrz) {
     });
 }
 double analyser::eta_BZ(const grid::amrtree& tree, double hrz) {
-    hrz = r_horizon(tree);
     double LBZ = L_BZ(tree,hrz);
     double md = std::abs(Mdot(tree,hrz));
+    if(md<1e-6) return 0.0; // not enough actual accretion
     return (md>1e-25)? LBZ/md : 0.0;
 }
 // plasma structure quantities
@@ -172,7 +172,7 @@ double analyser::Pbeta(const grid::amrtree& tree) {
 double analyser::alpha_ss(const grid::amrtree& tree, double rho_min) {
     double stress = vol_int(tree,[&](const cell& c, double sg) {
         if(c.W.rho<rho_min) return 0.0;
-        return (c.W.rho*c.W.h*val_vr(c)*val_vphi(c)-val_Br(c)*val_Bphi(c))*sg;
+        return (c.W.rho*c.W.h*c.W.lor*c.W.lor*val_vr(c)*val_vphi(c)-val_Br(c)*val_Bphi(c))*sg;
     });
     double pressure = vol_int(tree,[&](const cell& c, double sg){
         if(c.W.rho<rho_min) return 0.0;

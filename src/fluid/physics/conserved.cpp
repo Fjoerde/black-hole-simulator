@@ -52,7 +52,7 @@ cons conserved::ptoc(prim& pv, double r, double th) const {
             Bsq += Blow[i]*mc.gam[i][j]*pv.B[j];
         }
     }
-    pv.b2 = (Bv*Bv+Bsq)/(pv.lor);
+    pv.b2 = (Bv*Bv+Bsq)/(pv.lor*pv.lor);
     
     double bt = pv.lor*Bv/mc.alpha; // magnetic 4-vector t component
     double pstar = pv.p+pv.b2/2; // magnetically adjusted pressure
@@ -160,9 +160,10 @@ bool conserved::ctop(const cons& cv, double r, double th, prim& pv_out, int maxi
     // check that bracket is valid
     double fl = fres(xi_l, Ssq, Bsq, SB, D, tau);
     double fh = fres(xi_h, Ssq, Bsq, SB, D, tau);
+    if(!std::isfinite(fl) || !std::isfinite(fh)) return false;
     // expand bracket while fl and fh are the same sign
-    while(fl*fh>0.0 && xi_h < 1e8*D) {
-        xi_h *= 2.0;
+    if(fl*fh>0.0) {
+        xi_h = std::max(xi_h,1e6*D);
         fl = fres(xi_h, Ssq, Bsq, SB, D, tau);
     }
     
