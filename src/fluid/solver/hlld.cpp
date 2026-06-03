@@ -34,7 +34,7 @@ struct cons_stt {
 static double fastspeed(double rho, double h, double b2, double cs2) {
     double va2 = b2/(rho*h+b2); // square of alfvén wave speed
     double cf2 = cs2+va2*(1-cs2); // angle-averaged fast waves peed
-    cf2 = std::min(cf2, 1-1e-10);
+    cf2 = std::min(cf2, 1.0-1e-10);
     return std::sqrt(cf2);
 }
 // magnetic related computations
@@ -50,7 +50,7 @@ static void magcomp(const prim& W, const metriccomp& mc, int dim, double& b2, do
         }
         v2 += vlow[i]*W.v[i];
     }
-    v2 = std::min(v2,1-1e-10);
+    v2 = std::min(v2,1.0-1e-10);
     ltz2 = 1.0/(1.0-v2);
     ltz = std::sqrt(ltz2);
     // B_i v^i
