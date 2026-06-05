@@ -35,6 +35,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E41C665F2FD19D7F006E9902 /* libhdf5_cpp.310.0.5.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libhdf5_cpp.310.0.5.dylib; path = "../../../miniconda3/pkgs/hdf5-1.14.5-hd77251f_2/lib/libhdf5_cpp.310.0.5.dylib"; sourceTree = "<group>"; };
+		E41C66612FD19E8D006E9902 /* libhdf5_cpp.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libhdf5_cpp.dylib; path = ../../../../../opt/homebrew/Cellar/hdf5/2.1.1/lib/libhdf5_cpp.dylib; sourceTree = "<group>"; };
 		E41E23DA2FC0CEB800605CD2 /* bhsim */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bhsim; sourceTree = BUILT_PRODUCTS_DIR; };
 		E41E23E62FC0CF4900605CD2 /* grid.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = grid.cpp; sourceTree = "<group>"; };
 		E41E23E72FC0CF4900605CD2 /* reconstruction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = reconstruction.cpp; sourceTree = "<group>"; };
@@ -50,7 +52,6 @@
 		E41E23F42FC0CF4900605CD2 /* cell.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cell.hpp; sourceTree = "<group>"; };
 		E41E23F52FC0CF4900605CD2 /* cons.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = cons.hpp; sourceTree = "<group>"; };
 		E41E23F62FC0CF4900605CD2 /* ct.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ct.hpp; sourceTree = "<group>"; };
-		E41E23F72FC0CF4900605CD2 /* data.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = data.hpp; sourceTree = "<group>"; };
 		E41E23F82FC0CF4900605CD2 /* grid.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = grid.hpp; sourceTree = "<group>"; };
 		E41E23F92FC0CF4900605CD2 /* hlld.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = hlld.hpp; sourceTree = "<group>"; };
 		E41E23FA2FC0CF4900605CD2 /* initial.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = initial.hpp; sourceTree = "<group>"; };
@@ -248,7 +249,6 @@
 				E41E23F42FC0CF4900605CD2 /* cell.hpp */,
 				E41E23F52FC0CF4900605CD2 /* cons.hpp */,
 				E41E23F62FC0CF4900605CD2 /* ct.hpp */,
-				E41E23F72FC0CF4900605CD2 /* data.hpp */,
 				E41E23F82FC0CF4900605CD2 /* grid.hpp */,
 				E41E23F92FC0CF4900605CD2 /* hlld.hpp */,
 				E41E23FA2FC0CF4900605CD2 /* initial.hpp */,
@@ -496,6 +496,8 @@
 		E45D831E2FC752D1007642BF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E41C66612FD19E8D006E9902 /* libhdf5_cpp.dylib */,
+				E41C665F2FD19D7F006E9902 /* libhdf5_cpp.310.0.5.dylib */,
 				E45D831F2FC752D1007642BF /* libomp.dylib */,
 			);
 			name = Frameworks;
@@ -712,6 +714,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				LIBRARY_SEARCH_PATHS = (
+					/opt/homebrew/Cellar/llvm/22.1.6/lib,
+					/opt/homebrew/Cellar/hdf5/2.1.1/lib,
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -720,6 +726,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				LIBRARY_SEARCH_PATHS = (
+					/opt/homebrew/Cellar/llvm/22.1.6/lib,
+					/opt/homebrew/Cellar/hdf5/2.1.1/lib,
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

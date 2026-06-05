@@ -138,8 +138,8 @@ public:
     void gh_copy_flux(patch* p, patch* nb, int dim, int side);
     // floor states for when reconstruction of primitives fails
     prim pvfs(double r, double th);
-    static constexpr double rho_floor_r0 = 1e-7; // REDEFINE
-    static constexpr double eps_floor_r0 = 1e-5; // REDEFINE
+    static constexpr double rho_floor_r0 = 1e-2; // REDEFINE
+    static constexpr double eps_floor_r0 = 1e-3; // REDEFINE
     static constexpr double r_floor_ref = 1.0; // REDEFINE
     static constexpr double T_floor = 1e-12; // REDEFINE
 };

@@ -78,13 +78,14 @@ void constrans::f2cB(patch& p) {
 }
 // diagnostic to check \div B is approximately 0
 double constrans::maxdivB(const patch& p) {
-    double maxdiv = 0;
+    double maxdiv = 0.0;
     double dx = p.dx(), dy = p.dy(), dz = p.dz();
-    for(int i=-ghost+1; i<block+ghost-1; i++) {
-        for(int j=-ghost+1; j<block+ghost-1; j++) {
-            for(int k=-ghost+1; k<block+ghost-1; k++) {
+    for(int i=0; i<block; i++) {
+        for(int j=0; j<block; j++) {
+            for(int k=0; k<block; k++) {
                 double divB = (p.Bfx[p.Bfx_idx(i,j,k)]-p.Bfx[p.Bfx_idx(i-1,j,k)])/dx+(p.Bfy[p.Bfy_idx(i,j,k)]-p.Bfy[p.Bfy_idx(i,j-1,k)])/dy+(p.Bfz[p.Bfz_idx(i,j,k)]-p.Bfz[p.Bfz_idx(i,j,k-1)])/dz;
-                maxdiv = std::max(maxdiv,std::abs(divB));
+                double norm_divB = std::abs(divB)*dx/(std::abs(p.Bfx[p.Bfx_idx(i,j,k)])+std::abs(p.Bfy[p.Bfy_idx(i,j,k)])+std::abs(p.Bfz[p.Bfz_idx(i,j,k)])+1e-30);
+                maxdiv = std::max(maxdiv,norm_divB);
             }
         }
     }

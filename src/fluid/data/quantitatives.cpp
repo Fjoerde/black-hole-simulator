@@ -5,6 +5,7 @@
 #include "../analysis.hpp"
 #include "../cell.hpp"
 #include "../grid.hpp"
+#include <omp.h>
 
 // this document contains the methods relating to quantitative
 // analysis of the black hole and accretion disc.
@@ -45,6 +46,7 @@ static double ptot(const cell& c) {
 // integrate over a volume
 double analyser::vol_int(const grid::amrtree& tree, std::function<double(const cell&, double)> f) {
     double integral = 0.0;
+    #pragma omp parallel for reduction(+:integral) schedule(dynamic)
     for(const auto& pp : tree.quilt) {
         const grid::patch* p = pp.get();
         if(!p->leaf) continue;
@@ -62,6 +64,7 @@ double analyser::vol_int(const grid::amrtree& tree, std::function<double(const c
 // integrate over a surface
 double analyser::surf_int(const grid::amrtree& tree, const double r_surf, std::function<double(const cell&, double)> f) {
     double integral = 0.0;
+    #pragma omp parallel for reduction(+:integral) schedule(dynamic)
     for(const auto& pp : tree.quilt) {
         const grid::patch* p = pp.get();
         if(!p->leaf) continue;
@@ -213,7 +216,7 @@ bundle analyser::bundle_(const grid::amrtree& tree, double t) {
     b.Mdot = Mdot(tree,hrz);
     b.MAD = MAD(tree,hrz);
     b.L_BZ = L_BZ(tree,hrz);
-    b.alpha_ss = alpha_ss(tree,0.005);
+    b.alpha_ss = alpha_ss(tree,10.0);
 
     return b;
 }
@@ -239,8 +242,8 @@ batch analyser::batch_(const grid::amrtree& tree, double t) {
     b.eta_BZ = eta_BZ(tree,hrz);
 
     b.Pbeta = Pbeta(tree);
-    b.alpha_ss = alpha_ss(tree,0.01);
-    b.maxreyn = maxreyn(tree,0.01);
+    b.alpha_ss = alpha_ss(tree,10.0);
+    b.maxreyn = maxreyn(tree,10.0);
     b.Hscal = Hscal(tree,10.0*M);
 
     return b;
