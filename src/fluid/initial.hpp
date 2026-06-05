@@ -13,11 +13,10 @@
 using namespace grid;
 
 namespace torus {
-    // magnetic initialisation
 class init {
 public:
-    static void fm_init(amrtree& tree);
-    static void B_pot_init(patch& p, const metric& mtr, double glmx_rho);
+    static double fm_init(amrtree& tree);
+    static void B_pot_init(patch& p, amrtree& tree, const metric& mtr, double glmx_rho);
 private:
     static std::array<double,3> A_vpot(double x, double y, double z, double rho, double rho_max);
 };
