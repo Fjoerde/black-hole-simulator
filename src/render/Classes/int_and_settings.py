@@ -219,10 +219,12 @@ class RenderSettings:
         
         k_src, k_obs: The four-velocities of the geodesic at the source and observer."""
 
-        J = self.grav_field.jacobian(x_src); g = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
-        g = J.T @ g @ J
-        D_src = (g @ k_src) @ np.array([1,0,0,0], dtype=np.float64)
-        D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel, self.cam_pos.four_vec(self.t))
+        J_src = self.grav_field.jacobian(x_src); g_src = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
+        x_obs = self.cam_pos.four_vec(self.t)
+        J_obs = self.grav_field.jacobian(x_obs); g_obs = self.grav_field.sample_g(x_obs)
+        g_src = J_src.T @ g_src @ J_src; g_obs = J_obs.T @ g_obs @ J_obs
+        D_src = (g_src @ k_src) @ self.grav_field.timelike_cond(Vec(0,0,0), x_obs)
+        D_obs = (g_obs @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel, self.cam_pos.four_vec(self.t))
         if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
         else: D = D_src / D_obs
 
@@ -360,10 +362,12 @@ class VidSettings:
         
         k_src, k_obs: The four-velocities of the geodesic at the source and observer."""
 
-        J = self.grav_field.jacobian(x_src); g = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
-        g = J.T @ g @ J
-        D_src = (g @ k_src) @ np.array([1,0,0,0], dtype=np.float64)
-        D_obs = (g @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel[frame_num], self.cam_pos[frame_num].four_vec(self.t[frame_num]))
+        J_src = self.grav_field.jacobian(x_src); g_src = self.grav_field.sample_g(self.grav_field.coord_pos(x_src))
+        x_obs = self.cam_pos[frame_num].four_vec(self.t[frame_num])
+        J_obs = self.grav_field.jacobian(x_obs); g_obs = self.grav_field.sample_g(x_obs)
+        g_src = J_src.T @ g_src @ J_src; g_obs = J_obs.T @ g_obs @ J_obs
+        D_src = (g_src @ k_src) @ self.grav_field.timelike_cond(Vec(0,0,0), x_obs)
+        D_obs = (g_obs @ k_obs) @ self.grav_field.timelike_cond(self.cam_vel[frame_num], self.cam_pos[frame_num].four_vec(self.t[frame_num]))
         if max(np.abs(D_obs), np.abs(D_src)) < 1e-16: D = 1
         else: D = D_src / D_obs
 

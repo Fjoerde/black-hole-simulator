@@ -31,29 +31,41 @@ def check_Gamma(x:np.ndarray, grav_field:GravField, h:float=1e-12) -> np.ndarray
     return diff
 
 
-def plot_func(func:Function, min:np.ndarray, max:np.ndarray, label:str="Function"):
+def plot_func(funcs:list[Function], mins:np.ndarray=np.array([np.nan]), maxs:np.ndarray=np.array([np.nan]),
+              x_label:str="x", y_label:str="y", z_label:str="z", legends:list[str]=["Function"], log=False):
     """Plot a function."""
 
-    if func.dim not in [1,2]: raise ValueError("Function must only depend on 1 or 2 variables.")
-    if func.entries != 1: raise ValueError("Function must only have 1 entry.")
-    if not (min.shape[0] == max.shape[0] == func.dim): raise ValueError("Invalid shape for min and max.")
+    dim = funcs[0].dim
+    if dim not in [1,2]: raise ValueError("Function must only depend on 1 or 2 variables.")
+    if len(legends) != len(funcs): legends = [f"Function {i+1}" for i in range(len(funcs))]
+    if np.isnan(mins).any() or np.isnan(maxs).any():
+        mins = np.empty((len(funcs), dim), dtype=np.float64)
+        maxs = np.empty((len(funcs), dim), dtype=np.float64)
+        for i in range(len(funcs)):
+            for j in range(dim):
+                mins[i,j] = funcs[i].grid.patches[0].arr[j][0]
+                maxs[i,j] = funcs[i].grid.patches[0].arr[j][-1]
 
-    if func.dim == 1:
-        xx = np.linspace(min[0], max[0], 1000)
-        plt.plot(xx, func.interp(xx.reshape(xx.shape[0], 1)[:,0]), label=label)
-        plt.xlabel("x"); plt.ylabel("y")
-        plt.legend()
-        plt.show()
-    else:
-        X = np.linspace(min[0], max[0], 250); Y = np.linspace(min[1], max[1], 250)
-        xx, yy = np.meshgrid(X, Y); zz = func.interp(Patch([X,Y]).pts).reshape(250, 250)
+    if log: plt.yscale("log")
+    if dim == 1: plt.xlabel(x_label); plt.ylabel(y_label)
+    elif dim == 2:
         fig = plt.figure()
         ax = plt.axes(projection="3d")
-        ax.plot_surface(xx, yy, zz, cmap="YlOrRd", label=label)
-        ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z")
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+        ax.set_xlabel(x_label); ax.set_ylabel(y_label); ax.set_zlabel(z_label)
+    for i in range(len(funcs)):
+        func = funcs[i]
+        if func.dim != dim: raise ValueError("Dimension of function is not consistent with the others.")
+        if func.entries != 1: raise ValueError("Function must only have 1 entry.")
+        if not (mins.shape[1] == maxs.shape[1] == func.dim): raise ValueError("Invalid shape for min and max.")
+        if func.dim == 1:
+            xx = np.linspace(mins[i,0], maxs[i,0], 1000)
+            plt.plot(xx, func.interp(xx.reshape(xx.shape[0], 1))[:,0], label=legends[i])
+        else:
+            X = np.linspace(mins[i,0], maxs[i,0], 250); Y = np.linspace(mins[i,1], maxs[i,1], 250)
+            xx, yy = np.meshgrid(X, Y); zz = func.interp(Patch([X,Y]).pts).reshape(250, 250)
+            ax.plot_surface(xx, yy, zz, cmap="YlOrRd", label=legends[i])
+    plt.legend()
+    plt.show()
 
 
 def test_func(func:Function, ref, min:np.ndarray, max:np.ndarray):
@@ -157,8 +169,8 @@ def display_gas_vals(geodesic:Function, gas:Function, n:int) -> Function:
     xs = geodesic.interp(grid.pts)[:,:4]; gas_vals = gas.interp(xs)
     temp = gas_vals[:,4].reshape(len(gas_vals), 1); temp_func = Function(grid, np.ascontiguousarray(temp))
     ext_coeff = gas_vals[:,5].reshape(len(gas_vals), 1); ext_coeff_func = Function(grid, np.ascontiguousarray(ext_coeff))
-    plot_func(temp_func, np.array([0.]), np.array([max_t]), label="Temperature")
-    plot_func(ext_coeff_func, np.array([0.]), np.array([max_t]), label="Extinction Coefficient")
+    plot_func([temp_func], np.array([[0.]]), np.array([[max_t]]), labels=["Temperature"])
+    plot_func([ext_coeff_func], np.array([[0.]]), np.array([[max_t]]), labels=["Extinction Coefficient"])
     gas_val_func = Function(grid, gas_vals)
     return gas_val_func
 

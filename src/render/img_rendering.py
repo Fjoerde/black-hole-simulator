@@ -46,7 +46,6 @@ def get_geodesics(integrator:Integrator, geodesics:list[Function], settings:Rend
         ray_dir = settings.ray_dir_px(x, y)
         V0 = settings.grav_field.null_cond(ray_dir, x0)
         y0 = np.concatenate((X0, V0))
-        print(y0)
         geodesics[i] = trace_geodesic(integrator, y0, settings.bg_rad)
     return geodesics
 

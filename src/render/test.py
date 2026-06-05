@@ -2,56 +2,54 @@
 
 import numpy as np
 from PIL import Image
-from Classes.math import *
-from Classes.physics import *
-from Classes.int_and_settings import *
-from Classes.tags import *
-from motion_helper import *
-from img_rendering import *
+import matplotlib.pyplot as plt
+
+# from Classes.math import *
+# from Classes.int_and_settings import *
+# from diagnostics import *
 
 import os
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-def get_gas(pts):
-    x, y, z = pts[:,1], pts[:,2], pts[:,3]
-    s = np.sqrt(x**2 + y**2) - 5
-    d = np.sqrt(s**2 + z**2)
-    temp = 2e4 * np.exp(-d**2/5)
-    ext_coeff = 0.125 * np.exp(-d**2/5)
-    gas_params = np.zeros((len(pts), 6), dtype=np.float64); gas_params[:,0] += 1 # Pretend here the metric is Minkowski for now
-    gas_params[:,4] = temp; gas_params[:,5] = ext_coeff
-    return gas_params
-grid = Grid(Patch([np.array([0], dtype=np.float64),
-                   np.linspace(-30, 10, 11, dtype=np.float64),
-                   np.linspace(-30, 10, 11, dtype=np.float64),
-                   np.linspace(-30, 10, 11, dtype=np.float64)]))
-grid = grid.add_patch(Patch([np.array([0], dtype=np.float64),
-                             np.linspace(-6, 6, 13, dtype=np.float64),
-                             np.linspace(-6, 6, 13, dtype=np.float64),
-                             np.linspace(-6, 6, 13, dtype=np.float64)]))
+spec_vals = np.load("Data/doppler_vals.npy")
+labels = [r"$\beta=-0.5$", r"$\beta=-0.25$", r"$\beta=0$", r"$\beta=0.25$", r"$\beta=0.5$"]
+params = { # For easier viewing of the graph
+    "axes.labelsize": 23,
+    "font.size": 23,
+    "legend.fontsize": 18,
+    "xtick.labelsize": 23,
+    "ytick.labelsize": 23,
+    "figure.figsize": [12, 8]
+}
+plt.rcParams.update(params)
+for i in range(5):
+    xx = np.linspace(0, 1000, 1000)
+    plt.plot(xx, spec_vals[i], label=labels[i], lw=4)
+plt.xlabel(r"$\lambda~/~\mathrm{nm}$"); plt.ylabel(r"$I_{\lambda}~/~\mathrm{W~m^{-2}~sr^{-1}~nm^{-1}}$")
+plt.legend()
+plt.show()
 
-gas = Function(grid, get_gas(grid.pts))
-kerr = GravField(tag=GRAVFIELD_KERRNEWMAN, pos=Vec(0,0,0), M=0.5, J=0.225, Q=0.05)
+"""
+bg = np.array(Image.open("Images/background1.jpg")).astype(np.float64) / 255.
+settings = RenderSettings(w=800, h=600, cam_pos=Vec(0,0,0), cam_vel=Vec(0,0,0), rot=(0, np.pi/2, 0), background=bg,
+                          col_converter=ColConverter(Grid(Patch([np.linspace(0, 1000, 101, dtype=np.float64)]))))
+geodesic = look_ray(Vec(0,0,0), Vec(1,0,0), 0, settings)
+x0 = geodesic.vals[0,:4]; pos = Vec(x0[1], x0[2], x0[3])
+k0 = geodesic.vals[0,4:]; k1 = geodesic.vals[-1,4:]
+theta = np.acos(pos.z / pos.length()); phi = np.atan2(pos.y, pos.x)
+green = def_cc.get_spec_int(np.array([0,1,0], dtype=np.float64))
+spec_ints = []
+spec_vals = np.empty((5, 1000))
 
-print("Rendering (ignore NumbaPerformanceWarning's)...")
-for i in range(6):
-    T1 = time.perf_counter()
-    theta = i * np.pi/12
-    cam_pos = Vec(-12.5*np.sin(theta), 0, -12.5*np.cos(theta))
-    settings = RenderSettings(w=800, h=600, cam_pos=cam_pos, cam_vel=Vec(0,0,0), rot=zero_roll(cam_pos),
-                              bg_rad=30, grav_field=kerr, gas=gas)
-    x0 = settings.cam_pos.four_vec(settings.t)
-    X0 = settings.grav_field.coord_pos(x0)
-    integrator = Integrator(tag=INTEGRATOR_GEODESICEQ, grav_field=settings.grav_field, scene=settings.scene,
-                            cam_pos=settings.cam_pos, bg_rad=settings.bg_rad)
-    geodesics = [Function() for _ in range(settings.w * settings.h)]
-    for i in range(settings.w * settings.h):
-        y, x = i//settings.w, i%settings.w
-        ray_dir = settings.ray_dir_px(x, y)
-        print("hi")
-        V0 = settings.grav_field.null_cond(ray_dir, x0)
-        y0 = np.concatenate((X0, V0))
-        print(y0)
-        geodesics[i] = trace_geodesic(integrator, y0, settings.bg_rad)    
+for i in range(-2, 3):
+    settings.cam_vel = Vec(0.25*i,0,0)
+    spec_int = settings.doppler_spec(green, x0, k0, k1)
+    col = def_cc.get_rgb(spec_int); display_col(col)
+    print(f"beta = {0.25*i}, col = {(col*255).astype(np.int64)}")
+    spec_ints.append(spec_int)
 
-    T2 = time.perf_counter()
+    xx = np.linspace(np.min(spec_int.grid.pts), np.max(spec_int.grid.pts), 1000)
+    spec_vals[i+2] = spec_int.interp(xx.reshape(xx.shape[0], 1))[:,0]
+
+np.save("Data/doppler_vals.npy", spec_vals)
+"""
